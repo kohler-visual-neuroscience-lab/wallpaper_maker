@@ -1,4 +1,39 @@
-def generateWPimage(type,N,n,optTexture):
+import numpy as np
+import math
+from PIL import Image
+
+def filterTile(inTile, filterIntensity):
+    #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
+
+    mu = 0.5;
+    nx = np.size(inTile, 0);
+    ny = np.size(inTile, 1);
+    # make adaptive filtering
+    
+    sigma_x = 10*filterIntensity/nx;
+    sigma_y = 10*filterIntensity/ny;
+    x = np.linspace(0, 1, nx);
+    y = np.linspace(0, 1, ny);
+    
+    gx = np.exp((-(x - mu)**2) / (2*sigma_x**2)) / (sigma_x*math.sqrt(2*math.pi));
+    gy = np.exp((-(y - mu)**2) / (2*sigma_y**2)) / (sigma_y*math.sqrt(2*math.pi));
+    
+    
+    gauss2 = np.matmul(gx.reshape(gx.shape[0], 1),gy.reshape(1, gy.shape[0]));
+    gauss2 = gauss2 - gauss2.min();
+    gauss2 = gauss2 / gauss2.max();
+    gauss2 = gauss2 * 5;
+    filtered = np.abs(np.fft.ifft2(np.multiply((np.fft.fft2(inTile)),gauss2)));
+    
+    #normalize tile
+
+    outTile = filtered - np.min(filtered);
+    outTile = outTile / np.max(outTile);
+    return outTile;
+    #outTile = histeq(outTile);
+    
+
+def generateWPimage(wptype,N,n,optTexture):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -154,34 +189,32 @@ def generateWPimage(type,N,n,optTexture):
             otherwise
                 warning('Unexpected Wallpaper Group type. Returning random noise.');
                 image = repmat(texture, [ceil(N/n),  ceil(N/n)]);
-        end
-    catch err
-        disp(strcat('new_SymmetricNoise:Error making ', type));
-        disp(err.message);
-        disp(err.stack(1));
-        disp(err.stack(2));
-    end
-end
-function img = catTiles(tile, N, type)
-    %disp tile square
-    sq = size(tile, 1)*size(tile, 2);
-    disp(strcat(type,' area of tile = ', num2str(sq)));                
+    catch err:
+        print(strcat('new_SymmetricNoise:Error making ', wptype));
+        print(err.message);
+        print(err.stack(1));
+        print(err.stack(2));
+def catTiles(tile, N, wptype):
+    #disp tile square
+    sq = np.shape(tile[0]) * np.shape(tile[1]);
+    print(wptype + ' area of tile = ' + sq);                
     
-    %write tile
-    imwrite(tile, strcat('~/Documents/MATLAB/tiles/', type, '_tile.jpeg'), 'jpeg');
-    dN = 1 + floor(N./size(tile));
-    img = repmat(tile, [dN(1), dN(2)]);                
-end
-%%array of coefficients(DO NOT CHANGE):
-%%tile sizes by groups:     tile_in     tile_out         square ratio       width ratio
-%P1:                        (n, n)      (n, n)              1                  1
-%P2:                        (n, n)      (n, 2n)             2                  0.5
-%PM, PG:                    (n, n)      (2n, n)             2                  1
-%PMG, PMM, P4, P4M:         (n, n)      (2n, 2n)            4                  0.5
-%PGG:                       (n, 2n)     (2n, 2n)            4                  0.5
-%CM:                        (n, n)      (n, 2n)             2                  0.25
-%P4G:                       (n, 2n)     (4n, 4n)            16                 0.25
-%CMM:                       (n, n)      (4n, 4n)            16                 0.25
-%P3:                        (n, n)      (3n, n sqrt(3))     3sqrt(3)           1/sqrt(3)
-%P31M: s = round(n*2.632):  (s, s)      (3s, s sqrt(3))     3s^2 sqrt(3)/n^2   1/(2.632*sqrt(3))
-%P3M1, P6, P6M:             (s, s)      (s, s sqrt(3))      s^2 sqrt(3)/n^2    1/(2.632*sqrt(3))  
+    #write tile
+    tileIm = Image.fromarray(tile);
+    tileIm.save('~/Documents/MATLAB/tiles/' + wptype + '_tile.jpeg', 'JPEG');
+    dN = 1 + math.floor(N / np.shape(tile));
+    img = np.matlib.repmat(tile, dN(1), dN(2));
+    return img                 
+# array of coefficients(DO NOT CHANGE):
+# tile sizes by groups:     tile_in     tile_out         square ratio       width ratio
+# P1:                        (n, n)      (n, n)              1                  1
+# P2:                        (n, n)      (n, 2n)             2                  0.5
+# PM, PG:                    (n, n)      (2n, n)             2                  1
+# PMG, PMM, P4, P4M:         (n, n)      (2n, 2n)            4                  0.5
+# PGG:                       (n, 2n)     (2n, 2n)            4                  0.5
+# CM:                        (n, n)      (n, 2n)             2                  0.25
+# P4G:                       (n, 2n)     (4n, 4n)            16                 0.25
+# CMM:                       (n, n)      (4n, 4n)            16                 0.25
+# P3:                        (n, n)      (3n, n sqrt(3))     3sqrt(3)           1/sqrt(3)
+# P31M: s = round(n*2.632):  (s, s)      (3s, s sqrt(3))     3s^2 sqrt(3)/n^2   1/(2.632*sqrt(3))
+# P3M1, P6, P6M:             (s, s)      (s, s sqrt(3))      s^2 sqrt(3)/n^2    1/(2.632*sqrt(3))  
