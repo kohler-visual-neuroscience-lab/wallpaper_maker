@@ -1,6 +1,7 @@
 import numpy as np
 import math
 from PIL import Image
+from skimage import draw as skd
 
 def filterTile(inTile, filterIntensity):
     #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
@@ -15,23 +16,119 @@ def filterTile(inTile, filterIntensity):
     x = np.linspace(0, 1, nx);
     y = np.linspace(0, 1, ny);
     
-    gx = np.exp((-(x - mu)**2) / (2*sigma_x**2)) / (sigma_x*math.sqrt(2*math.pi));
-    gy = np.exp((-(y - mu)**2) / (2*sigma_y**2)) / (sigma_y*math.sqrt(2*math.pi));
+    gx = np.exp((-(x - mu)**2) / (2*sigma_x**2)) / (sigma_x*math.sqrt(2*np.pi));
+    gy = np.exp((-(y - mu)**2) / (2*sigma_y**2)) / (sigma_y*math.sqrt(2*np.pi));
     
     
     gauss2 = np.matmul(gx.reshape(gx.shape[0], 1),gy.reshape(1, gy.shape[0]));
     gauss2 = gauss2 - gauss2.min();
     gauss2 = gauss2 / gauss2.max();
     gauss2 = gauss2 * 5;
-    filtered = np.abs(np.fft.ifft2(np.multiply((np.fft.fft2(inTile)),gauss2)));
+    filtered = np.abs(np.fft.ifft2(np.fft.fft2(inTile) * gauss2));
     
     #normalize tile
 
-    outTile = filtered - np.min(filtered);
-    outTile = outTile / np.max(outTile);
+    outTile = filtered - filtered.min();
+    outTile = outTile / outTile.max();
     return outTile;
     #outTile = histeq(outTile);
+
+def new_p3(tile):
     
+    # For magfactor, use a multiple of 3 to avoid the rounding error
+    # when stacking two_tirds, one_third tiles together
+    
+    magfactor = 9;
+    tileIm = Image.fromarray(tile);
+    # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
+    tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
+    height = np.size(tile1, 0);
+    
+    # fundamental region is equlateral rhombus with side length = s
+    
+    s1 = round(height / 3);
+    s = 2 * s1;
+    
+    # NOTE on 'ugly' way of calculating the widt = h
+    # after magnification width(tile1) > tan(pi/6)*height(tile1) (should be equal)
+    # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
+    # bigger or equal, because we cat them together).
+    # subtract one, to avoid screwing by imrotate(240)
+    
+    width = round(height / math.sqrt(3)) - 1;
+    # width = min(round(height/sqrt(3)), size(tile1, 2)) - 1;
+   
+    # define rhombus-shaped mask
+    
+    xy = np.array ([[0, 0], [width, s1], [width, height], [0, 2 * s1], [0, 0]]);
+    
+    mask = skd.polygon2mask((height, width), xy);
+    tile0 = mask * tile1[:, :width];
+    # rotate rectangle by 120, 240 degs
+   
+    # note on 120deg rotation: 120 deg rotation of rhombus-shaped 
+    # texture preserves the size, so 'crop' option can be used to 
+    # tile size.
+    
+    
+    tile0Im = Image.fromarray(tile0);
+    tile0Im_rot120 = tile0Im.rotate(120, Image.BILINEAR, expand = False);
+    tile120 = np.array(tile0Im_rot120);
+    tile0Im_rot240 = tile0Im.rotate(240, Image.BILINEAR, expand = True);
+    tile240 = np.array(tile0Im_rot240);
+    
+    # manually trim the tiles:
+   
+    # tile120 should have the same size as rectangle: [heigh x width]
+    # tile120 = tile120(1:height, (floor(0.5*width) + 1):(floor(0.5*width) + width));
+   
+    # tile240 should have the size [s x 2*width]
+    # find how much we need to cut from both sides
+    diff = round(0.5 * (np.size(tile240, 1) - 2 * width));
+    rowStart = round(0.25 * s);
+    rowEnd = round(0.25 * s) + s;
+    colStart = diff;
+    colEnd = 2 * width + diff;
+    tile240 = tile240[rowStart:rowEnd, colStart:colEnd];
+    
+    # Start to pad tiles and glue them together
+    # Resulting tile will have the size [3*height x 2* width]
+    
+    two_thirds1 = np.concatenate((tile0, tile120), axis=1);
+    two_thirds2 = np.concatenate((tile120, tile0), axis=1);
+    
+    two_thirds = np.concatenate((two_thirds1, two_thirds2));
+    
+    #lower half of tile240 on the top, zero-padded to [height x 2 width]
+    rowStart = int(0.5 * s);
+    colEnd = 2 * width;
+    one_third11 = np.concatenate((tile240[rowStart:,:], np.zeros((s, colEnd))));
+    
+    #upper half of tile240 on the bottom, zero-padded to [height x 2 width]
+    rowEnd = int(0.5 * s); 
+    one_third12 = np.concatenate((np.zeros((s, colEnd)), tile240[:rowEnd,:]));
+    
+    # right half of tile240 in the middle, zero-padded to [height x 2 width]
+    colStart = width;
+    one_third21 = np.concatenate((np.zeros((s, width)), tile240[:,colStart:], np.zeros((s, width))));
+    
+    # left half of tile240in the middle, zero-padded to [height x 2 width]
+    one_third22 = np.concatenate((np.zeros((s, width)), tile240[:,:width], np.zeros((s, width))));
+    
+    # cat them together
+    one_third1 = np.concatenate((one_third11, one_third12));
+    one_third2 = np.concatenate((one_third21, one_third22), axis=1);
+    
+   # glue everything together, shrink and replicate
+    one_third = np.maximum(one_third1,one_third2);
+    
+    #size(whole) = [3xheight 2xwidth]
+    whole = np.maximum(two_thirds, one_third);
+    wholeIm = Image.fromarray(whole);
+    # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+    wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
+    p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC));
+    return p3       
 
 def generateWPimage(wptype,N,n,optTexture):
     #  generateWPimage(type,N,n,optTexture)
