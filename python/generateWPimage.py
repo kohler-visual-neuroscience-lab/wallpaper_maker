@@ -138,159 +138,223 @@ def generateWPimage(wptype,N,n,optTexture):
     #   returned image will have size at least NxN.
     # n the size of repeating pattern for all groups.
     
-    %default 
-    if(nargin < 4) 
+    #default 
+    if len(locals()) < 4: 
         grain = 1;
-        texture = filterTile(rand(n), grain);
-    else
-        minDim = min(size(optTexture));
-        %stretch user-defined texture, if it is too small for sampling
-        if(minDim < n)
+        texture = filterTile(np.random.rand(n,n), grain);
+    else:
+        minDim = np.min(np.shape(optTexture));
+        #stretch user-defined texture, if it is too small for sampling
+        if minDim < n:
             ratio = round(n/minDim);
-            optTexture = imresize(optTexture, ratio, 'nearest');
-        end;
+            #optTexture = imresize(optTexture, ratio, 'nearest');
+            optTexture = np.array(Image.resize(reversed((optTexture.shape * ratio)), Image.NEAREST));
         texture = optTexture;
-    end
-    try
-        switch type
-            case 'P0'
-                p0 = imresize(texture, round(N/n), 'nearest');
-                image = p0;                                
-            case 'P1'
+    try:
+        if wptype == 'P0':
+                p0 = np.array(Image.resize(reversed((texture.shape * round(N/n))), Image.NEAREST));
+                image = p0;
+                return image;                                
+        elif wptype == 'P1':
                 width = n;
                 height = width;
-                p1 = texture(1:height, 1:width);
-                image = catTiles(p1, N, type);                
-            case 'P2'
+                p1 = texture[:height, :width];
+                image = catTiles(p1, N, wptype);
+                return image;                
+        elif wptype == 'P2':
                 height = round(n/2);
                 width = 2*height;
-                start_tile = texture(1:height, 1:width);
-                tileR180 = imrotate(start_tile, 180);
-                p2 = [start_tile; tileR180];
-                image = catTiles(p2, N, type);                
-            case 'PM'
+                start_tile = texture[:height, :width];
+                start_tileIm = Image.fromarray(start_tile);
+                tileR180 = start_tileIm.rotate(180)
+                tileR180 = np.array(tileR180);
+                p2 = np.concatenate((start_tile, tileR180));
+                image = catTiles(p2, N, wptype);       
+                return image;
+        elif wptype == 'PM':
                 height = round(n/2);
                 width = 2*height;
-                start_tile = texture(1:height, 1:width);
-                mirror = flipud(start_tile);
-                pm = [start_tile; mirror];
-                image = catTiles(pm, N, type);                
-            case 'PG'
+                start_tile = texture[:height, :width];
+                mirror = np.flipud(start_tile);
+                pm = np.concatenate((start_tile, mirror));
+                image = catTiles(pm, N, wptype);
+                return image;                
+        elif wptype == 'PG':
                 height = round(0.5*n);
                 width = 2*height;
-                start_tile = texture(1:height, 1:width);
-                tile = rot90(start_tile, 3);
-                glide = flipud(tile);
-                pg = [tile, glide];
-                image = catTiles(pg, N, type);                
-            case 'CM'
+                start_tile = texture[:height, :width];
+                start_tileIm = Image.fromarray(start_tile);
+                tile = start_tileIm.rotate(270);
+                tile = np.array(tile);
+                glide = np.flipud(tile);
+                pg = np.concatenate((tile, glide), axis=1);
+                image = catTiles(pg, N, wptype);
+                return image;                  
+        elif wptype == 'CM':
                 height = round(n/2);
                 width = height;
-                start_tile = texture(1:height, 1:width);                
-                mirror = fliplr(start_tile);
-                tile1 = [start_tile, mirror];
-                tile2 = [mirror, start_tile];
-                cm = [tile1; tile2];
-                image = catTiles(cm, N, type);                
-            case 'PMM'
+                start_tile = texture[:height, :width];                
+                mirror = np.fliplr(start_tile);
+                tile1 = np.concatenate((start_tile, mirror), axis=1);
+                tile2 = np.concatenate((mirror, start_tile), axis=1);
+                cm = np.concatenate((tile1, tile2));
+                image = catTiles(cm, N, wptype);
+                return image;                
+        elif wptype == 'PMM':
                 height = round(n/2);
                 width = height;
-                start_tile = texture(1:height, 1:width);                      
-                mirror = fliplr(start_tile);
-                pmm = [start_tile, mirror; flipud(start_tile), flipud(mirror)];
-                image = catTiles(pmm, N, type);                
-            case 'PMG'
+                start_tile = texture[:height, :width];                    
+                mirror = np.fliplr(start_tile);
+                concatTmp1 = np.concatenate((start_tile, mirror), axis=1);
+                concatTmp2 = np.concatenate((np.flipud(start_tile), np.flipud(mirror)), axis=1);
+                pmm = np.concatenate((concatTmp1, concatTmp2));
+                image = catTiles(pmm, N, wptype);
+                return image;                 
+        elif wptype == 'PMG':
                 height = round(n/2);
                 width = height;
-                start_tile = texture(1:height, 1:width);
-                pmg = [start_tile, rot90(start_tile, 2); flipud(start_tile), fliplr(start_tile)];
-                image = catTiles(pmg, N, type);                
-            case 'PGG'
+                start_tile = texture[:height, :width];
+                start_tileIm = Image.fromarray(start_tile);
+                start_tileIm = start_tileIm.rotate(180);
+                start_tile_rot180 = np.array(start_tileIm);
+                concatTmp1 = np.concatenate((start_tile, start_tile_rot180), axis=1);
+                concatTmp2 = np.concatenate((np.flipud(start_tile), np.fliplr(start_tile)), axis=1);
+                pmg = np.concatenate((concatTmp1, concatTmp2));
+                image = catTiles(pmg, N, wptype);
+                return image;                 
+        elif wptype == 'PGG':
                 height = round(n/2);
                 width = height;
-                start_tile = texture(1:height, 1:width);
-                pgg = [start_tile, flipud(start_tile); fliplr(start_tile), rot90(start_tile, 2)];
-                image = catTiles(pgg, N, type);                
-            case 'CMM'
+                start_tile = texture[:height, :width];
+                start_tileIm = Image.fromarray(start_tile);
+                start_tileIm = start_tileIm.rotate(180);
+                start_tile_rot180 = np.array(start_tileIm);
+                concatTmp1 = np.concatenate((start_tile, np.flipud(start_tile)), axis=1);
+                concatTmp2 = np.concatenate((np.fliplr(start_tile), start_tile_rot180), axis=1);
+                pgg = np.concatenate((concatTmp1, concatTmp2));
+                image = catTiles(pgg, N, wptype);
+                return image;                 
+        elif wptype == 'CMM':
                 height = round(n/4);
                 width = 2*height;
-                start_tile = texture(1:height, 1:width);                
-                tile1 = [start_tile; rot90(start_tile,2)];
-                tile2 = flipud(tile1);
-                cmm = [tile1, tile2; tile2, tile1];
-                image = catTiles(cmm, N, type);                
-            case 'P4'
+                start_tile = texture[:height, :width];
+                start_tileIm = Image.fromarray(start_tile);
+                start_tileIm = start_tileIm.rotate(180);
+                start_tile_rot180 = np.array(start_tileIm);
+                tile1 = np.concatenate((start_tile, start_tile_rot180));               
+                tile2 = np.flipud(tile1);
+                concatTmp1 = np.concatenate((tile1, tile2), axis=1);
+                concatTmp2 = np.concatenate((tile2, tile1), axis=1);
+                cmm = np.concatenate((concatTmp1, concatTmp2));
+                image = catTiles(cmm, N, wptype);
+                return image;                 
+        elif wptype == 'P4':
                 height = round(n/2);
                 width = height;
-                start_tile = texture(1:height, 1:width);                
-                p4 = [start_tile, rot90(start_tile, 3); rot90(start_tile, 1), rot90(start_tile, 2),];
-                image = catTiles(p4, N, type);                
-            case 'P4M'
+                start_tile = texture[:height, :width];
+                start_tileIm = Image.fromarray(start_tile);
+                start_tileIm_rot90 = start_tileIm.rotate(90);
+                start_tileIm_rot180 = start_tileIm.rotate(180);
+                start_tileIm_rot270 = start_tileIm.rotate(270);
+                start_tile_rot90 = np.array(start_tileIm_rot90);  
+                start_tile_rot180 = np.array(start_tileIm_rot180);  
+                start_tile_rot270 = np.array(start_tileIm_rot270);
+                concatTmp1 = np.concatenate((start_tile, start_tile_rot270), axis=1);
+                concatTmp2 = np.concatenate((start_tile_rot90, start_tile_rot180), axis=1);                
+                p4 = np.concatenate((concatTmp1, concatTmp2));
+                image = catTiles(p4, N, wptype); 
+                return image; 
+        elif wptype == 'P4M':
                 height = round(n/2);
                 width = height;
-                start_tile = texture(1:height, 1:width);
-                x1 = [0 width 0 0];
-                y1 = [0 height height 0];
-                mask = poly2mask(x1, y1, width, height);
-                tile1 = mask.*start_tile;
-                tile2 = rot90(fliplr(tile1), 1);
-                tile = max(tile1, tile2);
-                p4m = [tile, rot90(tile, 3); rot90(tile, 1), rot90(tile, 2)];
-                image = catTiles(p4m, N, type);                
-            case 'P4G'
+                start_tile = texture[:height, :width];
+                xy = np.array ([[0, 0], [width, height], [0, height], [0, 0]]);    
+                mask = skd.polygon2mask((height, width), xy);
+                tile1 = mask * start_tile;
+                tile2 = np.fliplr(tile1);
+                tile2Im = Image.fromarray(tile2);
+                tile2Im = start_tileIm.rotate(90);
+                tile2 = np.array(tile2Im);
+                tile = np.maximum(tile1, tile2);
+                tileIm = Image.fromarray(tile);
+                tileIm_rot90 = tileIm.rotate(90);
+                tileIm_rot180 = tileIm.rotate(180);
+                tileIm_rot270 = tileIm.rotate(270);
+                tile_rot90 = np.array(tileIm_rot90);
+                tile_rot180 = np.array(tileIm_rot180);
+                tile_rot270 = np.array(tileIm_rot270);
+                concatTmp1 = np.concatenate((tile, tile_rot270), axis=1);
+                concatTmp2 = np.concatenate((tile_rot90, tile_rot180), axis=1); 
+                p4m = np.concatenate((concatTmp1, concatTmp2));
+                image = catTiles(p4m, N, wptype);   
+                return image; 
+        elif wptype == 'P4G':
                 height = round(n/2);
                 width = height;
-                start_tile = texture(1:height, 1:width);
-                y = [0 width width 0];
-                x = [0 0 height 0];
-                mask = poly2mask(x, y, height, width);
-                tile1 = mask.*start_tile;
-                tile2 = rot90(fliplr(tile1), 1);
-                tile = max(tile1, tile2);
-                p4g = [rot90(tile, 3), rot90(tile, 2); tile, rot90(tile, 1)];
-                image = catTiles(p4g, N, type);                
-            case 'P3'
-                alpha = pi/3;
-                s = n/sqrt(3*tan(alpha));
-                height = round(s*1.5);
-                start_tile = texture(1:height, :);
+                start_tile = texture[:height, :width];
+                xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]);    
+                mask = skd.polygon2mask((height, width), xy);
+                tile1 = mask * start_tile;
+                tile2 = np.fliplr(tile1);
+                tile2Im = Image.fromarray(tile2);
+                tile2Im = start_tileIm.rotate(90);
+                tile2 = np.array(tile2Im);
+                tile = np.maximum(tile1, tile2);
+                tileIm = Image.fromarray(tile);
+                tileIm_rot90 = tileIm.rotate(90);
+                tileIm_rot180 = tileIm.rotate(180);
+                tileIm_rot270 = tileIm.rotate(270);
+                tile_rot90 = np.array(tileIm_rot90);
+                tile_rot180 = np.array(tileIm_rot180);
+                tile_rot270 = np.array(tileIm_rot270);
+                concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1);
+                concatTmp2 = np.concatenate((tile, tile_rot90), axis=1); 
+                p4g = np.concatenate((concatTmp1, concatTmp2));
+                image = catTiles(p4g, N, wptype);   
+                return image;
+        elif wptype == 'P3':
+                alpha = np.pi/3;
+                s = n / math.sqrt(3 * np.tan(alpha));
+                height = round(s * 1.5);
+                start_tile = texture[:height,:];
                 p3 = new_p3(start_tile);
-                image = catTiles(p3, N, type);                
-            case 'P3M1'
-                alpha = pi/3;
-                s = n/sqrt(3*tan(alpha));
+                image = catTiles(p3, N, wptype);
+                return image;                
+        elif wptype == 'P3M1':
+                alpha = np.pi/3;
+                s = n/math.sqrt(3*np.tan(alpha));
                 height = round(s);
-                start_tile = texture(1:height, :);                
+                start_tile = texture[:height,:];               
                 p3m1 = new_p3m1(start_tile);                
-                image = catTiles(p3m1, N, type);                
-            case 'P31M'
-                s = n/sqrt(sqrt(3));
+                image = catTiles(p3m1, N, wptype);                
+        elif wptype == 'P31M':
+                s = n/math.sqrt(math.sqrt(3));
                 height = round(s);
-                start_tile = texture(1:height, :);                
+                start_tile = texture[:height,:];               
                 p31m = new_p31m(start_tile);
-                %ugly trick
-                p31m_1 = fliplr(p31m');
-                image = catTiles(p31m_1, N, type);                
-            case 'P6'
-                s = n/sqrt(sqrt(3));
+                #ugly trick
+                p31m_1 = np.fliplr(np.transpose(p31m));
+                image = catTiles(p31m_1, N, wptype);                
+        elif wptype == 'P6':
+                s = n/math.sqrt(math.sqrt(3));
                 height = round(s);
-                start_tile = texture(1:height, :);                
+                start_tile = texture[:height,:];              
                 p6 = new_p6(start_tile);
-                image = catTiles(p6, N, type);                
-            case 'P6M'
-                s = n/sqrt(sqrt(3));
+                image = catTiles(p6, N, wptype);                
+        elif wptype == 'P6M':
+                s = n/math.sqrt(math.sqrt(3));
                 height = round(s/2);
-                start_tile = texture(1:height, :);
+                start_tile = texture[:height,:];
                 p6m = new_p6m(start_tile);
-                image = catTiles(p6m, N, type);                
-            otherwise
+                image = catTiles(p6m, N, wptype);                
+        else:
                 warning('Unexpected Wallpaper Group type. Returning random noise.');
-                image = repmat(texture, [ceil(N/n),  ceil(N/n)]);
-    catch err:
-        print(strcat('new_SymmetricNoise:Error making ', wptype));
-        print(err.message);
-        print(err.stack(1));
-        print(err.stack(2));
+                image = repmat(texture, [np.ceil(N/n),  np.ceil(N/n)]);
+    except Exception as err:
+        print('new_SymmetricNoise:Error making ' + wptype);
+        print(err.args);
+    return image;
+        
 def catTiles(tile, N, wptype):
     #disp tile square
     sq = np.shape(tile[0]) * np.shape(tile[1]);
