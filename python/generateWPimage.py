@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.matlib
 import math
 from PIL import Image
 from skimage import draw as skd
@@ -14,19 +15,19 @@ def filterTile(inTile, filterIntensity):
     
     sigma_x = 10*filterIntensity/nx;
     sigma_y = 10*filterIntensity/ny;
+    
     x = np.linspace(0, 1, nx);
     y = np.linspace(0, 1, ny);
     
-    gx = np.exp((-(x - mu)**2) / (2*sigma_x**2)) / (sigma_x*math.sqrt(2*np.pi));
-    gy = np.exp((-(y - mu)**2) / (2*sigma_y**2)) / (sigma_y*math.sqrt(2*np.pi));
-    
-    
+    gx = np.exp(-1 * (np.power((x - mu), 2)) / (2*(sigma_x**2))) / (sigma_x * math.sqrt(2 * math.pi));
+    gy = np.exp(-1 * (np.power((y - mu), 2)) / (2*(sigma_y**2))) / (sigma_y * math.sqrt(2 * math.pi));
+
     gauss2 = np.matmul(gx.reshape(gx.shape[0], 1),gy.reshape(1, gy.shape[0]));
     gauss2 = gauss2 - gauss2.min();
     gauss2 = gauss2 / gauss2.max();
     gauss2 = gauss2 * 5;
-    filtered = np.abs(np.fft.ifft2(np.fft.fft2(inTile) * gauss2));
     
+    filtered = np.abs(np.fft.ifft2(np.fft.fft2(inTile) * gauss2));
     #normalize tile
 
     outTile = filtered - filtered.min();
@@ -466,7 +467,7 @@ def new_p6m(tile):
     p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC)); 
     return p6m;
 
-def generateWPimage(wptype,N,n,optTexture):
+def generateWPimage(wptype,N,n,optTexture = None):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -475,7 +476,7 @@ def generateWPimage(wptype,N,n,optTexture):
     # n the size of repeating pattern for all groups.
     
     #default 
-    if len(locals()) < 4: 
+    if optTexture == None: 
         grain = 1;
         texture = filterTile(np.random.rand(n,n), grain);
     else:
@@ -487,6 +488,7 @@ def generateWPimage(wptype,N,n,optTexture):
             optTexture = np.array(Image.resize(reversed((optTexture.shape * ratio)), Image.NEAREST));
         texture = optTexture;
     try:
+        #print(texture);
         if wptype == 'P0':
                 p0 = np.array(Image.resize(reversed((texture.shape * round(N/n))), Image.NEAREST));
                 image = p0;
@@ -662,7 +664,8 @@ def generateWPimage(wptype,N,n,optTexture):
                 height = round(s);
                 start_tile = texture[:height,:];               
                 p3m1 = new_p3m1(start_tile);                
-                image = catTiles(p3m1, N, wptype);                
+                image = catTiles(p3m1, N, wptype);
+                return image;                
         elif wptype == 'P31M':
                 s = n/math.sqrt(math.sqrt(3));
                 height = round(s);
@@ -670,37 +673,41 @@ def generateWPimage(wptype,N,n,optTexture):
                 p31m = new_p31m(start_tile);
                 #ugly trick
                 p31m_1 = np.fliplr(np.transpose(p31m));
-                image = catTiles(p31m_1, N, wptype);                
+                image = catTiles(p31m_1, N, wptype);    
+                return image;
         elif wptype == 'P6':
                 s = n/math.sqrt(math.sqrt(3));
                 height = round(s);
                 start_tile = texture[:height,:];              
                 p6 = new_p6(start_tile);
-                image = catTiles(p6, N, wptype);                
+                image = catTiles(p6, N, wptype); 
+                return image;
         elif wptype == 'P6M':
                 s = n/math.sqrt(math.sqrt(3));
                 height = round(s/2);
                 start_tile = texture[:height,:];
                 p6m = new_p6m(start_tile);
-                image = catTiles(p6m, N, wptype);                
+                image = catTiles(p6m, N, wptype); 
+                return image;
         else:
                 warnings.warn('Unexpected Wallpaper Group type. Returning random noise.', UserWarning);
-                image = repmat(texture, [np.ceil(N/n),  np.ceil(N/n)]);
+                image = np.matlib.repmat(texture, [np.ceil(N/n),  np.ceil(N/n)]);
+                return image;
     except Exception as err:
         print('new_SymmetricNoise:Error making ' + wptype);
         print(err.args);
-    return image;
         
 def catTiles(tile, N, wptype):
     #disp tile square
-    sq = np.shape(tile[0]) * np.shape(tile[1]);
-    print(wptype + ' area of tile = ' + sq);                
+    sq = np.shape(tile)[0] * np.shape(tile)[1];
+    print(wptype + ' area of tile = ', sq);                
     
     #write tile
-    tileIm = Image.fromarray(tile);
-    tileIm.save('~/Documents/MATLAB/tiles/' + wptype + '_tile.jpeg', 'JPEG');
-    dN = 1 + math.floor(N / np.shape(tile));
-    img = np.matlib.repmat(tile, dN(1), dN(2));
+    #tileIm = Image.fromarray(tile);
+    #tileIm.save('~/Documents/PYTHON/tiles/' + wptype + '_tile.jpeg', 'JPEG');
+    dN = tuple((1 + math.floor(N / ti)) for ti in np.shape(tile))
+    #dN = 1 + math.floor(N / np.shape(tile));
+    img = numpy.matlib.repmat(tile, dN[0], dN[1]);
     return img                 
 # array of coefficients(DO NOT CHANGE):
 # tile sizes by groups:     tile_in     tile_out         square ratio       width ratio
