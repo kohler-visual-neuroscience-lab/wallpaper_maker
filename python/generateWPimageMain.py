@@ -181,6 +181,8 @@ def spectra(in_image, scrambled=False, new_mag=None):
     mag = np.abs(in_spectrum);
     
     if (scrambled == True):
+        randPhase =  np.fft.fft2(np.random.rand(in_image.shape[0], in_image.shape[1]), (in_image.shape[0], in_image.shape[1]));
+        phase = np.angle(randPhase);
         rng = np.random.default_rng()
         [rng.shuffle(x) for x in phase];
     if(new_mag): # if no image frequency input, make random image and get the frequency
