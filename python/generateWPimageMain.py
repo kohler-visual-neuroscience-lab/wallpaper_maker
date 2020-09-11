@@ -70,33 +70,34 @@ def generateWPTImagesMain():
         print('generating ', Groups[i]);
         group = Groups[i];
         n = round(math.sqrt(tileArea));
-        
+        raw = gwi.generateWPimage(group, wpSize, n);
+        cm = plt.get_cmap('gray');
+        raw_image =  cm(raw);
+        rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
         # generating wallpapers, saving freq. representations
         for k in range(nGroup):
-            raw = gwi.generateWPimage(group, wpSize, n);
-            cm = plt.get_cmap('gray');
-            raw_image =  cm(raw);
-            rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
+            
             
             # image processing steps
             
             # get average magnitude
-            avgMag = meanMag(rawFreq);
+            #avgMag = meanMag(rawFreq);
             
-            avgRaw = spectra(avgMag, rawFreq); # replace each image's magnitude with the average
+            avgRaw = spectra(raw); # replace each image's magnitude with the average
             filtered = filterImg(avgRaw, wpSize); # low-pass filtering + histeq
             
             masked = cm(maskImg(filtered, wpSize)); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
-            scrambled_raw = spectra(avgMag); # only give spectra only arg, to make randoms
+            scrambled_raw = spectra(raw, scrambled=True); # only give spectra only arg, to make randoms
             scrambled_filtered = filterImg(scrambled_raw, wpSize);
             scrambled_masked = cm(maskImg(scrambled_filtered, wpSize));
 
-            #Image.fromarray(np.hstack(((scrambled_masked[:, :, :3] * 255).astype(np.uint8), (masked[:, :, :3] * 255).astype(np.uint8)))).show();
+            #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
             # saving averaged and scrambled images
+            
             if(printAnalysis):
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(sPath + "analysis\\steps_" + group + "_" + str(k), "JPEG");
                 #imwrite(all_in_one{img},  strcat(sPath, 'analysis/steps_',group, '_', num2str(img), '.jpeg'), 'jpeg');
@@ -104,13 +105,13 @@ def generateWPTImagesMain():
                 rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
             
-            patternPath = sPath + str(1000*groupNumber + k) + '.' + saveFmt;
+            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '.' + saveFmt;
             
             Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
-            scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_Scrambled' + '.' + saveFmt;
+            scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '.' + saveFmt;
             Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
-        
-        
+           
+            
         #all_in_one = cellfun(@(x,y,z) cat(2,x(1:wpSize,1:wpSize),y(1:wpSize,1:wpSize),z(1:wpSize,1:wpSize)),raw,avgRaw,filtered,'uni',false);
         
         # variables for saving in a mat file
@@ -173,16 +174,23 @@ def maskImg(inImg, N):
     return outImg;
 
 # replace spectra
-def spectra(avgMag,imFreq = np.zeros((1,1))):
-    if(imFreq.all() == 0): # if no image frequency input, make random image and get the frequency
-        randImg = np.random.randn(np.shape(avgMag)[0], np.shape(avgMag)[1]);
-        imFreq = np.fft.fft2(randImg);
-
-    cmplxIm = avgMag * np.exp(1j * np.angle(imFreq));
-    outImage = np.abs(np.real(np.fft.ifft2(np.fft.ifftshift(cmplxIm))));
+def spectra(in_image, scrambled=False, new_mag=None):
+    in_spectrum = np.fft.fft2(in_image, (in_image.shape[0], in_image.shape[1]));
+    
+    phase = np.angle(in_spectrum);
+    mag = np.abs(in_spectrum);
+    
+    if (scrambled == True):
+        rng = np.random.default_rng()
+        [rng.shuffle(x) for x in phase];
+    if(new_mag): # if no image frequency input, make random image and get the frequency
+        mag = new_mag;
+    cmplxIm = mag * np.exp(1j * phase);
+    outImage = np.abs(np.real(np.fft.ifft2(cmplxIm)));
     return outImage;
 
 # returns average mag of the group
+"""
 def meanMag(freqGroup):
     nImages = 1;
     mag = np.empty((freqGroup.shape[0], freqGroup.shape[1], nImages));
@@ -190,5 +198,5 @@ def meanMag(freqGroup):
         mag[:,:, n] = np.abs(freqGroup);
     out = np.median(mag,2);
     return out;
-
+"""
 generateWPTImagesMain();
