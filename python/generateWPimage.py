@@ -488,7 +488,6 @@ def generateWPimage(wptype,N,n,optTexture = None):
             optTexture = np.array(Image.resize(reversed((optTexture.shape * ratio)), Image.NEAREST));
         texture = optTexture;
     try:
-        #print(texture);
         if wptype == 'P0':
                 p0 = np.array(Image.resize(reversed((texture.shape * round(N/n))), Image.NEAREST));
                 image = p0;
@@ -521,12 +520,12 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 height = round(0.5*n);
                 width = 2*height;
                 start_tile = texture[:height, :width];
-                start_tileIm = Image.fromarray(start_tile);
-                tile = start_tileIm.rotate(270);
-                tile = np.array(tile);
+                #start_tileIm = Image.fromarray(start_tile);
+                tile = np.rot90(start_tile, 3);
+                #tile = np.array(tile);
                 glide = np.flipud(tile);
                 pg = np.concatenate((tile, glide), axis=1);
-                image = catTiles(pg, N, wptype);
+                image = catTiles(pg.T, N, wptype);
                 return image;                  
         elif wptype == 'CM':
                 height = round(n/2);
@@ -552,9 +551,7 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 height = round(n/2);
                 width = height;
                 start_tile = texture[:height, :width];
-                start_tileIm = Image.fromarray(start_tile);
-                start_tileIm = start_tileIm.rotate(180);
-                start_tile_rot180 = np.array(start_tileIm);
+                start_tile_rot180 = np.rot90(start_tile, 2);
                 concatTmp1 = np.concatenate((start_tile, start_tile_rot180), axis=1);
                 concatTmp2 = np.concatenate((np.flipud(start_tile), np.fliplr(start_tile)), axis=1);
                 pmg = np.concatenate((concatTmp1, concatTmp2));
@@ -564,9 +561,7 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 height = round(n/2);
                 width = height;
                 start_tile = texture[:height, :width];
-                start_tileIm = Image.fromarray(start_tile);
-                start_tileIm = start_tileIm.rotate(180);
-                start_tile_rot180 = np.array(start_tileIm);
+                start_tile_rot180 = np.rot90(start_tile, 2);
                 concatTmp1 = np.concatenate((start_tile, np.flipud(start_tile)), axis=1);
                 concatTmp2 = np.concatenate((np.fliplr(start_tile), start_tile_rot180), axis=1);
                 pgg = np.concatenate((concatTmp1, concatTmp2));
@@ -576,9 +571,7 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 height = round(n/4);
                 width = 2*height;
                 start_tile = texture[:height, :width];
-                start_tileIm = Image.fromarray(start_tile);
-                start_tileIm = start_tileIm.rotate(180);
-                start_tile_rot180 = np.array(start_tileIm);
+                start_tile_rot180 = np.rot90(start_tile, 2);
                 tile1 = np.concatenate((start_tile, start_tile_rot180));               
                 tile2 = np.flipud(tile1);
                 concatTmp1 = np.concatenate((tile1, tile2), axis=1);
@@ -590,13 +583,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 height = round(n/2);
                 width = height;
                 start_tile = texture[:height, :width];
-                start_tileIm = Image.fromarray(start_tile);
-                start_tileIm_rot90 = start_tileIm.rotate(90);
-                start_tileIm_rot180 = start_tileIm.rotate(180);
-                start_tileIm_rot270 = start_tileIm.rotate(270);
-                start_tile_rot90 = np.array(start_tileIm_rot90);  
-                start_tile_rot180 = np.array(start_tileIm_rot180);  
-                start_tile_rot270 = np.array(start_tileIm_rot270);
+                start_tile_rot90 = np.rot90(start_tile, 1);
+                start_tile_rot180 = np.rot90(start_tile, 2);
+                start_tile_rot270 = np.rot90(start_tile, 3);
                 concatTmp1 = np.concatenate((start_tile, start_tile_rot270), axis=1);
                 concatTmp2 = np.concatenate((start_tile_rot90, start_tile_rot180), axis=1);                
                 p4 = np.concatenate((concatTmp1, concatTmp2));
@@ -610,17 +599,11 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 mask = skd.polygon2mask((height, width), xy);
                 tile1 = mask * start_tile;
                 tile2 = np.fliplr(tile1);
-                tile2Im = Image.fromarray(tile2);
-                tile2Im = start_tileIm.rotate(90);
-                tile2 = np.array(tile2Im);
+                tile2 = np.rot90(tile2, 1);
                 tile = np.maximum(tile1, tile2);
-                tileIm = Image.fromarray(tile);
-                tileIm_rot90 = tileIm.rotate(90);
-                tileIm_rot180 = tileIm.rotate(180);
-                tileIm_rot270 = tileIm.rotate(270);
-                tile_rot90 = np.array(tileIm_rot90);
-                tile_rot180 = np.array(tileIm_rot180);
-                tile_rot270 = np.array(tileIm_rot270);
+                tile_rot90 = np.rot90(tile, 1);
+                tile_rot180 = np.rot90(tile, 2);
+                tile_rot270 = np.rot90(tile, 3);
                 concatTmp1 = np.concatenate((tile, tile_rot270), axis=1);
                 concatTmp2 = np.concatenate((tile_rot90, tile_rot180), axis=1); 
                 p4m = np.concatenate((concatTmp1, concatTmp2));
@@ -634,17 +617,11 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 mask = skd.polygon2mask((height, width), xy);
                 tile1 = mask * start_tile;
                 tile2 = np.fliplr(tile1);
-                tile2Im = Image.fromarray(tile2);
-                tile2Im = start_tileIm.rotate(90);
-                tile2 = np.array(tile2Im);
+                tile2 = np.rot90(tile2, 1);
                 tile = np.maximum(tile1, tile2);
-                tileIm = Image.fromarray(tile);
-                tileIm_rot90 = tileIm.rotate(90);
-                tileIm_rot180 = tileIm.rotate(180);
-                tileIm_rot270 = tileIm.rotate(270);
-                tile_rot90 = np.array(tileIm_rot90);
-                tile_rot180 = np.array(tileIm_rot180);
-                tile_rot270 = np.array(tileIm_rot270);
+                tile_rot90 = np.rot90(tile, 1);
+                tile_rot180 = np.rot90(tile, 2);
+                tile_rot270 = np.rot90(tile, 3);
                 concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1);
                 concatTmp2 = np.concatenate((tile, tile_rot90), axis=1); 
                 p4g = np.concatenate((concatTmp1, concatTmp2));

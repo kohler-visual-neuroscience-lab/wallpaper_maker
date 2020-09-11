@@ -7,12 +7,14 @@ import generateWPimage as gwi
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import cv2 as cv
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 
 def generateWPTImagesMain():
     # define group to index mapping
-    #  keySet = {'P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'};
-    keySet = ['P1', 'P2', 'P3', 'P4', 'P6'];
-    valueSet = np.arange(101, 105, 1);
+    keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+    #keySet = ['P1', 'P2', 'P3', 'P4', 'P6'];
+    valueSet = np.arange(101, 118, 1);
     mapgroup = {};
     for i in range(valueSet.shape[0]):
         mapgroup[keySet[i]] = valueSet[i];
@@ -29,10 +31,10 @@ def generateWPTImagesMain():
     # rhoLattice = {'CM', 'CMM'};
     # obqLattice = {'P1', 'P2'};
     # define groups to be generated
-    Groups = ['P1', 'P2','P4','P3', 'P6'];
-    # Groups = {'P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'};
+    #Groups = ['P1','P2','P4','P3','P6'];
+    Groups = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
     # number of images per group
-    nGroup = 2;
+    nGroup = 1;
     
     # image parameters
     # image size
@@ -51,6 +53,7 @@ def generateWPTImagesMain():
     # print raw images and filtering steps
     saveRaw = False;
     printAnalysis = False;
+    sRawPath = '';
     try:
         os.mkdirs(sPath);
         if(saveRaw):
@@ -72,23 +75,26 @@ def generateWPTImagesMain():
         for k in range(nGroup):
             raw = gwi.generateWPimage(group, wpSize, n);
             cm = plt.get_cmap('gray');
-            raw_image = cm(raw);
-            #print(np.array(raw_image[:, :, :3] * 255).astype(np.uint8));
-            rawFreq = np.fft.fft2(raw);
+            raw_image =  cm(raw);
+            rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
             
             # image processing steps
+            
             # get average magnitude
             avgMag = meanMag(rawFreq);
-            avgRaw = spectra(avgMag); # replace each image's magnitude with the average 
-            filtered = filterImg(avgRaw, wpSize); # low-pass filtering + histeq 
+            
+            avgRaw = spectra(avgMag, rawFreq); # replace each image's magnitude with the average
+            filtered = filterImg(avgRaw, wpSize); # low-pass filtering + histeq
+            
             masked = cm(maskImg(filtered, wpSize)); # masking the image (final step)
-            avgRaw_image = cm(avgRaw);
-            Image.fromarray((avgRaw_image[:, :, :3] * 255).astype(np.uint8)).show();
+            #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
+            
             # making scrambled images
-            scrambled_raw = spectra(avgMag, rawFreq); # only give spectra only arg, to make randoms
+            scrambled_raw = spectra(avgMag); # only give spectra only arg, to make randoms
             scrambled_filtered = filterImg(scrambled_raw, wpSize);
             scrambled_masked = cm(maskImg(scrambled_filtered, wpSize));
-            #raw_image = Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).show();
+
+            #Image.fromarray(np.hstack(((scrambled_masked[:, :, :3] * 255).astype(np.uint8), (masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
             # saving averaged and scrambled images
             if(printAnalysis):
@@ -97,15 +103,12 @@ def generateWPTImagesMain():
             if(saveRaw):
                 rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
+            
             patternPath = sPath + str(1000*groupNumber + k) + '.' + saveFmt;
             
-            print(avgRaw.shape);
-            print(filtered.shape);
-            
             Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
-            scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '.' + saveFmt;
+            scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_Scrambled' + '.' + saveFmt;
             Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
-        
         
         
         #all_in_one = cellfun(@(x,y,z) cat(2,x(1:wpSize,1:wpSize),y(1:wpSize,1:wpSize),z(1:wpSize,1:wpSize)),raw,avgRaw,filtered,'uni',false);
@@ -126,10 +129,10 @@ def matlab_style_gauss2D(shape,sigma):
     2D gaussian mask - should give the same result as MATLAB's
     fspecial('gaussian',[shape],[sigma])
     """
-    m,n = [(ss-1.)/2. for ss in shape]
-    y,x = np.ogrid[-m:m+1,-n:n+1]
-    h = np.exp( -(x*x + y*y) / (2.*sigma*sigma) )
-    h[ h < np.finfo(h.dtype).eps*h.max() ] = 0
+    m,n = [(ss - 1.) / 2. for ss in shape]
+    y,x = np.ogrid[-m:m + 1,-n:n + 1]
+    h = np.exp( -(x * x + y * y) / (2. * sigma * sigma) )
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
     sumh = h.sum()
     if sumh != 0:
         h /= sumh
@@ -142,15 +145,12 @@ def filterImg(inImg, N):
     lowpass = matlab_style_gauss2D((9, 9), sigma);
 
     # filter
-    #image = imfilter(inImg, lowpass);
-    image = scipy.ndimage.correlate(inImg, lowpass, mode='constant').transpose().astype(np.uint8);
+    image = scipy.ndimage.correlate(inImg, lowpass, mode='constant').transpose();
     
     # histeq
-    #cm = plt.get_cmap('gray');
-    #image = cm(image);
-    #image_YUV = cv.cvtColor(image, cv.COLOR_BGR2YUV)
-    image[:,:] = cv.equalizeHist(image[:,:].astype(np.uint8));
-    #image = cv.cvtColor(image_YUV, cv.COLOR_YUV2BGR)
+    image = np.array(image * 255, dtype=np.uint8);
+    image[:,:] = cv.equalizeHist(image[:,:]);
+
     # normalize
     image = image / np.ptp(image); #scale to unit range
     image = image - np.mean(image[:]); #bring mean luminance to zero		
@@ -164,15 +164,10 @@ def filterImg(inImg, N):
 # apply mask
 def maskImg(inImg, N):
     #define mask(circle)
-    r = 0.5 * N;
-    X = np.arange((-0.5 * N),(0.5 * N - 1));   
-    X = np.matlib.repmat(X, N, 1);
-    Y = X;
-    D = np.sqrt(X**2 + Y**2);
-    D = D / r;
-    D[D < 1] = 0;
-    D[D > 1] = 1;
-    mask = 1 - D;
+    r = round(0.5 * N);
+    mask = np.zeros((inImg.shape[0],inImg.shape[1]), np.uint8);
+    cv.circle(mask, (round(inImg.shape[1] / 2), round(inImg.shape[0] / 2)), r, 1, -1);
+    mask = cv.bitwise_and(mask, mask, mask=mask);
     outImg = inImg[:np.shape(mask)[0], :np.shape(mask)[1]];
     outImg[mask==0] = 0.5;
     return outImg;
@@ -182,19 +177,18 @@ def spectra(avgMag,imFreq = np.zeros((1,1))):
     if(imFreq.all() == 0): # if no image frequency input, make random image and get the frequency
         randImg = np.random.randn(np.shape(avgMag)[0], np.shape(avgMag)[1]);
         imFreq = np.fft.fft2(randImg);
+
     cmplxIm = avgMag * np.exp(1j * np.angle(imFreq));
-    outImage = np.fft.irfft2(cmplxIm);
-    #print(outImage);
+    outImage = np.abs(np.real(np.fft.ifft2(np.fft.ifftshift(cmplxIm))));
     return outImage;
 
 # returns average mag of the group
 def meanMag(freqGroup):
-    nImages = len(freqGroup);
+    nImages = 1;
     mag = np.empty((freqGroup.shape[0], freqGroup.shape[1], nImages));
     for n in range(nImages):
-        mag[:,:,n] = np.abs(freqGroup[n]);
+        mag[:,:, n] = np.abs(freqGroup);
     out = np.median(mag,2);
-    print(out); #CONTINUE TO INVESTIGATE THIS
     return out;
 
 generateWPTImagesMain();
