@@ -1,3 +1,15 @@
+"""
+
+The code will generate an arbitrary number of exemplars belonging to each of the 17 groups, as well as matched control exemplars using phase-scrambling and Portilla-Simoncelli scrambling.
+
+To run the code use the following function with the available optional parameters: 
+
+generateWPTImagesMain(groups to create, number of images per group, wallpaper size (visual angle), distance beteween eye and wallpaper, .... 
+tile area, image save format, save raw, print analysis, Portilla-Simoncelli scrambled, phase scrambled, Portilla-Simoncelli scrambled, new magnitude, color or greyscale map)
+
+Check function for expected data types for each argument.
+
+"""
 import os
 from datetime import datetime
 import numpy as np
@@ -8,13 +20,16 @@ import matplotlib.pyplot as plt
 import scipy.ndimage
 import cv2 as cv
 import sys
+from PyQt5.QtWidgets import QApplication
 np.set_printoptions(threshold=sys.maxsize)
+import texture_synthesis_g as pss
 
-def generateWPTImagesMain():
+def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=100, visualAngle: float=30.0, distance: float=30.0, tileArea: int=100*100, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, cmap: str="gray"):
     # define group to index mapping
     keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
     #keySet = ['P1', 'P2', 'P3', 'P4', 'P6'];
-    valueSet = np.arange(101, 118, 1);
+    #keySet = groups;
+    valueSet = np.arange(101, 100 + len(keySet) + 1, 1);
     mapgroup = {};
     for i in range(valueSet.shape[0]):
         mapgroup[keySet[i]] = valueSet[i];
@@ -32,27 +47,34 @@ def generateWPTImagesMain():
     # obqLattice = {'P1', 'P2'};
     # define groups to be generated
     #Groups = ['P1','P2','P4','P3','P6'];
-    Groups = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+    #Groups = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+    Groups = keySet;
     # number of images per group
     nGroup = 1;
     
     # image parameters
     # image size
-    wpSize = 900;
+    app = QApplication(sys.argv)
+    screen = app.screens()[0]
+    dpi = screen.physicalDotsPerInch()
+    wpSize = (round((math.tan(math.radians(visualAngle / 2)) * (2 * distance)) * dpi / 2.54));
+    app.quit();
+    #wpSize = 512;
+    #wpSize = math.tan(wpSize / 2) * (2 * 10**3) * 37.7952755906;
     # area of tile that will be preserved across groups
-    tileArea = 150 * 150;    
-
+    #tileArea = 150 * 150;    
+    
     # Average magnitude within the each group
     # save parameters
     saveStr = os.getcwd() + '\\WPSet\\';
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
     sPath = saveStr + timeStr;
-    saveFmt = "png"; #Save fmt/numeration     
+    #saveFmt = "png"; #Save fmt/numeration     
     
     # print raw images and filtering steps
-    saveRaw = False;
-    printAnalysis = False;
+    #saveRaw = False;
+    #printAnalysis = False;
     sRawPath = '';
     try:
         os.mkdirs(sPath);
@@ -86,11 +108,11 @@ def generateWPTImagesMain():
             avgRaw = spectra(raw); # replace each image's magnitude with the average
             filtered = filterImg(avgRaw, wpSize); # low-pass filtering + histeq
             
-            masked = cm(maskImg(filtered, wpSize)); # masking the image (final step)
+            masked = cm(maskImg(filtered, wpSize).T); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
-            scrambled_raw = spectra(raw, scrambled=True); # only give spectra only arg, to make randoms
+            scrambled_raw = spectra(raw, pssscrambled=True); # only give spectra only arg, to make randoms
             scrambled_filtered = filterImg(scrambled_raw, wpSize);
             scrambled_masked = cm(maskImg(scrambled_filtered, wpSize));
 
@@ -174,22 +196,45 @@ def maskImg(inImg, N):
     return outImg;
 
 # replace spectra
-def spectra(in_image, scrambled=False, new_mag=None):
+def spectra(in_image, pssscrambled=False, psscrambled=False, new_mag=None, cmap="gray"):
     in_spectrum = np.fft.fft2(in_image, (in_image.shape[0], in_image.shape[1]));
     
     phase = np.angle(in_spectrum);
     mag = np.abs(in_spectrum);
     
-    if (scrambled == True):
+    if (psscrambled == True):
         randPhase =  np.fft.fft2(np.random.rand(in_image.shape[0], in_image.shape[1]), (in_image.shape[0], in_image.shape[1]));
         phase = np.angle(randPhase);
         rng = np.random.default_rng()
         [rng.shuffle(x) for x in phase];
-    if(new_mag): # if no image frequency input, make random image and get the frequency
+    elif(pssscrambled == True):
+        outImage = psScramble(in_image, cmap);
+        return outImage;
+    if(new_mag):
         mag = new_mag;
     cmplxIm = mag * np.exp(1j * phase);
     outImage = np.abs(np.real(np.fft.ifft2(cmplxIm)));
     return outImage;
+
+def psScramble(in_image, cmap):
+    imagetmp = Image.fromarray(in_image);
+    newSize = previous_power_2(in_image.shape[0]);
+    print(newSize);
+    imagetmp = imagetmp.resize((newSize, newSize), Image.BICUBIC);
+    #imagetmp.resize((image.shape[0], image.shape[0]), Image.BICUBIC);
+    in_image = np.array(imagetmp);
+    print(in_image.shape);
+    outImage = pss.synthesis(in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
+    return outImage
+
+def previous_power_2(x):
+    x = x | (x >> 1);
+    x = x | (x >> 2);
+    x = x | (x >> 4);
+    x = x | (x >> 8);
+    x = x | (x >> 16);
+    return x - (x >> 1);
+
 
 # returns average mag of the group
 """
