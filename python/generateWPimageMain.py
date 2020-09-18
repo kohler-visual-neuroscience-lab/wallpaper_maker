@@ -5,7 +5,7 @@ The code will generate an arbitrary number of exemplars belonging to each of the
 To run the code use the following function with the available optional parameters: 
 
 generateWPTImagesMain(groups to create, number of images per group, wallpaper size (visual angle), distance beteween eye and wallpaper, .... 
-tile area, image save format, save raw, print analysis, Portilla-Simoncelli scrambled, phase scrambled, Portilla-Simoncelli scrambled, new magnitude, color or greyscale map)
+tile area, image save format, save raw, print analysis, Portilla-Simoncelli scrambled, phase scrambled, new magnitude, color or greyscale map, debug parameters on/off)
 
 Check function for expected data types for each argument.
 
@@ -23,58 +23,63 @@ import sys
 from PyQt5.QtWidgets import QApplication
 np.set_printoptions(threshold=sys.maxsize)
 import texture_synthesis_g as pss
+import logging
+import argparse
 
-def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=100, visualAngle: float=30.0, distance: float=30.0, tileArea: int=100*100, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, cmap: str="gray"):
-    # define group to index mapping
-    keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-    #keySet = ['P1', 'P2', 'P3', 'P4', 'P6'];
-    #keySet = groups;
-    valueSet = np.arange(101, 100 + len(keySet) + 1, 1);
-    mapgroup = {};
-    for i in range(valueSet.shape[0]):
-        mapgroup[keySet[i]] = valueSet[i];
+SCRIPT_NAME = os.path.basename(__file__)
+
+# logging
+LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
+logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
+LOGGER = logging.getLogger(os.path.basename(__file__))
+
+def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=100, visualAngle: float=30.0, distance: float=30.0, tileArea: int=150*150, saveFmt: str="png", saveRaw: bool=False, 
+                          printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, cmap: str="gray", debug: bool=False):
     #mapGroup = containers.Map(keySet, valueSet);
     
-    hexLattice = ['P3', 'P6'];
-    sqrLattice = ['P4'];
-    recLattice = [];
-    rhoLattice = [];
-    obqLattice = ['P1', 'P2'];
-    # hexLattice = {'P3', 'P3M1', 'P31M', 'P6', 'P6M'};
-    # sqrLattice = {'P4', 'P4M', 'P4G'};
-    # recLattice = {'PM', 'PMM', 'PMG', 'PGG', 'PG'};
-    # rhoLattice = {'CM', 'CMM'};
-    # obqLattice = {'P1', 'P2'};
+    #hexLattice = ['P3', 'P6'];
+    #sqrLattice = ['P4'];
+    #recLattice = [];
+    #rhoLattice = [];
+    #obqLattice = ['P1', 'P2'];
+    # hexLattice = ['P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+    # sqrLattice = ['P4', 'P4M', 'P4G'];
+    # recLattice = ['PM', 'PMM', 'PMG', 'PGG', 'PG'];
+    # rhoLattice = ['CM', 'CMM'];
+    # obqLattice = ['P1', 'P2'];
     # define groups to be generated
     #Groups = ['P1','P2','P4','P3','P6'];
     #Groups = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-    Groups = keySet;
-    # number of images per group
-    nGroup = 1;
     
     # image parameters
-    # image size
+    # image size determined by visual angle
     app = QApplication(sys.argv)
     screen = app.screens()[0]
     dpi = screen.physicalDotsPerInch()
     wpSize = (round((math.tan(math.radians(visualAngle / 2)) * (2 * distance)) * dpi / 2.54));
-    app.quit();
-    #wpSize = 512;
-    #wpSize = math.tan(wpSize / 2) * (2 * 10**3) * 37.7952755906;
-    # area of tile that will be preserved across groups
-    #tileArea = 150 * 150;    
+    app.quit();   
     
-    # Average magnitude within the each group
     # save parameters
     saveStr = os.getcwd() + '\\WPSet\\';
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
-    sPath = saveStr + timeStr;
-    #saveFmt = "png"; #Save fmt/numeration     
+    sPath = saveStr + timeStr;    
     
-    # print raw images and filtering steps
-    #saveRaw = False;
-    #printAnalysis = False;
+    # define group to index mapping
+    keySet = groups;
+    
+    # useful parameters for debugging
+    if (debug == True):
+        nGroup = 1;
+        #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+        keySet = ['PMM'];
+        wpSize = 512;
+    
+    valueSet = np.arange(101, 101 + len(keySet), 1);
+    mapgroup = {};
+    for i in range(valueSet.shape[0]):
+        mapgroup[keySet[i]] = valueSet[i];
+    Groups = keySet;
     sRawPath = '';
     try:
         os.mkdirs(sPath);
@@ -93,12 +98,12 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         group = Groups[i];
         n = round(math.sqrt(tileArea));
         raw = gwi.generateWPimage(group, wpSize, n);
-        cm = plt.get_cmap('gray');
+        cm = plt.get_cmap(cmap);
         raw_image =  cm(raw);
-        rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
+        #rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
+        
         # generating wallpapers, saving freq. representations
         for k in range(nGroup):
-            
             
             # image processing steps
             
@@ -106,16 +111,19 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             #avgMag = meanMag(rawFreq);
             
             avgRaw = spectra(raw); # replace each image's magnitude with the average
-            filtered = filterImg(avgRaw, wpSize); # low-pass filtering + histeq
+            filtered = cm(filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
             
-            masked = cm(maskImg(filtered, wpSize).T); # masking the image (final step)
+            masked = maskImg(filtered, wpSize); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
-            scrambled_raw = spectra(raw, pssscrambled=True); # only give spectra only arg, to make randoms
-            scrambled_filtered = filterImg(scrambled_raw, wpSize);
-            scrambled_masked = cm(maskImg(scrambled_filtered, wpSize));
-
+            scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
+            scrambled_filtered = cm(filterImg(scrambled_raw, wpSize));
+            #scrambled_masked = maskImg(scrambled_filtered, wpSize);
+            #print(scrambled_masked);
+            scrambled_masked = maskImg(scrambled_filtered, wpSize);
+            #print(scrambled_masked);
+            #scrambled_masked[scrambled_masked == 0.5] = gray_cm(scrambled_masked); 
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
             # saving averaged and scrambled images
@@ -127,10 +135,10 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
             
-            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '.' + saveFmt;
+            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap + '.' + saveFmt;
             
             Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
-            scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '.' + saveFmt;
+            scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
             Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
            
             
@@ -141,11 +149,6 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         #symFiltered[:,i]= np.concatenate((filtered, scrambled_filtered));
         #symMasked[:,i]= np.concatenate((masked, scrambled_masked));
     #save([sPath,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups');
-    
-#def saveImg(img,savePath,saveFmt):
-#    img = uint8(round(img.*255));
-#    imwrite(img, savePath, saveFmt);
-#end 
 
 def matlab_style_gauss2D(shape,sigma):
     """
@@ -186,7 +189,7 @@ def filterImg(inImg, N):
 
 # apply mask
 def maskImg(inImg, N):
-    #define mask(circle)
+    # define mask(circle)
     r = round(0.5 * N);
     mask = np.zeros((inImg.shape[0],inImg.shape[1]), np.uint8);
     cv.circle(mask, (round(inImg.shape[1] / 2), round(inImg.shape[0] / 2)), r, 1, -1);
@@ -198,32 +201,33 @@ def maskImg(inImg, N):
 # replace spectra
 def spectra(in_image, pssscrambled=False, psscrambled=False, new_mag=None, cmap="gray"):
     in_spectrum = np.fft.fft2(in_image, (in_image.shape[0], in_image.shape[1]));
-    
     phase = np.angle(in_spectrum);
     mag = np.abs(in_spectrum);
-    
+    # phase scrambling
     if (psscrambled == True):
-        randPhase =  np.fft.fft2(np.random.rand(in_image.shape[0], in_image.shape[1]), (in_image.shape[0], in_image.shape[1]));
+        randPhase = np.fft.fft2(np.random.rand(in_image.shape[0], in_image.shape[1]), (in_image.shape[0], in_image.shape[1]));
         phase = np.angle(randPhase);
         rng = np.random.default_rng()
         [rng.shuffle(x) for x in phase];
+    # Portilla-Simoncelli scrambling
     elif(pssscrambled == True):
         outImage = psScramble(in_image, cmap);
         return outImage;
+    # use new magnitude instead
     if(new_mag):
         mag = new_mag;
     cmplxIm = mag * np.exp(1j * phase);
+    #get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
     outImage = np.abs(np.real(np.fft.ifft2(cmplxIm)));
     return outImage;
 
+#perform Portilla-Simoncelli scrambling
 def psScramble(in_image, cmap):
     imagetmp = Image.fromarray(in_image);
+    #resize image to nearest power of 2 to make use of the steerable pyramid for PS
     newSize = previous_power_2(in_image.shape[0]);
-    print(newSize);
     imagetmp = imagetmp.resize((newSize, newSize), Image.BICUBIC);
-    #imagetmp.resize((image.shape[0], image.shape[0]), Image.BICUBIC);
     in_image = np.array(imagetmp);
-    print(in_image.shape);
     outImage = pss.synthesis(in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
     return outImage
 
@@ -234,6 +238,16 @@ def previous_power_2(x):
     x = x | (x >> 8);
     x = x | (x >> 16);
     return x - (x >> 1);
+
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 # returns average mag of the group
@@ -246,4 +260,40 @@ def meanMag(freqGroup):
     out = np.median(mag,2);
     return out;
 """
-generateWPTImagesMain();
+#generateWPTImagesMain(debug=True);
+
+if __name__ == "__main__":
+	LOGGER.info('Generating Wallpapers')
+    
+	parser = argparse.ArgumentParser(
+	    description='Wallpaper Generator')
+	parser.add_argument('--groups', '-g', default=['P1','P2','P4','P3','P6'], type=list, #need to write function to convert str to list
+                    help='Groups to create')
+	parser.add_argument('--nGroup', '-n', default=100, type=int,
+                    help='Number of images per group')
+	parser.add_argument('--visualAngle', '-v', default=30.0, type=float,
+                    help='Wallpaper size (visual angle)')
+	parser.add_argument('--distance', '-d', default=30.0, type=float,
+                    help='Distance beteween eye and wallpaper')
+	parser.add_argument('--tileArea', '-t', default=150*150, type=int,
+                    help='Tile area')
+	parser.add_argument('--saveFmt', '-f', default="png", type=str,
+                    help='Image save format')
+	parser.add_argument('--saveRaw', '-r', default=False, type=str2bool,
+                    help='save raw')
+	parser.add_argument('--printAnalysis', '-a', default=False, type=str2bool,
+                    help='print analysis')
+	parser.add_argument('--pssscrambled', '-s', default=False, type=str2bool,
+                    help='Portilla-Simoncelli scrambled')
+	parser.add_argument('--psscrambled', '-p', default=False, type=str2bool,
+                    help='phase scrambled')
+	parser.add_argument('--new_mag', '-m', default=False, type=str2bool,
+                    help='new magnitude')
+	parser.add_argument('--cmap', '-c', default="gray", type=str,
+                    help='color or greyscale map (hsv or gray)')
+	parser.add_argument('--debug', '-b', default=False, type=str2bool,
+                    help='debugging default parameters on')
+
+	args = parser.parse_args()
+
+	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.distance, args.tileArea, args.saveFmt, args.saveRaw, args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);
