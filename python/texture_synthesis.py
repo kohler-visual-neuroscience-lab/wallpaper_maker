@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Sep 14 14:48:53 2020
-
-@author: Chris
-"""
-
 '''
 	Texture Synthesis  (Color Version)
 	this is a port of textureSynth/textureColorSynthesis.m by J. Portilla and E. Simoncelli.
