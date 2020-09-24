@@ -33,8 +33,9 @@ LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
 
-def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=100, visualAngle: float=30.0, distance: float=30.0, tileArea: int=150*150, saveFmt: str="png", saveRaw: bool=False, 
-                          printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, cmap: str="gray", debug: bool=False):
+def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=100, visualAngle: float=30.0, distance: float=30.0, tileArea: int=150*150, latticeSize: bool=False,
+                          fundRegSize: bool=False, ratio: float=1.0, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
+                          cmap: str="gray", debug: bool=False):
     #mapGroup = containers.Map(keySet, valueSet);
     
     #hexLattice = ['P3', 'P6'];
@@ -71,9 +72,10 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     # useful parameters for debugging
     if (debug == True):
         nGroup = 1;
+        #ratio = 1;
         #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-        keySet = ['PMM'];
-        wpSize = 512;
+        keySet = ['P3'];
+        wpSize = 256;
     
     valueSet = np.arange(101, 101 + len(keySet), 1);
     mapgroup = {};
@@ -96,32 +98,41 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     for i in range(len(Groups)):    
         print('generating ', Groups[i]);
         group = Groups[i];
-        n = round(math.sqrt(tileArea));
+        if (latticeSize == True):
+            n = sizeLattice (ratio, wpSize, group);
+        elif (fundRegSize == True):
+            n = sizeLattice (ratio, wpSize, group);
+        else:
+            n = round(math.sqrt(tileArea));
+        
+        #n = 80
         raw = gwi.generateWPimage(group, wpSize, n);
         cm = plt.get_cmap(cmap);
         raw_image =  cm(raw);
-        #rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
-        
+        rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
+        avgMag = np.array([]); 
+        if(new_mag == True):
+            avgMag = meanMag(rawFreq);
         # generating wallpapers, saving freq. representations
         for k in range(nGroup):
             
             # image processing steps
             
             # get average magnitude
-            #avgMag = meanMag(rawFreq);
             
-            avgRaw = spectra(raw); # replace each image's magnitude with the average
+            
+            avgRaw = spectra(raw, new_mag=avgMag); # replace each image's magnitude with the average
             filtered = cm(filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
             
-            masked = maskImg(filtered, wpSize); # masking the image (final step)
+            #masked = maskImg(filtered, wpSize); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
-            scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
-            scrambled_filtered = cm(filterImg(scrambled_raw, wpSize));
+            #scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
+            #scrambled_filtered = cm(filterImg(scrambled_raw, wpSize));
             #scrambled_masked = maskImg(scrambled_filtered, wpSize);
             #print(scrambled_masked);
-            scrambled_masked = maskImg(scrambled_filtered, wpSize);
+            #scrambled_masked = maskImg(scrambled_filtered, wpSize);
             #print(scrambled_masked);
             #scrambled_masked[scrambled_masked == 0.5] = gray_cm(scrambled_masked); 
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
@@ -137,9 +148,9 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             
             patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap + '.' + saveFmt;
             
-            Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
+            Image.fromarray((filtered[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
-            Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
+            #Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
            
             
         #all_in_one = cellfun(@(x,y,z) cat(2,x(1:wpSize,1:wpSize),y(1:wpSize,1:wpSize),z(1:wpSize,1:wpSize)),raw,avgRaw,filtered,'uni',false);
@@ -199,7 +210,7 @@ def maskImg(inImg, N):
     return outImg;
 
 # replace spectra
-def spectra(in_image, pssscrambled=False, psscrambled=False, new_mag=None, cmap="gray"):
+def spectra(in_image, pssscrambled=False, psscrambled=False, new_mag=np.array([]), cmap="gray"):
     in_spectrum = np.fft.fft2(in_image, (in_image.shape[0], in_image.shape[1]));
     phase = np.angle(in_spectrum);
     mag = np.abs(in_spectrum);
@@ -214,7 +225,7 @@ def spectra(in_image, pssscrambled=False, psscrambled=False, new_mag=None, cmap=
         outImage = psScramble(in_image, cmap);
         return outImage;
     # use new magnitude instead
-    if(new_mag):
+    if(new_mag.size != 0):
         mag = new_mag;
     cmplxIm = mag * np.exp(1j * phase);
     #get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
@@ -249,9 +260,48 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+def sizeFundamentalRegion (ratio, n, cellStruct):
+    if (cellStruct == "rhomb"):
+        #0...1:1 aspect ratio
+        return n;
+    elif (cellStruct == "recttb"):
+        return n;
+    elif (cellStruct == "rectlr"):
+        return math.floor((n * ratio) * 8);
+    elif (cellStruct == "rectc"):
+        return math.floor((n * ratio) * 8);
+    elif (cellStruct == "rhombc"):
+        return n;
+    elif (cellStruct == "squarec"):
+        return n;
+    elif (cellStruct == "squarerc"):
+        return n;
+    elif (cellStruct == "hex"):
+        return n;
+    elif (cellStruct == "hextm"):
+        return n;
+    elif (cellStruct == "hextb"):
+        return n;
+    elif (cellStruct == "hextbc"):
+        return n;
+    else:
+        #P1 tile square cellStructure
+        return n * ratio * 2;
+
+def sizeLattice (ratio, n, cellStruct):
+    #aRatio = (ratio * n) / n;
+    if (cellStruct == "CM"):
+        #rhombus
+        return math.floor((n * ratio) * 4);
+    elif (cellStruct == "PM" or cellStruct == "PG" or cellStruct == "PMM" or cellStruct == "PMG" or cellStruct == "PGG"):
+        #rectangle/square
+        return math.floor((n * ratio) * 4);
+    elif (cellStruct == "P3"):
+        return math.floor(np.sqrt((n**2 * ratio)));
+    else:
+        return math.floor(n * ratio * 2);
 
 # returns average mag of the group
-"""
 def meanMag(freqGroup):
     nImages = 1;
     mag = np.empty((freqGroup.shape[0], freqGroup.shape[1], nImages));
@@ -259,7 +309,7 @@ def meanMag(freqGroup):
         mag[:,:, n] = np.abs(freqGroup);
     out = np.median(mag,2);
     return out;
-"""
+
 #generateWPTImagesMain(debug=True);
 
 if __name__ == "__main__":
@@ -277,6 +327,12 @@ if __name__ == "__main__":
                     help='Distance beteween eye and wallpaper')
 	parser.add_argument('--tileArea', '-t', default=150*150, type=int,
                     help='Tile area')
+	parser.add_argument('--latticeSize', '-l', default=False, type=str2bool,
+                    help='Size wallpaper as a ratio between the lattice and wallpaper size')
+	parser.add_argument('--fundRegSize', '-fr', default=False, type=str2bool,
+                    help='Size wallpaper as a ratio between the fundamental region and wallpaper size')
+	parser.add_argument('--ratio', '-ra', default=1.0, type=float,
+                    help='Size wallpaper as a ratio')
 	parser.add_argument('--saveFmt', '-f', default="png", type=str,
                     help='Image save format')
 	parser.add_argument('--saveRaw', '-r', default=False, type=str2bool,
@@ -296,4 +352,5 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.distance, args.tileArea, args.saveFmt, args.saveRaw, args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);
+	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.distance, args.tileArea, args.latticeSize, args.fundRegSize, args.ratio, args.saveFmt, args.saveRaw, 
+                       args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);

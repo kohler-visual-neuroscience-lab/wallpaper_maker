@@ -483,7 +483,7 @@ def generateWPimage(wptype,N,n,optTexture = None):
         minDim = np.min(np.shape(optTexture));
         #stretch user-defined texture, if it is too small for sampling
         if minDim < n:
-            ratio = round(n/minDim);
+            ratio = round(n / minDim);
             #optTexture = imresize(optTexture, ratio, 'nearest');
             optTexture = np.array(Image.resize(reversed((optTexture.shape * ratio)), Image.NEAREST));
         texture = optTexture;
@@ -495,6 +495,7 @@ def generateWPimage(wptype,N,n,optTexture = None):
         elif wptype == 'P1':
                 width = n;
                 height = width;
+                #square lattice
                 p1 = texture[:height, :width];
                 image = catTiles(p1, N, wptype);
                 return image;                
