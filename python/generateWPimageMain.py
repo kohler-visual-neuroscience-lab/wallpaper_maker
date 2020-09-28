@@ -51,7 +51,6 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     # define groups to be generated
     #Groups = ['P1','P2','P4','P3','P6'];
     #Groups = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-    
     # image parameters
     # image size determined by visual angle
     app = QApplication(sys.argv)
@@ -74,8 +73,8 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         nGroup = 1;
         #ratio = 1;
         #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-        keySet = ['P3'];
-        wpSize = 256;
+        keySet = ['PM'];
+        wpSize = 300;
     
     valueSet = np.arange(101, 101 + len(keySet), 1);
     mapgroup = {};
@@ -99,11 +98,15 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         print('generating ', Groups[i]);
         group = Groups[i];
         if (latticeSize == True):
-            n = sizeLattice (ratio, wpSize, group);
+            size = sizeLattice (ratio, wpSize, group);
+            wpSize = size[1];
+            n = size[0];
         elif (fundRegSize == True):
-            n = sizeLattice (ratio, wpSize, group);
+            size = sizeFundamentalRegion(ratio, wpSize, group);
+            wpSize = size[1];
+            n = size[0];
         else:
-            n = round(math.sqrt(tileArea));
+            size = round(math.sqrt(tileArea));
         
         #n = 80
         raw = gwi.generateWPimage(group, wpSize, n);
@@ -252,13 +255,20 @@ def previous_power_2(x):
 
 def str2bool(v):
     if isinstance(v, bool):
-       return v
+       return v;
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
+        return True;
     elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
+        return False;
     else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        raise argparse.ArgumentTypeError('Boolean value expected.');
+
+def str2list(v):
+    if isinstance(v, list):
+        return v;
+    else:
+        print(list(v.split(",")));
+        return list(v.split(","));
 
 def sizeFundamentalRegion (ratio, n, cellStruct):
     if (cellStruct == "rhomb"):
@@ -266,12 +276,12 @@ def sizeFundamentalRegion (ratio, n, cellStruct):
         return n;
     elif (cellStruct == "recttb"):
         return n;
-    elif (cellStruct == "rectlr"):
-        return math.floor((n * ratio) * 8);
-    elif (cellStruct == "rectc"):
-        return math.floor((n * ratio) * 8);
-    elif (cellStruct == "rhombc"):
-        return n;
+    elif (cellStruct == "PM"):
+        return round(np.sqrt((n**2 * ratio) * 4));
+    elif (cellStruct == "PMM"):
+        return round(np.sqrt((n**2 * ratio) * 4));
+    elif (cellStruct == "CMM"):
+        return round(np.sqrt((n**2 * ratio) * 4));
     elif (cellStruct == "squarec"):
         return n;
     elif (cellStruct == "squarerc"):
@@ -290,14 +300,39 @@ def sizeFundamentalRegion (ratio, n, cellStruct):
 
 def sizeLattice (ratio, n, cellStruct):
     #aRatio = (ratio * n) / n;
-    if (cellStruct == "CM"):
+    if (cellStruct == "CMM"):
         #rhombus
-        return math.floor((n * ratio) * 4);
-    elif (cellStruct == "PM" or cellStruct == "PG" or cellStruct == "PMM" or cellStruct == "PMG" or cellStruct == "PGG"):
-        #rectangle/square
-        return math.floor((n * ratio) * 4);
+        tileArea = round(np.sqrt((n**2 * ratio) * 2));
+        if (tileArea % 2 == 0):
+            wpSize = n;
+        else:
+            wpSize = np.sqrt(((((tileArea + 1)**2) / ratio) / 2));
+        return (tileArea, wpSize);
+    #For square lattice = 'P1', 'CM', 'PMG', 'PGG','PMG', 'PMM', 'P4', 'P4M', 'P4G'
+    elif (cellStruct == "P1" or cellStruct == "CM" or cellStruct == "PMM" or cellStruct == "PMG" or cellStruct == "PGG" or cellStruct == "P4" or cellStruct == "P4M" or cellStruct == "P4G"):
+        #square
+        tileArea = round(np.sqrt((n**2 * ratio)));
+        if (tileArea % 2 == 0):
+            wpSize = n;
+        else:
+            wpSize = np.sqrt((((tileArea + 1)**2) / ratio));
+        return (tileArea, wpSize);
+    elif (cellStruct == "P2" or cellStruct == "PM" or cellStruct == "PG"):
+        #rectangle
+        tileArea = round(np.sqrt((n**2 * ratio) * 2));
+        if (tileArea % 2 == 0):
+            wpSize = n;
+        else:
+            wpSize = np.sqrt(((((tileArea + 1)**2) / ratio) / 2));
+        return (tileArea, wpSize);
     elif (cellStruct == "P3"):
-        return math.floor(np.sqrt((n**2 * ratio)));
+        #print(math.floor((np.sqrt(((3 * (ratio * n**2)) / 2)) / 1.5) * np.sqrt(3 * np.tan(np.pi / 3))));
+        tileArea = round((np.sqrt(((3 * (ratio * n**2)) / 2)) / 1.5) * np.sqrt(3 * np.tan(np.pi / 3)));
+        if (tileArea % 2 == 0):
+            wpSize = n;
+        else:
+            wpSize = np.sqrt((((((tileArea + 1) / np.sqrt(3 * np.tan(np.pi / 3)))**2) * 1.5) / 3) / ratio);
+        return (tileArea, wpSize);
     else:
         return math.floor(n * ratio * 2);
 
@@ -317,21 +352,21 @@ if __name__ == "__main__":
     
 	parser = argparse.ArgumentParser(
 	    description='Wallpaper Generator')
-	parser.add_argument('--groups', '-g', default=['P1','P2','P4','P3','P6'], type=list, #need to write function to convert str to list
+	parser.add_argument('--groups', '-g', default=['P1','P2','P4','P3','P6'], type=str2list, #need to write function to convert str to list
                     help='Groups to create')
 	parser.add_argument('--nGroup', '-n', default=100, type=int,
                     help='Number of images per group')
-	parser.add_argument('--visualAngle', '-v', default=30.0, type=float,
+	parser.add_argument('--visualAngle', '-v', default=30.0, type=str,
                     help='Wallpaper size (visual angle)')
-	parser.add_argument('--distance', '-d', default=30.0, type=float,
+	parser.add_argument('--distance', '-d', default=30.0, type=str,
                     help='Distance beteween eye and wallpaper')
-	parser.add_argument('--tileArea', '-t', default=150*150, type=int,
+	parser.add_argument('--tileArea', '-t', default=150*150, type=str,
                     help='Tile area')
 	parser.add_argument('--latticeSize', '-l', default=False, type=str2bool,
                     help='Size wallpaper as a ratio between the lattice and wallpaper size')
 	parser.add_argument('--fundRegSize', '-fr', default=False, type=str2bool,
                     help='Size wallpaper as a ratio between the fundamental region and wallpaper size')
-	parser.add_argument('--ratio', '-ra', default=1.0, type=float,
+	parser.add_argument('--ratio', '-ra', default=1.0, type=str,
                     help='Size wallpaper as a ratio')
 	parser.add_argument('--saveFmt', '-f', default="png", type=str,
                     help='Image save format')
@@ -352,5 +387,5 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.distance, args.tileArea, args.latticeSize, args.fundRegSize, args.ratio, args.saveFmt, args.saveRaw, 
+	generateWPTImagesMain(args.groups, args.nGroup, float(eval("args.visualAngle")), float(eval("args.distance")), round(eval("args.tileArea")), args.latticeSize, args.fundRegSize, float(eval("args.ratio")), args.saveFmt, args.saveRaw, 
                        args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);
