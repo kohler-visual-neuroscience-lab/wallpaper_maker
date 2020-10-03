@@ -1,9 +1,13 @@
+import os
+from datetime import datetime
+
 import numpy as np
 import numpy.matlib
 import math
 from PIL import Image
 from skimage import draw as skd
 import warnings
+import matplotlib.pyplot as plt
 
 def filterTile(inTile, filterIntensity):
     #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
@@ -39,16 +43,31 @@ def new_p3(tile):
     
     # For magfactor, use a multiple of 3 to avoid the rounding error
     # when stacking two_tirds, one_third tiles together
+    #cm = plt.get_cmap("gray");
+    #saveStr = os.getcwd() + '\\WPSet\\';
+    #today = datetime.today();
+    #timeStr = today.strftime("%Y%m%d_%H%M%S");
+    #sPath = saveStr + timeStr; 
+    
+    
     
     magfactor = 9;
     tileIm = Image.fromarray(tile);
+
+    #patternPath = sPath + "_Initial_Tile" + '.' + "png";
+    #Image.fromarray((cm(tile)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
+
     tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
-    height = np.size(tile1, 0);
     
+    #patternPath = sPath + "_Resized_Tile" + '.' + "png";
+    #Image.fromarray((cm(tile1)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
+    height = np.size(tile1, 0);
+
     # fundamental region is equlateral rhombus with side length = s
     
-    s1 = round(height / 3);
+    s1 = round((height / 3));
     s = 2 * s1;
     
     # NOTE on 'ugly' way of calculating the widt = h
@@ -59,13 +78,24 @@ def new_p3(tile):
     
     width = round(height / math.sqrt(3)) - 1;
     # width = min(round(height/sqrt(3)), size(tile1, 2)) - 1;
-   
+    print(s / 9);
+    print(width / 9);
     # define rhombus-shaped mask
-    
+    print(height / 9);
     xy = np.array ([[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]]);
+    
+    #patternPath = sPath + "_Rhombus_shape" + '.' + "png";
+    #Image.fromarray((cm(xy)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
     
     mask = skd.polygon2mask((height, width), xy);
     tile0 = mask * tile1[:, :width];
+
+    #patternPath = sPath + "_mask" + '.' + "png";
+    #Image.fromarray((cm(mask.astype(int) * 255)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+
+    #patternPath = sPath + "_tile0" + '.' + "png";
+    #Image.fromarray((cm(tile0)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+
     # rotate rectangle by 120, 240 degs
    
     # note on 120deg rotation: 120 deg rotation of rhombus-shaped 
@@ -80,6 +110,12 @@ def new_p3(tile):
     tile240 = np.array(tile0Im_rot240);
     
     # manually trim the tiles:
+ 
+    #patternPath = sPath + "_tile0Im_rot120" + '.' + "png";
+    #Image.fromarray((cm(tile120.astype(int))[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");   
+    
+    #patternPath = sPath + "_tile0Im_rot240" + '.' + "png";
+    #Image.fromarray((cm(tile240.astype(int))[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
    
     # tile120 should have the same size as rectangle: [heigh x width]
     # tile120 = tile120(1:height, (floor(0.5*width) + 1):(floor(0.5*width) + width));
@@ -99,7 +135,16 @@ def new_p3(tile):
     two_thirds1 = np.concatenate((tile0, tile120), axis=1);
     two_thirds2 = np.concatenate((tile120, tile0), axis=1);
     
+    #patternPath = sPath + "_two_thirds1" + '.' + "png";
+    #Image.fromarray((cm(two_thirds1)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
+    #patternPath = sPath + "_two_thirds2" + '.' + "png";
+    #Image.fromarray((cm(two_thirds2)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
     two_thirds = np.concatenate((two_thirds1, two_thirds2));
+    
+    #patternPath = sPath + "_two_thirds" + '.' + "png";
+    #Image.fromarray((cm(two_thirds)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
     
     #lower half of tile240 on the top, zero-padded to [height x 2 width]
     rowStart = int(0.5 * s);
@@ -126,10 +171,14 @@ def new_p3(tile):
     
     #size(whole) = [3xheight 2xwidth]
     whole = np.maximum(two_thirds, one_third);
+
     wholeIm = Image.fromarray(whole);
     # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
     wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
+    
     p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC));
+    #p3 = np.hstack((p3, p3));
+
     return p3;
 
 def new_p3m1(tile):
@@ -474,7 +523,6 @@ def generateWPimage(wptype,N,n,optTexture = None):
     # N is the size of the output image. For complex groups
     #   returned image will have size at least NxN.
     # n the size of repeating pattern for all groups.
-    
     #default 
     if optTexture == None: 
         grain = 1;
@@ -515,10 +563,13 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 start_tile = texture[:height, :width];
                 mirror = np.flipud(start_tile);
                 pm = np.concatenate((start_tile, mirror));
+                cmap = plt.get_cmap("gray");
+                pmmim = cmap(pm);
+                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
                 image = catTiles(pm, N, wptype);
                 return image;                
         elif wptype == 'PG':
-                height = round(0.5*n);
+                height = round(n/2);
                 width = 2*height;
                 start_tile = texture[:height, :width];
                 #start_tileIm = Image.fromarray(start_tile);
@@ -526,6 +577,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 #tile = np.array(tile);
                 glide = np.flipud(tile);
                 pg = np.concatenate((tile, glide), axis=1);
+                cmap = plt.get_cmap("gray");
+                pmmim = cmap(pg);
+                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
                 image = catTiles(pg.T, N, wptype);
                 return image;                  
         elif wptype == 'CM':
@@ -536,6 +590,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 tile1 = np.concatenate((start_tile, mirror), axis=1);
                 tile2 = np.concatenate((mirror, start_tile), axis=1);
                 cm = np.concatenate((tile1, tile2));
+                cmap = plt.get_cmap("gray");
+                pmmim = cmap(cm);
+                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
                 image = catTiles(cm, N, wptype);
                 return image;                
         elif wptype == 'PMM':
@@ -546,6 +603,10 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((start_tile, mirror), axis=1);
                 concatTmp2 = np.concatenate((np.flipud(start_tile), np.flipud(mirror)), axis=1);
                 pmm = np.concatenate((concatTmp1, concatTmp2));
+                
+                cmap = plt.get_cmap("gray");
+                pmmim = cmap(pmm);
+                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
                 image = catTiles(pmm, N, wptype);
                 return image;                 
         elif wptype == 'PMG':
@@ -566,6 +627,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((start_tile, np.flipud(start_tile)), axis=1);
                 concatTmp2 = np.concatenate((np.fliplr(start_tile), start_tile_rot180), axis=1);
                 pgg = np.concatenate((concatTmp1, concatTmp2));
+                cmap = plt.get_cmap("gray");
+                pmmim = cmap(pgg);
+                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
                 image = catTiles(pgg, N, wptype);
                 return image;                 
         elif wptype == 'CMM':
@@ -578,6 +642,11 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((tile1, tile2), axis=1);
                 concatTmp2 = np.concatenate((tile2, tile1), axis=1);
                 cmm = np.concatenate((concatTmp1, concatTmp2));
+                
+                cmap = plt.get_cmap("gray");
+                pmmim = cmap(cmm);
+                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
+                
                 image = catTiles(cmm, N, wptype);
                 return image;                 
         elif wptype == 'P4':
@@ -630,10 +699,13 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 return image;
         elif wptype == 'P3':
                 alpha = np.pi/3;
-                s = n / math.sqrt(3 * np.tan(alpha));
-                height = round(s * 1.5);
+                s = n  / math.sqrt(3 * np.tan(alpha));
+                height = math.floor(s * 1.5);
                 start_tile = texture[:height,:];
                 p3 = new_p3(start_tile);
+                cmap = plt.get_cmap("gray");
+                pmmim = cmap(p3);
+                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
                 image = catTiles(p3, N, wptype);
                 return image;                
         elif wptype == 'P3M1':
@@ -683,10 +755,69 @@ def catTiles(tile, N, wptype):
     #write tile
     #tileIm = Image.fromarray(tile);
     #tileIm.save('~/Documents/PYTHON/tiles/' + wptype + '_tile.jpeg', 'JPEG');
-    dN = tuple((1 + math.floor(N / ti)) for ti in np.shape(tile))
-    #dN = 1 + math.floor(N / np.shape(tile));
-    img = numpy.matlib.repmat(tile, dN[0], dN[1]);
-    return img                 
+    
+    #resize tile to ensure it will fit wallpaper size properly
+    if (tile.shape[0] > N):
+        tile = tile[:N,:];
+        print(tile.shape);
+    if (tile.shape[0] % 2 != 0):
+        tile = tile[:tile.shape[0] - 1,:];
+        print(tile.shape);
+    if (tile.shape[1] % 2 != 0):
+        tile = tile[:,:tile.shape[1] - 1];
+        print(tile.shape);
+    dN = tuple(1 +(math.floor(N / ti)) for ti in np.shape(tile));
+
+    row = dN[0];
+    col = dN[1];
+    
+    #to avoid divide by zero errors
+    if(dN[0] == 1):
+        row = row + 1;
+    if(dN[1] == 1):
+        col = col + 1;
+    
+    #repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
+    img = numpy.matlib.repmat(tile, row - 1, col - 1);
+
+    row = math.floor(img.shape[0] + tile.shape[0] * ((1 + (N / tile.shape[0])) - dN[0]));
+    col = math.floor(img.shape[1] + tile.shape[1] * ((1 + (N / tile.shape[1])) - dN[1]));
+    if (math.floor(img.shape[0] + tile.shape[0] * ((1 + (N / tile.shape[0])) - dN[0])) % 2 != 0):
+        row = row + 1;
+
+    if (math.floor(img.shape[1] + tile.shape[1] * ((1 + (N / tile.shape[1])) - dN[1])) % 2 != 0):
+        col =  col + 1;
+
+    img_final = np.zeros((row, col));
+
+
+    #centers the evenly created tile and then even distributes the rest of the tile around the border s.t. the total size of the wallpaper = the desired input size of the wallpaper
+    img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2): img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2),math.ceil((img_final.shape[1] - img.shape[1]) / 2): img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[:,:];
+    img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2) : img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2), : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[ :, img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):];
+    img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2) : img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2), img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2): ] = img[ :, : math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
+    img_final[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), math.ceil((img_final.shape[1] - img.shape[1]) / 2) : img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2) ] = img[ img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, : ];
+    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2) : , math.ceil((img_final.shape[1] - img.shape[1]) / 2) : img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2) ] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), : ];
+    img_final[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):];
+    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):];
+    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2) : ] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
+    img_final[:math.ceil((img_final.shape[0] - img.shape[0]) / 2) ,  img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2): ] = img[ img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2) : , :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
+    
+    return img_final
+
+#old cat function
+# def catTiles(tile, N, wptype):
+#     #disp tile square
+#     sq = np.shape(tile)[0] * np.shape(tile)[1];
+#     print(wptype + ' area of tile = ', sq);                
+    
+#     #write tile
+#     #tileIm = Image.fromarray(tile);
+#     #tileIm.save('~/Documents/PYTHON/tiles/' + wptype + '_tile.jpeg', 'JPEG');
+#     dN = tuple((1 + math.floor(N / ti)) for ti in np.shape(tile))
+#     #dN = 1 + math.floor(N / np.shape(tile));
+#     img = numpy.matlib.repmat(tile, dN[0], dN[1]);
+#     return img  
+              
 # array of coefficients(DO NOT CHANGE):
 # tile sizes by groups:     tile_in     tile_out         square ratio       width ratio
 # P1:                        (n, n)      (n, n)              1                  1

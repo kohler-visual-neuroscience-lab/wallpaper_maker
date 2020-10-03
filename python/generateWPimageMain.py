@@ -73,7 +73,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         nGroup = 1;
         #ratio = 1;
         #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-        keySet = ['PM'];
+        keySet = ['P3'];
         wpSize = 300;
     
     valueSet = np.arange(101, 101 + len(keySet), 1);
@@ -102,11 +102,9 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             wpSize = size[1];
             n = size[0];
         elif (fundRegSize == True):
-            size = sizeFundamentalRegion(ratio, wpSize, group);
-            wpSize = size[1];
-            n = size[0];
+            n = sizeFundamentalRegion(ratio, wpSize, group);
         else:
-            size = round(math.sqrt(tileArea));
+            n = round(math.sqrt(tileArea));
         
         #n = 80
         raw = gwi.generateWPimage(group, wpSize, n);
@@ -271,6 +269,7 @@ def str2list(v):
         return list(v.split(","));
 
 def sizeFundamentalRegion (ratio, n, cellStruct):
+    print("here")
     if (cellStruct == "rhomb"):
         #0...1:1 aspect ratio
         return n;
@@ -286,7 +285,17 @@ def sizeFundamentalRegion (ratio, n, cellStruct):
         return n;
     elif (cellStruct == "squarerc"):
         return n;
-    elif (cellStruct == "hex"):
+    elif (cellStruct == "P3"):
+        #solved symbolically using mathematical software (maple)
+        n = round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * (n**2 * ratio)));
+        
+        #if (tileArea % 2 == 0):
+           # wpSize = n;
+        #else:
+            #print(((((2 / 3) * (1.5 * tileArea / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - (tileArea / np.sqrt(3 * np.tan(np.pi / 3)))));
+        #wpSize = round(np.sqrt((((((2 / 3) * (1.5 * tileArea / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - (tileArea / np.sqrt(3 * np.tan(np.pi / 3)))) / ratio)));
+            #if (wpSize % 2 != 0):
+                #wpSize = wpSize + 1;
         return n;
     elif (cellStruct == "hextm"):
         return n;
@@ -306,7 +315,9 @@ def sizeLattice (ratio, n, cellStruct):
         if (tileArea % 2 == 0):
             wpSize = n;
         else:
-            wpSize = np.sqrt(((((tileArea + 1)**2) / ratio) / 2));
+            wpSize = round(np.sqrt(((((tileArea + 1)**2) / ratio) / 2)));
+            if (wpSize % 2 != 0):
+                wpSize = wpSize + 1;
         return (tileArea, wpSize);
     #For square lattice = 'P1', 'CM', 'PMG', 'PGG','PMG', 'PMM', 'P4', 'P4M', 'P4G'
     elif (cellStruct == "P1" or cellStruct == "CM" or cellStruct == "PMM" or cellStruct == "PMG" or cellStruct == "PGG" or cellStruct == "P4" or cellStruct == "P4M" or cellStruct == "P4G"):
@@ -315,7 +326,9 @@ def sizeLattice (ratio, n, cellStruct):
         if (tileArea % 2 == 0):
             wpSize = n;
         else:
-            wpSize = np.sqrt((((tileArea + 1)**2) / ratio));
+            wpSize = round(np.sqrt((((tileArea + 1)**2) / ratio)));
+            if (wpSize % 2 != 0):
+                wpSize = wpSize + 1;
         return (tileArea, wpSize);
     elif (cellStruct == "P2" or cellStruct == "PM" or cellStruct == "PG"):
         #rectangle
@@ -323,16 +336,22 @@ def sizeLattice (ratio, n, cellStruct):
         if (tileArea % 2 == 0):
             wpSize = n;
         else:
-            wpSize = np.sqrt(((((tileArea + 1)**2) / ratio) / 2));
+            wpSize = round(np.sqrt(((((tileArea + 1)**2) / ratio) / 2)));
+            if (wpSize % 2 != 0):
+                wpSize = wpSize + 1;
         return (tileArea, wpSize);
     elif (cellStruct == "P3"):
-        #print(math.floor((np.sqrt(((3 * (ratio * n**2)) / 2)) / 1.5) * np.sqrt(3 * np.tan(np.pi / 3))));
-        tileArea = round((np.sqrt(((3 * (ratio * n**2)) / 2)) / 1.5) * np.sqrt(3 * np.tan(np.pi / 3)));
-        if (tileArea % 2 == 0):
-            wpSize = n;
-        else:
-            wpSize = np.sqrt((((((tileArea + 1) / np.sqrt(3 * np.tan(np.pi / 3)))**2) * 1.5) / 3) / ratio);
-        return (tileArea, wpSize);
+        #solved symbolically using mathematical software (maple)
+        tileArea = round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * ((n**2 * ratio) / 3)));
+        
+        #if (tileArea % 2 == 0):
+           # wpSize = n;
+        #else:
+            #print(((((2 / 3) * (1.5 * tileArea / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - (tileArea / np.sqrt(3 * np.tan(np.pi / 3)))));
+        #wpSize = round(np.sqrt((((((2 / 3) * (1.5 * (tileArea / 3) / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - ((tileArea / 3) / np.sqrt(3 * np.tan(np.pi / 3)))) / ratio)));
+            #if (wpSize % 2 != 0):
+                #wpSize = wpSize + 1;
+        return (tileArea, n);
     else:
         return math.floor(n * ratio * 2);
 
@@ -386,6 +405,7 @@ if __name__ == "__main__":
                     help='debugging default parameters on')
 
 	args = parser.parse_args()
-
+    
+    #need to investigate error in eval function
 	generateWPTImagesMain(args.groups, args.nGroup, float(eval("args.visualAngle")), float(eval("args.distance")), round(eval("args.tileArea")), args.latticeSize, args.fundRegSize, float(eval("args.ratio")), args.saveFmt, args.saveRaw, 
                        args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);
