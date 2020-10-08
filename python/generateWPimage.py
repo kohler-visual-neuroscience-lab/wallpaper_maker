@@ -78,10 +78,9 @@ def new_p3(tile):
     
     width = round(height / math.sqrt(3)) - 1;
     # width = min(round(height/sqrt(3)), size(tile1, 2)) - 1;
-    print(s / 9);
-    print(width / 9);
+
     # define rhombus-shaped mask
-    print(height / 9);
+
     xy = np.array ([[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]]);
     
     #patternPath = sPath + "_Rhombus_shape" + '.' + "png";
@@ -277,10 +276,9 @@ def  new_p31m(tile):
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
     tile0 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BILINEAR));
-    
+
     height = np.shape(tile0)[0];
     width = round(0.5 * height / math.sqrt(3));
-
     y1 = round(height / 2);
     
     # fundamental region is an isosceles triangle with angles(30, 120, 30)
@@ -516,7 +514,7 @@ def new_p6m(tile):
     p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC)); 
     return p6m;
 
-def generateWPimage(wptype,N,n,optTexture = None):
+def generateWPimage(wptype,N,n,ratio,optTexture = None):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -543,8 +541,10 @@ def generateWPimage(wptype,N,n,optTexture = None):
         elif wptype == 'P1':
                 width = n;
                 height = width;
-                #square lattice
                 p1 = texture[:height, :width];
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p1.shape[0] * p1.shape[1])):.1f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - p1.shape[0] * p1.shape[1]) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p1, N, wptype);
                 return image;                
         elif wptype == 'P2':
@@ -555,6 +555,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 tileR180 = start_tileIm.rotate(180)
                 tileR180 = np.array(tileR180);
                 p2 = np.concatenate((start_tile, tileR180));
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p2.shape[0] * p2.shape[1]) / 2):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - (p2.shape[0] * p2.shape[1]) / 2) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p2, N, wptype);       
                 return image;
         elif wptype == 'PM':
@@ -563,9 +566,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 start_tile = texture[:height, :width];
                 mirror = np.flipud(start_tile);
                 pm = np.concatenate((start_tile, mirror));
-                cmap = plt.get_cmap("gray");
-                pmmim = cmap(pm);
-                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
+                print('Area of Fundamental Region of ' + wptype + f' =  {((pm.shape[0] * pm.shape[1]) / 2):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pm.shape[0] * pm.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(pm, N, wptype);
                 return image;                
         elif wptype == 'PG':
@@ -577,9 +580,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 #tile = np.array(tile);
                 glide = np.flipud(tile);
                 pg = np.concatenate((tile, glide), axis=1);
-                cmap = plt.get_cmap("gray");
-                pmmim = cmap(pg);
-                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
+                print('Area of Fundamental Region of ' + wptype + f' =  {((pg.shape[0] * pg.shape[1]) / 2):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pg.shape[0] * pg.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(pg.T, N, wptype);
                 return image;                  
         elif wptype == 'CM':
@@ -590,9 +593,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 tile1 = np.concatenate((start_tile, mirror), axis=1);
                 tile2 = np.concatenate((mirror, start_tile), axis=1);
                 cm = np.concatenate((tile1, tile2));
-                cmap = plt.get_cmap("gray");
-                pmmim = cmap(cm);
-                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
+                print('Area of Fundamental Region of ' + wptype + f' =  {((cm.shape[0] * cm.shape[1]) / 4):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((cm.shape[0] * cm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(cm, N, wptype);
                 return image;                
         elif wptype == 'PMM':
@@ -603,10 +606,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((start_tile, mirror), axis=1);
                 concatTmp2 = np.concatenate((np.flipud(start_tile), np.flipud(mirror)), axis=1);
                 pmm = np.concatenate((concatTmp1, concatTmp2));
-                
-                cmap = plt.get_cmap("gray");
-                pmmim = cmap(pmm);
-                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
+                print('Area of Fundamental Region of ' + wptype + f' =  {((pmm.shape[0] * pmm.shape[1]) / 4):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pmm.shape[0] * pmm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(pmm, N, wptype);
                 return image;                 
         elif wptype == 'PMG':
@@ -617,6 +619,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((start_tile, start_tile_rot180), axis=1);
                 concatTmp2 = np.concatenate((np.flipud(start_tile), np.fliplr(start_tile)), axis=1);
                 pmg = np.concatenate((concatTmp1, concatTmp2));
+                print('Area of Fundamental Region of ' + wptype + f' =  {((pmg.shape[0] * pmg.shape[1]) / 4):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pmg.shape[0] * pmg.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(pmg, N, wptype);
                 return image;                 
         elif wptype == 'PGG':
@@ -627,9 +632,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((start_tile, np.flipud(start_tile)), axis=1);
                 concatTmp2 = np.concatenate((np.fliplr(start_tile), start_tile_rot180), axis=1);
                 pgg = np.concatenate((concatTmp1, concatTmp2));
-                cmap = plt.get_cmap("gray");
-                pmmim = cmap(pgg);
-                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
+                print('Area of Fundamental Region of ' + wptype + f' =  {((pgg.shape[0] * pgg.shape[1]) / 4):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pgg.shape[0] * pgg.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(pgg, N, wptype);
                 return image;                 
         elif wptype == 'CMM':
@@ -641,12 +646,10 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 tile2 = np.flipud(tile1);
                 concatTmp1 = np.concatenate((tile1, tile2), axis=1);
                 concatTmp2 = np.concatenate((tile2, tile1), axis=1);
-                cmm = np.concatenate((concatTmp1, concatTmp2));
-                
-                cmap = plt.get_cmap("gray");
-                pmmim = cmap(cmm);
-                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
-                
+                cmm = np.concatenate((concatTmp1, concatTmp2)); 
+                print('Area of Fundamental Region of ' + wptype + f' =  {((cmm.shape[0] * cmm.shape[1]) / 4):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((cmm.shape[0] * cmm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(cmm, N, wptype);
                 return image;                 
         elif wptype == 'P4':
@@ -659,6 +662,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((start_tile, start_tile_rot270), axis=1);
                 concatTmp2 = np.concatenate((start_tile_rot90, start_tile_rot180), axis=1);                
                 p4 = np.concatenate((concatTmp1, concatTmp2));
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p4.shape[0] * p4.shape[1]) / 4):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4.shape[0] * p4.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p4, N, wptype); 
                 return image; 
         elif wptype == 'P4M':
@@ -677,6 +683,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((tile, tile_rot270), axis=1);
                 concatTmp2 = np.concatenate((tile_rot90, tile_rot180), axis=1); 
                 p4m = np.concatenate((concatTmp1, concatTmp2));
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p4m.shape[0] * p4m.shape[1]) / 8):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4m.shape[0] * p4m.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p4m, N, wptype);   
                 return image; 
         elif wptype == 'P4G':
@@ -695,6 +704,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1);
                 concatTmp2 = np.concatenate((tile, tile_rot90), axis=1); 
                 p4g = np.concatenate((concatTmp1, concatTmp2));
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p4g.shape[0] * p4g.shape[1]) / 8):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4g.shape[0] * p4g.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p4g, N, wptype);   
                 return image;
         elif wptype == 'P3':
@@ -703,9 +715,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 height = math.floor(s * 1.5);
                 start_tile = texture[:height,:];
                 p3 = new_p3(start_tile);
-                cmap = plt.get_cmap("gray");
-                pmmim = cmap(p3);
-                Image.fromarray((pmmim[:, :, :3] * 255).astype(np.uint8)).show();
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p3.shape[0] * p3.shape[1]) / 6):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3.shape[0] * p3.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p3, N, wptype);
                 return image;                
         elif wptype == 'P3M1':
@@ -715,6 +727,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 start_tile = texture[:height,:];               
                 p3m1 = new_p3m1(start_tile);                
                 image = catTiles(p3m1, N, wptype);
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p3m1.shape[0] * p3m1.shape[1]) / 36):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3m1.shape[0] * p3m1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
                 return image;                
         elif wptype == 'P31M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -723,6 +738,9 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 p31m = new_p31m(start_tile);
                 #ugly trick
                 p31m_1 = np.fliplr(np.transpose(p31m));
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p31m_1.shape[0] * p31m_1.shape[1]) / 36):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p31m_1.shape[0] * p31m_1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p31m_1, N, wptype);    
                 return image;
         elif wptype == 'P6':
@@ -730,13 +748,19 @@ def generateWPimage(wptype,N,n,optTexture = None):
                 height = round(s);
                 start_tile = texture[:height,:];              
                 p6 = new_p6(start_tile);
-                image = catTiles(p6, N, wptype); 
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p6.shape[0] * p6.shape[1]) / 36):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6.shape[0] * p6.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
+                image = catTiles(p6, N, wptype);
                 return image;
         elif wptype == 'P6M':
                 s = n/math.sqrt(math.sqrt(3));
                 height = round(s/2);
                 start_tile = texture[:height,:];
                 p6m = new_p6m(start_tile);
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p6m.shape[0] * p6m.shape[1]) / 72):.2f}');
+                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6m.shape[0] * p6m.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p6m, N, wptype); 
                 return image;
         else:
@@ -758,14 +782,15 @@ def catTiles(tile, N, wptype):
     
     #resize tile to ensure it will fit wallpaper size properly
     if (tile.shape[0] > N):
-        tile = tile[:N,:];
-        print(tile.shape);
+        tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), : ];
+        N = tile.shape[0];
+    if (tile.shape[1] > N):
+        tile = tile[:, round((tile.shape[1] - N) / 2): round((N + (tile.shape[1] - N) / 2))];
+        N = tile.shape[1];
     if (tile.shape[0] % 2 != 0):
         tile = tile[:tile.shape[0] - 1,:];
-        print(tile.shape);
     if (tile.shape[1] % 2 != 0):
         tile = tile[:,:tile.shape[1] - 1];
-        print(tile.shape);
     dN = tuple(1 +(math.floor(N / ti)) for ti in np.shape(tile));
 
     row = dN[0];

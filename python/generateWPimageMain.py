@@ -72,8 +72,8 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     if (debug == True):
         nGroup = 1;
         #ratio = 1;
-        #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-        keySet = ['P3'];
+        keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+        #keySet = ['P1'];
         wpSize = 300;
     
     valueSet = np.arange(101, 101 + len(keySet), 1);
@@ -98,16 +98,14 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         print('generating ', Groups[i]);
         group = Groups[i];
         if (latticeSize == True):
-            size = sizeLattice (ratio, wpSize, group);
-            wpSize = size[1];
-            n = size[0];
+            n = sizeLattice (ratio, wpSize, group);
         elif (fundRegSize == True):
             n = sizeFundamentalRegion(ratio, wpSize, group);
         else:
             n = round(math.sqrt(tileArea));
         
         #n = 80
-        raw = gwi.generateWPimage(group, wpSize, n);
+        raw = gwi.generateWPimage(group, wpSize, n, ratio);
         cm = plt.get_cmap(cmap);
         raw_image =  cm(raw);
         rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
@@ -124,18 +122,13 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             
             avgRaw = spectra(raw, new_mag=avgMag); # replace each image's magnitude with the average
             filtered = cm(filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
-            
-            #masked = maskImg(filtered, wpSize); # masking the image (final step)
+            masked = maskImg(filtered, wpSize); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
-            #scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
-            #scrambled_filtered = cm(filterImg(scrambled_raw, wpSize));
-            #scrambled_masked = maskImg(scrambled_filtered, wpSize);
-            #print(scrambled_masked);
-            #scrambled_masked = maskImg(scrambled_filtered, wpSize);
-            #print(scrambled_masked);
-            #scrambled_masked[scrambled_masked == 0.5] = gray_cm(scrambled_masked); 
+            scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
+            scrambled_filtered = cm(filterImg(scrambled_raw, wpSize));
+            scrambled_masked = maskImg(scrambled_filtered, wpSize); 
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
             # saving averaged and scrambled images
@@ -149,9 +142,10 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             
             patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap + '.' + saveFmt;
             
-            Image.fromarray((filtered[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
+            Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
-            #Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
+            if(pssscrambled == True or psscrambled == True):
+                Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
            
             
         #all_in_one = cellfun(@(x,y,z) cat(2,x(1:wpSize,1:wpSize),y(1:wpSize,1:wpSize),z(1:wpSize,1:wpSize)),raw,avgRaw,filtered,'uni',false);
@@ -265,95 +259,61 @@ def str2list(v):
     if isinstance(v, list):
         return v;
     else:
-        print(list(v.split(",")));
         return list(v.split(","));
 
 def sizeFundamentalRegion (ratio, n, cellStruct):
-    print("here")
-    if (cellStruct == "rhomb"):
-        #0...1:1 aspect ratio
-        return n;
-    elif (cellStruct == "recttb"):
-        return n;
-    elif (cellStruct == "PM"):
+    # 0...1:1 aspect ratio
+    if (cellStruct == "P1"):
+        return round(np.sqrt((n**2 * ratio)));
+    elif (cellStruct == "P2" or cellStruct == "PG" or cellStruct == "PM"):
+        return round(np.sqrt((n**2 * ratio)) * np.sqrt(2));
+    elif (cellStruct == "PMM" or cellStruct == "CMM" or cellStruct == "PMG" or cellStruct == "PGG" or cellStruct == "P4" or cellStruct == "CM"):
         return round(np.sqrt((n**2 * ratio) * 4));
-    elif (cellStruct == "PMM"):
-        return round(np.sqrt((n**2 * ratio) * 4));
-    elif (cellStruct == "CMM"):
-        return round(np.sqrt((n**2 * ratio) * 4));
-    elif (cellStruct == "squarec"):
-        return n;
-    elif (cellStruct == "squarerc"):
-        return n;
+    elif (cellStruct == "P4M" or cellStruct == "P4G"):
+        return round(np.sqrt((n**2 * ratio) * 8));
     elif (cellStruct == "P3"):
-        #solved symbolically using mathematical software (maple)
-        n = round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * (n**2 * ratio)));
-        
-        #if (tileArea % 2 == 0):
-           # wpSize = n;
-        #else:
-            #print(((((2 / 3) * (1.5 * tileArea / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - (tileArea / np.sqrt(3 * np.tan(np.pi / 3)))));
-        #wpSize = round(np.sqrt((((((2 / 3) * (1.5 * tileArea / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - (tileArea / np.sqrt(3 * np.tan(np.pi / 3)))) / ratio)));
-            #if (wpSize % 2 != 0):
-                #wpSize = wpSize + 1;
-        return n;
-    elif (cellStruct == "hextm"):
-        return n;
-    elif (cellStruct == "hextb"):
-        return n;
-    elif (cellStruct == "hextbc"):
-        return n;
+        # equilateral rhombus
+        # solved symbolically using mathematical software (maple)
+        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * (n**2 * ratio)));
+    elif (cellStruct == "P3M1"):
+        # equilateral triangle
+        return round(np.sqrt(((n**2 * ratio) * 3 / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)));
+    elif (cellStruct == "P31M" or cellStruct == "P6"):
+        # isosceles triangle
+        # solved symbolically using mathematical software (maple)
+        return round (6 * np.sqrt((n**2 * ratio)));
+    elif (cellStruct == "P6M"):
+        # right angle triangle
+        # solved symbolically using mathematical software (maple)
+        return round (6 * np.sqrt(2) * np.sqrt((n**2 * ratio)));
     else:
-        #P1 tile square cellStructure
-        return n * ratio * 2;
+        return round(n * ratio * 2);
 
 def sizeLattice (ratio, n, cellStruct):
-    #aRatio = (ratio * n) / n;
-    if (cellStruct == "CMM"):
-        #rhombus
-        tileArea = round(np.sqrt((n**2 * ratio) * 2));
-        if (tileArea % 2 == 0):
-            wpSize = n;
-        else:
-            wpSize = round(np.sqrt(((((tileArea + 1)**2) / ratio) / 2)));
-            if (wpSize % 2 != 0):
-                wpSize = wpSize + 1;
-        return (tileArea, wpSize);
-    #For square lattice = 'P1', 'CM', 'PMG', 'PGG','PMG', 'PMM', 'P4', 'P4M', 'P4G'
-    elif (cellStruct == "P1" or cellStruct == "CM" or cellStruct == "PMM" or cellStruct == "PMG" or cellStruct == "PGG" or cellStruct == "P4" or cellStruct == "P4M" or cellStruct == "P4G"):
-        #square
-        tileArea = round(np.sqrt((n**2 * ratio)));
-        if (tileArea % 2 == 0):
-            wpSize = n;
-        else:
-            wpSize = round(np.sqrt((((tileArea + 1)**2) / ratio)));
-            if (wpSize % 2 != 0):
-                wpSize = wpSize + 1;
-        return (tileArea, wpSize);
-    elif (cellStruct == "P2" or cellStruct == "PM" or cellStruct == "PG"):
-        #rectangle
-        tileArea = round(np.sqrt((n**2 * ratio) * 2));
-        if (tileArea % 2 == 0):
-            wpSize = n;
-        else:
-            wpSize = round(np.sqrt(((((tileArea + 1)**2) / ratio) / 2)));
-            if (wpSize % 2 != 0):
-                wpSize = wpSize + 1;
-        return (tileArea, wpSize);
+    # 0...1:1 aspect ratio
+    if (cellStruct == "P1" or cellStruct == "PMM" or cellStruct == "PMG" or cellStruct == "PGG" or cellStruct == "P4" or cellStruct == "P4M" or cellStruct == "P4G" or cellStruct == "P2" or cellStruct == "PM" or cellStruct == "PG"):
+        # square and rectangular
+        return round(np.sqrt((n**2 * ratio)));
+    elif (cellStruct == "CM" or cellStruct == "CMM"):
+        # rhombic
+        return round(np.sqrt((n**2 * ratio) * 2));
     elif (cellStruct == "P3"):
-        #solved symbolically using mathematical software (maple)
-        tileArea = round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * ((n**2 * ratio) / 3)));
-        
-        #if (tileArea % 2 == 0):
-           # wpSize = n;
-        #else:
-            #print(((((2 / 3) * (1.5 * tileArea / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - (tileArea / np.sqrt(3 * np.tan(np.pi / 3)))));
-        #wpSize = round(np.sqrt((((((2 / 3) * (1.5 * (tileArea / 3) / np.sqrt(3 * np.tan(np.pi / 3)))**2) / (np.sqrt(3))) - ((tileArea / 3) / np.sqrt(3 * np.tan(np.pi / 3)))) / ratio)));
-            #if (wpSize % 2 != 0):
-                #wpSize = wpSize + 1;
-        return (tileArea, n);
+        # hexagonal
+        # solved symbolically using mathematical software (maple)
+        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * ((n**2 * ratio) / 3)));
+    elif (cellStruct == "P3M1"):
+        # hexagonal
+        return round(np.sqrt((((n**2 * ratio)  / 6) / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)));
+    elif (cellStruct == "P31M" or cellStruct == "P6"):
+        # hexagonal
+        # solved symbolically using mathematical software (maple)
+        return round (np.sqrt(2) * np.sqrt((n**2 * ratio)));
+    elif (cellStruct == "P6M"):
+        # hexagonal
+        # solved symbolically using mathematical software (maple)
+        return round (np.sqrt(2) * np.sqrt((n**2 * ratio)));
     else:
-        return math.floor(n * ratio * 2);
+        return round(n * ratio * 2);
 
 # returns average mag of the group
 def meanMag(freqGroup):
