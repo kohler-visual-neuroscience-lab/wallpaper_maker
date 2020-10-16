@@ -9,6 +9,8 @@ from skimage import draw as skd
 import warnings
 import matplotlib.pyplot as plt
 
+import psychopyFilter as filters
+
 def filterTile(inTile, filterIntensity):
     #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
 
@@ -38,6 +40,47 @@ def filterTile(inTile, filterIntensity):
     outTile = outTile / outTile.max();
     return outTile;
     #outTile = histeq(outTile);
+
+def spatial_filterTile(imsize, inTile, lofrq=0.0, hifrq=0.0):
+    # make the mean to be zero
+    raw_img = inTile - np.mean(inTile);
+    # make the standard deviation to be 1
+    raw_img = raw_img / np.std(raw_img);
+    # make the standard deviation to be the desired RMS
+    rms = 0.2;
+    raw_img = raw_img * rms;
+    
+    # convert to frequency domain
+    img_freq = np.fft.fft2(raw_img);
+
+    # calculate amplitude spectrum
+    #img_amp = np.fft.fftshift(np.abs(img_freq));
+
+    
+    if (lofrq == 0 and hifrq > 0):
+        print("low pass")
+        filt = filters.butter2d_lp(raw_img.shape,hifrq,10)
+    elif (lofrq > 0 and hifrq == 0):
+        print("high pass")
+        filt = filters.butter2d_hp(raw_img.shape,lofrq,10)
+    elif (lofrq == 0 and hifrq == 0):
+        return filterTile(inTile, 1);
+    else:
+        print("band pass")
+        filt = filters.butter2d_bp(raw_img.shape,lofrq, hifrq, 10)
+    
+    img_filt = np.fft.fftshift(img_freq) * filt
+
+    # convert back to an image
+    img_new = np.real(np.fft.ifft2(np.fft.ifftshift(img_filt)))
+    
+    # convert to mean zero and specified RMS contrast
+    img_new = img_new - np.mean(img_new)
+    img_new = img_new / np.std(img_new)
+    img_new = img_new * rms
+    
+    outTile = img_new;
+    return outTile;
 
 def new_p3(tile):
     
@@ -522,16 +565,24 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
     #   returned image will have size at least NxN.
     # n the size of repeating pattern for all groups.
     #default 
+    saveStr = os.getcwd() + '\\WPSet\\';
+    today = datetime.today();
+    timeStr = today.strftime("%Y%m%d_%H%M%S");
+    sPath = saveStr + timeStr; 
+    
     if optTexture == None: 
         grain = 1;
-        texture = filterTile(np.random.rand(n,n), grain);
+        #texture = filterTile(np.random.rand(n,n), grain);
+        texture = spatial_filterTile(n, np.random.rand(N,N), 0.00178, 0);
+        patternPath = sPath + "_Stage1"  + '.' + "png";
+        Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
     else:
         minDim = np.min(np.shape(optTexture));
         #stretch user-defined texture, if it is too small for sampling
         if minDim < n:
-            ratio = round(n / minDim);
-            #optTexture = imresize(optTexture, ratio, 'nearest');
-            optTexture = np.array(Image.resize(reversed((optTexture.shape * ratio)), Image.NEAREST));
+            ratioTexture = round(n / minDim);
+            #optTexture = imresize(optTexture, ratioTexture, 'nearest');
+            optTexture = np.array(Image.resize(reversed((optTexture.shape * ratioTexture)), Image.NEAREST));
         texture = optTexture;
     try:
         if wptype == 'P0':
@@ -609,6 +660,8 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + f' =  {((pmm.shape[0] * pmm.shape[1]) / 4):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pmm.shape[0] * pmm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+                patternPath = sPath + "_Stage2"  + '.' + "png";
+                Image.fromarray((pmm[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 image = catTiles(pmm, N, wptype);
                 return image;                 
         elif wptype == 'PMG':
