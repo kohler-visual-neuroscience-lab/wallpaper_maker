@@ -37,7 +37,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                           fundRegSize: bool=False, ratio: float=1.0, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
                           cmap: str="gray", debug: bool=False):
     #mapGroup = containers.Map(keySet, valueSet);
-    
+    distance = 40.0;
     #hexLattice = ['P3', 'P6'];
     #sqrLattice = ['P4'];
     #recLattice = [];
@@ -72,9 +72,9 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     if (debug == True):
         nGroup = 1;
         #ratio = 1;
-        keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-        #keySet = ['P1'];
-        wpSize = 300;
+        #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+        keySet = ['P3', 'P4', 'PMM','CM'];
+        #wpSize = 300;
     
     valueSet = np.arange(101, 101 + len(keySet), 1);
     mapgroup = {};
@@ -102,10 +102,10 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         elif (fundRegSize == True):
             n = sizeFundamentalRegion(ratio, wpSize, group);
         else:
-            n = round(math.sqrt(tileArea));
+            n = sizeTile (ratio, wpSize, group);
         
         #n = 80
-        raw = gwi.generateWPimage(group, wpSize, n, ratio);
+        raw = gwi.generateWPimage(group, wpSize, n, ratio, visualAngle);
         cm = plt.get_cmap(cmap);
         raw_image =  cm(raw);
         rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
@@ -120,9 +120,9 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             # get average magnitude
             
             
-            avgRaw = spectra(raw, new_mag=avgMag); # replace each image's magnitude with the average
+            avgRaw = (spectra(raw, new_mag=avgMag)); # replace each image's magnitude with the average
             filtered = cm(filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
-            masked = maskImg(filtered, wpSize); # masking the image (final step)
+            #masked = maskImg(filtered, wpSize); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
@@ -142,7 +142,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             
             patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap + '.' + saveFmt;
             
-            Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).save(patternPath, saveFmt);
+            Image.fromarray((filtered[:, :, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
             if(pssscrambled == True or psscrambled == True):
                 Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
@@ -175,7 +175,7 @@ def filterImg(inImg, N):
     # Make filter intensity adaptive (600 is empirical number)
     sigma = N / 600;
     lowpass = matlab_style_gauss2D((9, 9), sigma);
-
+    
     # filter
     image = scipy.ndimage.correlate(inImg, lowpass, mode='constant').transpose();
     
@@ -304,14 +304,29 @@ def sizeLattice (ratio, n, cellStruct):
     elif (cellStruct == "P3M1"):
         # hexagonal
         return round(np.sqrt((((n**2 * ratio)  / 6) / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)));
-    elif (cellStruct == "P31M" or cellStruct == "P6"):
+    elif (cellStruct == "P31M" or cellStruct == "P6" or cellStruct == "P6M"):
         # hexagonal
         # solved symbolically using mathematical software (maple)
         return round (np.sqrt(2) * np.sqrt((n**2 * ratio)));
-    elif (cellStruct == "P6M"):
+    else:
+        return round(n * ratio * 2);
+    
+def sizeTile (ratio, n, cellStruct):
+    # 0...1:1 aspect ratio
+    if (cellStruct == "P1" or cellStruct == "PMM" or cellStruct == "PMG" or cellStruct == "PGG" or cellStruct == "P4" or cellStruct == "P4M" or cellStruct == "P4G" or cellStruct == "P2" or cellStruct == "PM" or cellStruct == "PG" or cellStruct == "CM" or cellStruct == "CMM"):
+        # square and rectangular and rhombic
+        return round(np.sqrt((n**2 * ratio)));
+    elif (cellStruct == "P3"):
         # hexagonal
         # solved symbolically using mathematical software (maple)
-        return round (np.sqrt(2) * np.sqrt((n**2 * ratio)));
+        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * ((n**2 * ratio) / 6)));
+    elif (cellStruct == "P3M1"):
+        # hexagonal
+        return round(np.sqrt((((n**2 * ratio)  / 12) / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)));
+    elif (cellStruct == "P31M" or cellStruct == "P6" or cellStruct == "P6M"):
+        # hexagonal
+        # solved symbolically using mathematical software (maple)
+        return round (np.sqrt(2) * np.sqrt((n**2 * ratio) / 2));
     else:
         return round(n * ratio * 2);
 

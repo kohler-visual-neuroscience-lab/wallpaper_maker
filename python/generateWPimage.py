@@ -41,7 +41,7 @@ def filterTile(inTile, filterIntensity):
     return outTile;
     #outTile = histeq(outTile);
 
-def spatial_filterTile(imsize, inTile, lofrq=0.0, hifrq=0.0):
+def spatial_filterTile(im_deg, inTile, lofrq=0.0, hifrq=0.0):
     # make the mean to be zero
     raw_img = inTile - np.mean(inTile);
     # make the standard deviation to be 1
@@ -50,13 +50,18 @@ def spatial_filterTile(imsize, inTile, lofrq=0.0, hifrq=0.0):
     rms = 0.2;
     raw_img = raw_img * rms;
     
+    freq_range = [5, 10];
     # convert to frequency domain
     img_freq = np.fft.fft2(raw_img);
 
     # calculate amplitude spectrum
     #img_amp = np.fft.fftshift(np.abs(img_freq));
-
-    
+    pix_per_deg = inTile.shape[0] / im_deg;
+    pix_per_cyc = [x * pix_per_deg for x in freq_range];
+    cyc_per_pix = [1/x for x in pix_per_cyc ]; # input to filter
+    lofrq = cyc_per_pix[0];
+    hifrq = cyc_per_pix[1];
+    print(cyc_per_pix);
     if (lofrq == 0 and hifrq > 0):
         print("low pass")
         filt = filters.butter2d_lp(raw_img.shape,hifrq,10)
@@ -94,7 +99,7 @@ def new_p3(tile):
     
     
     
-    magfactor = 9;
+    magfactor = 6;
     tileIm = Image.fromarray(tile);
 
     #patternPath = sPath + "_Initial_Tile" + '.' + "png";
@@ -225,7 +230,7 @@ def new_p3(tile):
 
 def new_p3m1(tile):
 
-    magfactor = 10;
+    magfactor = 5;
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
     tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
@@ -314,7 +319,7 @@ def new_p3m1(tile):
 def  new_p31m(tile):
     
     tile = tile.astype('float32');
-    magfactor = 10;
+    magfactor = 5;
 
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
@@ -394,7 +399,7 @@ def  new_p31m(tile):
 
 def new_p6(tile):
     
-    magfactor = 10;
+    magfactor = 5;
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
     tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
@@ -478,7 +483,7 @@ def new_p6(tile):
 
 def new_p6m(tile):
 
-    magfactor = 10;
+    magfactor = 5;
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
     tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
@@ -557,7 +562,7 @@ def new_p6m(tile):
     p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC)); 
     return p6m;
 
-def generateWPimage(wptype,N,n,ratio,optTexture = None):
+def generateWPimage(wptype,N,n,ratio,angle,optTexture = None):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -572,10 +577,10 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
     
     if optTexture == None: 
         grain = 1;
-        #texture = filterTile(np.random.rand(n,n), grain);
-        texture = spatial_filterTile(n, np.random.rand(N,N), 0.00178, 0);
+        texture = filterTile(np.random.rand(n,n), grain);
+        #texture = spatial_filterTile(angle, np.random.rand(N,N), 0.0, 0.0);
         patternPath = sPath + "_Stage1"  + '.' + "png";
-        Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
+        #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
     else:
         minDim = np.min(np.shape(optTexture));
         #stretch user-defined texture, if it is too small for sampling
@@ -647,6 +652,8 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + f' =  {((cm.shape[0] * cm.shape[1]) / 4):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((cm.shape[0] * cm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+                patternPath = sPath + "_Stage2_CM_"  + '.' + "png";
+                Image.fromarray((cm[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 image = catTiles(cm, N, wptype);
                 return image;                
         elif wptype == 'PMM':
@@ -660,7 +667,7 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + f' =  {((pmm.shape[0] * pmm.shape[1]) / 4):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pmm.shape[0] * pmm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                patternPath = sPath + "_Stage2"  + '.' + "png";
+                patternPath = sPath + "_Stage2_PMM_"  + '.' + "png";
                 Image.fromarray((pmm[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 image = catTiles(pmm, N, wptype);
                 return image;                 
@@ -718,7 +725,9 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p4.shape[0] * p4.shape[1]) / 4):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4.shape[0] * p4.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                image = catTiles(p4, N, wptype); 
+                image = catTiles(p4, N, wptype);
+                patternPath = sPath + "_Stage2_P4_"  + '.' + "png";
+                Image.fromarray((p4[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image; 
         elif wptype == 'P4M':
                 height = round(n/2);
@@ -772,6 +781,8 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3.shape[0] * p3.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p3, N, wptype);
+                patternPath = sPath + "_Stage2_P3_"  + '.' + "png";
+                Image.fromarray((p3[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image;                
         elif wptype == 'P3M1':
                 alpha = np.pi/3;
@@ -783,6 +794,8 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p3m1.shape[0] * p3m1.shape[1]) / 36):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3m1.shape[0] * p3m1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
+                patternPath = sPath + "_Stage2"  + '.' + "png";
+                Image.fromarray((p3m1[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image;                
         elif wptype == 'P31M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -794,7 +807,9 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p31m_1.shape[0] * p31m_1.shape[1]) / 36):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p31m_1.shape[0] * p31m_1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
-                image = catTiles(p31m_1, N, wptype);    
+                image = catTiles(p31m_1, N, wptype); 
+                patternPath = sPath + "_Stage2"  + '.' + "png";
+                Image.fromarray((p31m_1[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image;
         elif wptype == 'P6':
                 s = n/math.sqrt(math.sqrt(3));
@@ -805,6 +820,8 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6.shape[0] * p6.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p6, N, wptype);
+                patternPath = sPath + "_Stage2"  + '.' + "png";
+                Image.fromarray((p6[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image;
         elif wptype == 'P6M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -815,6 +832,8 @@ def generateWPimage(wptype,N,n,ratio,optTexture = None):
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6m.shape[0] * p6m.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p6m, N, wptype); 
+                patternPath = sPath + "_Stage2"  + '.' + "png";
+                Image.fromarray((p6m[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image;
         else:
                 warnings.warn('Unexpected Wallpaper Group type. Returning random noise.', UserWarning);
