@@ -180,7 +180,7 @@ def filterImg(inImg, N):
     image = scipy.ndimage.correlate(inImg, lowpass, mode='constant').transpose();
     
     # histeq
-    image = np.array(image * 255, dtype=np.uint8);
+    image = np.array(inImg * 255, dtype=np.uint8); #changed to inImg from image to stop low pass
     image[:,:] = cv.equalizeHist(image[:,:]);
 
     # normalize
@@ -274,7 +274,7 @@ def sizeFundamentalRegion (ratio, n, cellStruct):
     elif (cellStruct == "P3"):
         # equilateral rhombus
         # solved symbolically using mathematical software (maple)
-        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * (n**2 * ratio)));
+        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * (n**2 * ratio * 3)));
     elif (cellStruct == "P3M1"):
         # equilateral triangle
         return round(np.sqrt(((n**2 * ratio) * 3 / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)));
@@ -300,7 +300,7 @@ def sizeLattice (ratio, n, cellStruct):
     elif (cellStruct == "P3"):
         # hexagonal
         # solved symbolically using mathematical software (maple)
-        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * ((n**2 * ratio) / 3)));
+        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * ((n**2 * ratio))));
     elif (cellStruct == "P3M1"):
         # hexagonal
         return round(np.sqrt((((n**2 * ratio)  / 6) / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)));

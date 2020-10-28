@@ -50,7 +50,7 @@ def spatial_filterTile(im_deg, inTile, lofrq=0.0, hifrq=0.0):
     rms = 0.2;
     raw_img = raw_img * rms;
     
-    freq_range = [5, 10];
+    freq_range = [1, 40];
     # convert to frequency domain
     img_freq = np.fft.fft2(raw_img);
 
@@ -62,10 +62,10 @@ def spatial_filterTile(im_deg, inTile, lofrq=0.0, hifrq=0.0):
     lofrq = cyc_per_pix[0];
     hifrq = cyc_per_pix[1];
     print(cyc_per_pix);
-    if (lofrq == 0 and hifrq > 0):
+    if (im_deg > 30):
         print("low pass")
         filt = filters.butter2d_lp(raw_img.shape,hifrq,10)
-    elif (lofrq > 0 and hifrq == 0):
+    elif (im_deg < 10):
         print("high pass")
         filt = filters.butter2d_hp(raw_img.shape,lofrq,10)
     elif (lofrq == 0 and hifrq == 0):
@@ -230,7 +230,7 @@ def new_p3(tile):
 
 def new_p3m1(tile):
 
-    magfactor = 5;
+    magfactor = 6;
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
     tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
@@ -319,7 +319,7 @@ def new_p3m1(tile):
 def  new_p31m(tile):
     
     tile = tile.astype('float32');
-    magfactor = 5;
+    magfactor = 6;
 
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
@@ -399,7 +399,7 @@ def  new_p31m(tile):
 
 def new_p6(tile):
     
-    magfactor = 5;
+    magfactor = 6;
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
     tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
@@ -483,7 +483,7 @@ def new_p6(tile):
 
 def new_p6m(tile):
 
-    magfactor = 5;
+    magfactor = 6;
     tileIm = Image.fromarray(tile);
     # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
     tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
@@ -558,6 +558,7 @@ def new_p6m(tile):
     tile3 =  np.concatenate((tile2, tile2_flipped),axis=1);
     tile3_Im = Image.fromarray(tile3);
     # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+    
     tile3_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(tile3.shape));
     p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC)); 
     return p6m;
@@ -577,8 +578,8 @@ def generateWPimage(wptype,N,n,ratio,angle,optTexture = None):
     
     if optTexture == None: 
         grain = 1;
-        texture = filterTile(np.random.rand(n,n), grain);
-        #texture = spatial_filterTile(angle, np.random.rand(N,N), 0.0, 0.0);
+        #texture = filterTile(np.random.rand(n,n), grain);
+        texture = spatial_filterTile(angle, np.random.rand(N,N), 0.0, 0.0);
         patternPath = sPath + "_Stage1"  + '.' + "png";
         #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
     else:
@@ -777,9 +778,9 @@ def generateWPimage(wptype,N,n,ratio,angle,optTexture = None):
                 height = math.floor(s * 1.5);
                 start_tile = texture[:height,:];
                 p3 = new_p3(start_tile);
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p3.shape[0] * p3.shape[1]) / 6):.2f}');
+                print('Area of Fundamental Region of ' + wptype + f' =  {((p3.shape[0] * p3.shape[1]) / 18):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3.shape[0] * p3.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%');
+                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3.shape[0] * p3.shape[1]) / 18)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p3, N, wptype);
                 patternPath = sPath + "_Stage2_P3_"  + '.' + "png";
                 Image.fromarray((p3[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
