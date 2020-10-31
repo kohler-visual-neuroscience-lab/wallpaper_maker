@@ -70,10 +70,10 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     
     # useful parameters for debugging
     if (debug == True):
-        nGroup = 1;
+        #nGroup = 1;
         #ratio = 1;
         #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-        keySet = ['P3', 'P4', 'PMM','CM'];
+        keySet = ['P3'];
         #wpSize = 300;
     
     valueSet = np.arange(101, 101 + len(keySet), 1);
@@ -103,17 +103,17 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             n = sizeFundamentalRegion(ratio, wpSize, group);
         else:
             n = sizeTile (ratio, wpSize, group);
-        
-        #n = 80
-        raw = gwi.generateWPimage(group, wpSize, n, ratio, visualAngle);
-        cm = plt.get_cmap(cmap);
-        raw_image =  cm(raw);
-        rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
-        avgMag = np.array([]); 
-        if(new_mag == True):
-            avgMag = meanMag(rawFreq);
-        # generating wallpapers, saving freq. representations
         for k in range(nGroup):
+        #n = 80
+            raw = gwi.generateWPimage(group, wpSize, n, ratio, visualAngle,True);
+            cm = plt.get_cmap(cmap);
+            raw_image =  cm(raw);
+            rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
+            avgMag = np.array([]); 
+            if(new_mag == True):
+                avgMag = meanMag(rawFreq);
+        # generating wallpapers, saving freq. representations
+        
             
             # image processing steps
             
@@ -140,7 +140,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
             
-            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap + '.' + saveFmt;
+            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
             
             Image.fromarray((filtered[:, :, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
