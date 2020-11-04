@@ -39,79 +39,43 @@ def filterTile(inTile, filterIntensity):
     outTile = filtered - filtered.min();
     outTile = outTile / outTile.max();
     return outTile;
-    #outTile = histeq(outTile);
 
-def spatial_filterTile(im_deg, inTile, lofrq=0.0, hifrq=0.0):
-    # make the mean to be zero
-    raw_img = inTile - np.mean(inTile);
-    # make the standard deviation to be 1
-    raw_img = raw_img / np.std(raw_img);
-    # make the standard deviation to be the desired RMS
-    rms = 0.2;
-    raw_img = raw_img * rms;
+def spatial_filterTile(im_deg, inTile, lowpass=True, fwhm=1, f_center=0):
+    #def make_noise(im_deg=10, rimg=False, lowpass=True, fwhm=1, f_center=0):
+    #if not rimg:
+    #    rimg = np.random.randn(500, 500)
+    #    rimg = (rimg-rimg.min())/(rimg.max()-rimg.min())
     
+    w = inTile.shape[1];
+    h = inTile.shape[0];
+    pix_per_degree = h/im_deg;
     
-    if (im_deg >= 5 and im_deg <= 10):
-        freq_range = [1, 30];
-        # convert to frequency domain
-        img_freq = np.fft.fft2(raw_img);
-
-        # calculate amplitude spectrum
-        #img_amp = np.fft.fftshift(np.abs(img_freq));
-        pix_per_deg = inTile.shape[0] / im_deg;
-        pix_per_cyc = [x * pix_per_deg for x in freq_range];
-        cyc_per_pix = [1/x for x in pix_per_cyc ]; # input to filter
-        lofrq = cyc_per_pix[0];
-        hifrq = cyc_per_pix[1];
-        print(cyc_per_pix);
-        print("low pass")
-        filt = filters.butter2d_lp(raw_img.shape,lofrq,10)
-    elif (im_deg >= 20):
-        freq_range = [60, 90];
-        # convert to frequency domain
-        img_freq = np.fft.fft2(raw_img);
-
-        # calculate amplitude spectrum
-        #img_amp = np.fft.fftshift(np.abs(img_freq));
-        pix_per_deg = inTile.shape[0] / im_deg;
-        pix_per_cyc = [x * pix_per_deg for x in freq_range];
-        cyc_per_pix = [1/x for x in pix_per_cyc ]; # input to filter
-        lofrq = cyc_per_pix[0];
-        hifrq = cyc_per_pix[1];
-        print(cyc_per_pix);
-        print("high pass")
-        filt = filters.butter2d_hp(raw_img.shape,hifrq,10)
-    #elif (lofrq == 0 and hifrq == 0):
-        #return filterTile(inTile, 1);
-    else:
-        freq_range = [30, 60];
-
-        # convert to frequency domain
-        img_freq = np.fft.fft2(raw_img);
-
-        # calculate amplitude spectrum
-        #img_amp = np.fft.fftshift(np.abs(img_freq));
-        pix_per_deg = inTile.shape[0] / im_deg;
-        pix_per_cyc = [x * pix_per_deg for x in freq_range];
-        cyc_per_pix = [1/x for x in pix_per_cyc ]; # input to filter
-        lofrq = cyc_per_pix[0];
-        hifrq = cyc_per_pix[1];
-        print(cyc_per_pix);
-        print("band pass")
-        filt = filters.butter2d_bp(raw_img.shape,lofrq, hifrq, 10)
+    # get into the frequency domain
+    inTile_ = np.fft.fftshift(np.fft.fft2(inTile));
     
-    img_filt = np.fft.fftshift(img_freq) * filt
-
-    # convert back to an image
-    img_new = np.real(np.fft.ifft2(np.fft.ifftshift(img_filt)))
+    # get frequency domain units
+    cyc_per_pix_hor = np.linspace(-0.5, 0.5, w);
+    cyc_per_pix_ver = np.linspace(-0.5, 0.5, h);
+    cyc_per_deg_hor = cyc_per_pix_hor*pix_per_degree;
+    cyc_per_deg_ver = cyc_per_pix_ver*pix_per_degree;
     
-    # convert to mean zero and specified RMS contrast
-    img_new = img_new - np.mean(img_new)
-    img_new = img_new / np.std(img_new)
-    img_new = img_new * rms
+    # define mask in cyc per deg
+    sig = fwhm/(2*np.sqrt(2*np.log2(2)));
+    xx,yy = np.meshgrid(cyc_per_deg_hor,cyc_per_deg_ver);
+    mask = np.exp(- ((xx**2+yy**2)**0.5-f_center)**2/(2*sig**2));
+    if not lowpass:
+        mask = 1-mask;
     
-    outTile = img_new;
-    return outTile;
+    # multiply the mask with the Fourier domain representation of our image
+    filt_inTile_ = mask*inTile_;
+    
+    # back to image space
+    filt_inTile = np.fft.ifft2(np.fft.ifftshift(filt_inTile_));
+    # throw away imaginary parts
+    filt_inTile = np.real(filt_inTile);
+    # rescale image
+    filt_inTile = (filt_inTile-filt_inTile.min())/(filt_inTile.max()-filt_inTile.min());
+    return filt_inTile;
 
 def new_p3(tile):
     
@@ -589,7 +553,7 @@ def new_p6m(tile):
     p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC)); 
     return p6m;
 
-def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, optTexture = None):
+def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, optTexture = None):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -604,9 +568,12 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, optTexture = None):
     
     if optTexture == None: 
         grain = 1;
-        texture = filterTile(np.random.rand(n,n), grain);
-        #texture = spatial_filterTile(angle, np.random.rand(N,N), 0.0, 0.0);
-        patternPath = sPath + "_Stage1"  + '.' + "png";
+        
+        if isSpatFreqFilt:
+            texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
+        else:
+            texture = filterTile(np.random.rand(n,n), grain);  
+        #patternPath = sPath + "_Stage1"  + '.' + "png";
         #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
     else:
         minDim = np.min(np.shape(optTexture));

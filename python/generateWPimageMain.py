@@ -34,7 +34,7 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
 
 def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=100, visualAngle: float=30.0, distance: float=30.0, tileArea: int=150*150, latticeSize: bool=False,
-                          fundRegSize: bool=False, ratio: float=1.0, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
+                          fundRegSize: bool=False, ratio: float=1.0, spatFreqFilt: bool=False, spatFreqFiltFWHM: int=5, spatFreqFiltLowpass: bool=True, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
                           cmap: str="gray", debug: bool=False):
     #mapGroup = containers.Map(keySet, valueSet);
     distance = 40.0;
@@ -105,7 +105,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             n = sizeTile (ratio, wpSize, group);
         for k in range(nGroup):
         #n = 80
-            raw = gwi.generateWPimage(group, wpSize, n, ratio, visualAngle,True);
+            raw = gwi.generateWPimage(group, wpSize, int(n), ratio, visualAngle, False, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass);
             cm = plt.get_cmap(cmap);
             raw_image =  cm(raw);
             rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
@@ -140,7 +140,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
             
-            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
+            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '_FWHM_12' + '.' + saveFmt;
             
             Image.fromarray((filtered[:, :, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
@@ -343,25 +343,31 @@ def meanMag(freqGroup):
 
 if __name__ == "__main__":
 	LOGGER.info('Generating Wallpapers')
-    
+
 	parser = argparse.ArgumentParser(
 	    description='Wallpaper Generator')
 	parser.add_argument('--groups', '-g', default=['P1','P2','P4','P3','P6'], type=str2list, #need to write function to convert str to list
                     help='Groups to create')
 	parser.add_argument('--nGroup', '-n', default=100, type=int,
                     help='Number of images per group')
-	parser.add_argument('--visualAngle', '-v', default=30.0, type=str,
+	parser.add_argument('--visualAngle', '-v', default=30.0, type=float,
                     help='Wallpaper size (visual angle)')
-	parser.add_argument('--distance', '-d', default=30.0, type=str,
+	parser.add_argument('--distance', '-d', default=30.0, type=float,
                     help='Distance beteween eye and wallpaper')
-	parser.add_argument('--tileArea', '-t', default=150*150, type=str,
+	parser.add_argument('--tileArea', '-t', default=150*150, type=int,
                     help='Tile area')
 	parser.add_argument('--latticeSize', '-l', default=False, type=str2bool,
                     help='Size wallpaper as a ratio between the lattice and wallpaper size')
 	parser.add_argument('--fundRegSize', '-fr', default=False, type=str2bool,
                     help='Size wallpaper as a ratio between the fundamental region and wallpaper size')
-	parser.add_argument('--ratio', '-ra', default=1.0, type=str,
+	parser.add_argument('--ratio', '-ra', default=1.0, type=float,
                     help='Size wallpaper as a ratio')
+	parser.add_argument('--spatFreqFilt', '-sff', default=False, type=str2bool,
+                    help='Replace the fundamental region with random noise whoses frequency is relative to the visual angle')
+	parser.add_argument('--spatFreqFiltFWHM', '-fwhm', default=5, type=int,
+                    help='Set fwhm for spatial frequency filtering')
+	parser.add_argument('--spatFreqFiltLowpass', '-sfflp', default=True, type=str2bool,
+                    help='Set spatial frequency filtering to lowpass filtering otherwise it is highpass filtering')
 	parser.add_argument('--saveFmt', '-f', default="png", type=str,
                     help='Image save format')
 	parser.add_argument('--saveRaw', '-r', default=False, type=str2bool,
@@ -382,5 +388,5 @@ if __name__ == "__main__":
 	args = parser.parse_args()
     
     #need to investigate error in eval function
-	generateWPTImagesMain(args.groups, args.nGroup, float(eval("args.visualAngle")), float(eval("args.distance")), round(eval("args.tileArea")), args.latticeSize, args.fundRegSize, float(eval("args.ratio")), args.saveFmt, args.saveRaw, 
+	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.distance, args.tileArea, args.latticeSize, args.fundRegSize, float(eval("args.ratio")), args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
                        args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);
