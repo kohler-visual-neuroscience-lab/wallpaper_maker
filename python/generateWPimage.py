@@ -8,9 +8,15 @@ from PIL import Image, ImageDraw
 from skimage import draw as skd
 import warnings
 import matplotlib.pyplot as plt
+import dotsWallpaper as dW
 
 import psychopyFilter as filters
 
+import cairo as cr
+import sys
+import cv2 as cv
+
+#generate random noise tile
 def filterTile(inTile, filterIntensity):
     #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
 
@@ -40,6 +46,7 @@ def filterTile(inTile, filterIntensity):
     outTile = outTile / outTile.max();
     return outTile;
 
+#generate random noise tile filtered using a spatial frequency filter
 def spatial_filterTile(im_deg, inTile, lowpass=True, fwhm=1, f_center=0):
     #def make_noise(im_deg=10, rimg=False, lowpass=True, fwhm=1, f_center=0):
     #if not rimg:
@@ -553,14 +560,21 @@ def new_p6m(tile):
     p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC)); 
     return p6m;
 
-def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, optTexture = None):
+def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, isDots, optTexture = None):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
     # N is the size of the output image. For complex groups
     #   returned image will have size at least NxN.
     # n the size of repeating pattern for all groups.
-    #default 
+    # isDiagnostic whether to generate diagnostic images (outlining fundamental region and lattice)
+    # isSpatFreqFilt generate a spatial frequency filtered wallpaper
+    # fwhm full width at half maximum of spatial frequency filter
+    # whether spatialfrequency filter is lowpass or highpass
+    # isDots generate wallpaper using dots rather than random noise
+    
+    #default
+    #save paths for debugging
     saveStr = os.getcwd() + '\\WPSet\\';
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
@@ -571,6 +585,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         
         if isSpatFreqFilt:
             texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
+        elif isDots:
+            texture = dW.genDotsFund(n, 0.01, 0.25, 12, wptype);
         else:
             texture = filterTile(np.random.rand(n,n), grain);  
         #patternPath = sPath + "_Stage1"  + '.' + "png";
@@ -584,6 +600,7 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
             optTexture = np.array(Image.resize(reversed((optTexture.shape * ratioTexture)), Image.NEAREST));
         texture = optTexture;
     try:
+
         if wptype == 'P0':
                 p0 = np.array(Image.resize(reversed((texture.shape * round(N/n))), Image.NEAREST));
                 image = p0;
@@ -592,6 +609,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 width = n;
                 height = width;
                 p1 = texture[:height, :width];
+                #patternPath = sPath + "_Stage1_P1"  + '.' + "png";
+                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p1.shape[0] * p1.shape[1])):.1f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - p1.shape[0] * p1.shape[1]) / (N**2 * ratio)) * 100):.2f}%');
@@ -609,14 +628,21 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     draw.rectangle((0, 0, p1.shape[0] - 1, p1.shape[1] - 1), outline=(255,255,0), width=2);
                     diaFRIm.save(diagPath2, "png");
                 image = catTiles(p1, N, wptype);
+                
+                #patternPath = sPath + "_P1_Stage2"  + '.' + "png";
+                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
+                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;                
         elif wptype == 'P2':
+                #patternPath = sPath + "_Stage1_P2"  + '.' + "png";
+                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 height = round(n/2);
                 width = 2*height;
                 start_tile = texture[:height, :width];
-                start_tileIm = Image.fromarray(start_tile);
-                tileR180 = start_tileIm.rotate(180)
-                tileR180 = np.array(tileR180);
+                #start_tileIm = Image.fromarray(start_tile);
+                tileR180 = np.rot90(start_tile, 2)
+                #tileR180 = start_tileIm.rotate(180)
+                #tileR180 = np.array(tileR180);
                 p2 = np.concatenate((start_tile, tileR180));
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p2.shape[0] * p2.shape[1]) / 2):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -636,7 +662,11 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     alpha_mask__rec_draw.rectangle((0, p2.shape[1] / 2, p2.shape[0], p2.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
                     diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
                     diaFRIm.save(diagPath2, "png");
-                image = catTiles(p2, N, wptype);       
+                image = catTiles(p2, N, wptype);
+                
+                #patternPath = sPath + "_P2_Stage2"  + '.' + "png";
+                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
+                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;
         elif wptype == 'PM':
                 height = round(n/2);
@@ -726,6 +756,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 image = catTiles(cm, N, wptype);
                 return image;                
         elif wptype == 'PMM':
+                #patternPath = sPath + "_Stage1_PMM"  + '.' + "png";
+                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 height = round(n/2);
                 width = height;
                 start_tile = texture[:height, :width];                    
@@ -757,6 +789,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 #patternPath = sPath + "_Stage2_PMM_"  + '.' + "png";
                 #Image.fromarray((pmm[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 image = catTiles(pmm, N, wptype);
+                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
+                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;                 
         elif wptype == 'PMG':
                 height = round(n/2);
@@ -927,7 +961,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     alpha_mask__rec_draw.line(((p4m.shape[0], 0), (0, p4m.shape[1])), fill=(255, 255, 0, 255), width=2);
                     diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
                     diaFRIm.save(diagPath2, "png");
-                image = catTiles(p4m, N, wptype);   
+                image = catTiles(p4m, N, wptype);
+
                 return image; 
         elif wptype == 'P4G':
                 height = round(n/2);
@@ -967,6 +1002,16 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
                     diaFRIm.save(diagPath2, "png");
                 image = catTiles(p4g, N, wptype);   
+                
+                patternPath = sPath + "_P4G_Start"  + '.' + "png";
+                #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
+                Image.fromarray((start_tile[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                patternPath = sPath + "_P4G_Stage1"  + '.' + "png";
+                #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
+                Image.fromarray((p4g[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                patternPath = sPath + "_P4G_Stage2"  + '.' + "png";
+                image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
+                Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;
         elif wptype == 'P3':
                 alpha = np.pi/3;
@@ -998,6 +1043,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 image = catTiles(p3, N, wptype);
                 #patternPath = sPath + "_Stage2_P3_"  + '.' + "png";
                 #Image.fromarray((p3[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
+                patternPath = sPath + "_P3_Stage2"  + '.' + "png";
+                #image_c = (200*(texture - np.min(texture))/np.ptp(texture)).astype(np.uint32)        
+                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;                
         elif wptype == 'P3M1':
                 alpha = np.pi/3;
@@ -1091,7 +1139,7 @@ def catTiles(tile, N, wptype):
     
     #repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
     img = numpy.matlib.repmat(tile, row - 1, col - 1);
-
+    
     row = math.floor(img.shape[0] + tile.shape[0] * ((1 + (N / tile.shape[0])) - dN[0]));
     col = math.floor(img.shape[1] + tile.shape[1] * ((1 + (N / tile.shape[1])) - dN[1]));
     if (math.floor(img.shape[0] + tile.shape[0] * ((1 + (N / tile.shape[0])) - dN[0])) % 2 != 0):
@@ -1101,7 +1149,7 @@ def catTiles(tile, N, wptype):
         col =  col + 1;
 
     img_final = np.zeros((row, col));
-
+    
 
     #centers the evenly created tile and then even distributes the rest of the tile around the border s.t. the total size of the wallpaper = the desired input size of the wallpaper
     img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2): img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2),math.ceil((img_final.shape[1] - img.shape[1]) / 2): img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[:,:];
@@ -1113,7 +1161,6 @@ def catTiles(tile, N, wptype):
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):];
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2) : ] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
     img_final[:math.ceil((img_final.shape[0] - img.shape[0]) / 2) ,  img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2): ] = img[ img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2) : , :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
-    
     return img_final
 
 #old cat function

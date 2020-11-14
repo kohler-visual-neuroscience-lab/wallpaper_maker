@@ -33,11 +33,10 @@ LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
 
-def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=100, visualAngle: float=30.0, distance: float=30.0, tileArea: int=150*150, latticeSize: bool=False,
+def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngle: float=30.0, wpSize: int=500, latticeSize: bool=False,
                           fundRegSize: bool=False, ratio: float=1.0, spatFreqFilt: bool=False, spatFreqFiltFWHM: int=5, spatFreqFiltLowpass: bool=True, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
                           cmap: str="gray", debug: bool=False):
     #mapGroup = containers.Map(keySet, valueSet);
-    distance = 40.0;
     #hexLattice = ['P3', 'P6'];
     #sqrLattice = ['P4'];
     #recLattice = [];
@@ -53,12 +52,12 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     #Groups = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
     # image parameters
     # image size determined by visual angle
-    app = QApplication(sys.argv)
-    screen = app.screens()[0]
-    dpi = screen.physicalDotsPerInch()
-    wpSize = (round((math.tan(math.radians(visualAngle / 2)) * (2 * distance)) * dpi / 2.54));
-    app.quit();   
-    
+    #app = QApplication(sys.argv)
+    #screen = app.screens()[0]
+    #dpi = screen.physicalDotsPerInch()
+    #wpSize = (round((math.tan(math.radians(visualAngle / 2)) * (2 * distance)) * dpi / 2.54));
+    #app.quit();   
+
     # save parameters
     saveStr = os.getcwd() + '\\WPSet\\';
     today = datetime.today();
@@ -72,8 +71,8 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     if (debug == True):
         #nGroup = 1;
         #ratio = 1;
-        #keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-        keySet = ['P3'];
+        keySet = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
+        #keySet = ['P3'];
         #wpSize = 300;
     
     valueSet = np.arange(101, 101 + len(keySet), 1);
@@ -92,7 +91,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             os.mkdirs(sAnalysisPath);
     except:
         print('PYTHON:generateWPSet:mkdir ', sPath);
-    
+    isDots = True;
     # Generating WPs and scrambling 
     for i in range(len(Groups)):    
         print('generating ', Groups[i]);
@@ -104,10 +103,9 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         else:
             n = sizeTile (ratio, wpSize, group);
         for k in range(nGroup):
-        #n = 80
-            raw = gwi.generateWPimage(group, wpSize, int(n), ratio, visualAngle, False, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass);
+            raw = gwi.generateWPimage(group, wpSize, int(n), ratio, visualAngle, False, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots);
             cm = plt.get_cmap(cmap);
-            raw_image =  cm(raw);
+            raw_image =  (raw);
             rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
             avgMag = np.array([]); 
             if(new_mag == True):
@@ -117,22 +115,20 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             
             # image processing steps
             
-            # get average magnitude
-            
-            
-            avgRaw = (spectra(raw, new_mag=avgMag)); # replace each image's magnitude with the average
-            filtered = cm(filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
-            #masked = maskImg(filtered, wpSize); # masking the image (final step)
+            # making regular images
+            #avgRaw = (spectra(raw, new_mag=avgMag)); # replace each image's magnitude with the average
+            #filtered = (filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
+            #masked = cm(maskImg(filtered, wpSize)); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
-            scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
-            scrambled_filtered = cm(filterImg(scrambled_raw, wpSize));
-            scrambled_masked = maskImg(scrambled_filtered, wpSize); 
+            #scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
+            #scrambled_filtered = (filterImg(scrambled_raw, wpSize));
+            #scrambled_masked = cm(maskImg(scrambled_filtered, wpSize)); 
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
-            # saving averaged and scrambled images
             
+            # saving averaged and scrambled images
             if(printAnalysis):
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(sPath + "analysis\\steps_" + group + "_" + str(k), "JPEG");
                 #imwrite(all_in_one{img},  strcat(sPath, 'analysis/steps_',group, '_', num2str(img), '.jpeg'), 'jpeg');
@@ -140,12 +136,19 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
             
-            patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '_FWHM_12' + '.' + saveFmt;
-            
-            Image.fromarray((filtered[:, :, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
-            scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
+            if (spatFreqFilt):
+                patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '_FWHM_' + str(spatFreqFiltFWHM) + '.' + saveFmt;
+            else:
+                patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
+            raw_image_c = (200*(raw_image - np.min(raw_image))/np.ptp(raw_image)).astype(np.uint32)        
+            Image.fromarray((raw_image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+            #Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             if(pssscrambled == True or psscrambled == True):
-                Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
+                if (spatFreqFilt):
+                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_FWHM_' + str(spatFreqFiltFWHM) + '.' + saveFmt;
+                else:
+                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt; 
+                #Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
            
             
         #all_in_one = cellfun(@(x,y,z) cat(2,x(1:wpSize,1:wpSize),y(1:wpSize,1:wpSize),z(1:wpSize,1:wpSize)),raw,avgRaw,filtered,'uni',false);
@@ -180,7 +183,7 @@ def filterImg(inImg, N):
     image = scipy.ndimage.correlate(inImg, lowpass, mode='constant').transpose();
     
     # histeq
-    image = np.array(inImg * 255, dtype=np.uint8); #changed to inImg from image to stop low pass
+    image = np.array(image * 255, dtype=np.uint8); #changed to inImg from image to stop low pass
     image[:,:] = cv.equalizeHist(image[:,:]);
 
     # normalize
@@ -348,14 +351,12 @@ if __name__ == "__main__":
 	    description='Wallpaper Generator')
 	parser.add_argument('--groups', '-g', default=['P1','P2','P4','P3','P6'], type=str2list, #need to write function to convert str to list
                     help='Groups to create')
-	parser.add_argument('--nGroup', '-n', default=100, type=int,
+	parser.add_argument('--nGroup', '-n', default=10, type=int,
                     help='Number of images per group')
 	parser.add_argument('--visualAngle', '-v', default=30.0, type=float,
                     help='Wallpaper size (visual angle)')
-	parser.add_argument('--distance', '-d', default=30.0, type=float,
-                    help='Distance beteween eye and wallpaper')
-	parser.add_argument('--tileArea', '-t', default=150*150, type=int,
-                    help='Tile area')
+	parser.add_argument('--wallpaperSize', '-ws', default=500, type=int,
+                    help='Side length of the wallpaper in pixels')
 	parser.add_argument('--latticeSize', '-l', default=False, type=str2bool,
                     help='Size wallpaper as a ratio between the lattice and wallpaper size')
 	parser.add_argument('--fundRegSize', '-fr', default=False, type=str2bool,
@@ -373,20 +374,21 @@ if __name__ == "__main__":
 	parser.add_argument('--saveRaw', '-r', default=False, type=str2bool,
                     help='save raw')
 	parser.add_argument('--printAnalysis', '-a', default=False, type=str2bool,
-                    help='print analysis')
+                    help='Print analysis')
 	parser.add_argument('--pssscrambled', '-s', default=False, type=str2bool,
                     help='Portilla-Simoncelli scrambled')
 	parser.add_argument('--psscrambled', '-p', default=False, type=str2bool,
-                    help='phase scrambled')
+                    help='Phase scrambled')
 	parser.add_argument('--new_mag', '-m', default=False, type=str2bool,
-                    help='new magnitude')
+                    help='New magnitude')
 	parser.add_argument('--cmap', '-c', default="gray", type=str,
-                    help='color or greyscale map (hsv or gray)')
+                    help='Color or greyscale map (hsv or gray)')
 	parser.add_argument('--debug', '-b', default=False, type=str2bool,
-                    help='debugging default parameters on')
+                    help='Debugging default parameters on')
 
 	args = parser.parse_args()
     
     #need to investigate error in eval function
-	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.distance, args.tileArea, args.latticeSize, args.fundRegSize, float(eval("args.ratio")), args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
+	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, float(eval("args.ratio")), args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
                        args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);
+
