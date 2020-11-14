@@ -16,8 +16,6 @@ import cairo as cr
 import sys
 import cv2 as cv
 
-from scipy.ndimage import rotate
-
 #generate random noise tile
 def filterTile(inTile, filterIntensity):
     #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
@@ -86,197 +84,146 @@ def spatial_filterTile(im_deg, inTile, lowpass=True, fwhm=1, f_center=0):
     filt_inTile = (filt_inTile-filt_inTile.min())/(filt_inTile.max()-filt_inTile.min());
     return filt_inTile;
 
-def new_p3(tile, isDots):
+def new_p3(tile):
+    
     # For magfactor, use a multiple of 3 to avoid the rounding error
     # when stacking two_tirds, one_third tiles together
+    #cm = plt.get_cmap("gray");
+    #saveStr = os.getcwd() + '\\WPSet\\';
+    #today = datetime.today();
+    #timeStr = today.strftime("%Y%m%d_%H%M%S");
+    #sPath = saveStr + timeStr; 
+    
+    
+    
     magfactor = 6;
-    if (isDots):
-        height = tile.shape[0];
-        s1 = round((height / 3));
-        s = 2 * s1;
-        width = round(height / math.sqrt(3)) - 1;
-        xy = np.array ([[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]]);
-        mask = skd.polygon2mask((height, width), xy).astype(np.uint32);
-        tile0 = mask * tile[:, :width].astype(np.uint32);
-    
+    tileIm = Image.fromarray(tile);
 
-        # rotate rectangle by 120, 240 degs
+    #patternPath = sPath + "_Initial_Tile" + '.' + "png";
+    #Image.fromarray((cm(tile)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
+
+    tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
+    
+    #patternPath = sPath + "_Resized_Tile" + '.' + "png";
+    #Image.fromarray((cm(tile1)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
+    height = np.size(tile1, 0);
+
+    # fundamental region is equlateral rhombus with side length = s
+    
+    s1 = round((height / 3));
+    s = 2 * s1;
+    
+    # NOTE on 'ugly' way of calculating the widt = h
+    # after magnification width(tile1) > tan(pi/6)*height(tile1) (should be equal)
+    # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
+    # bigger or equal, because we cat them together).
+    # subtract one, to avoid screwing by imrotate(240)
+    
+    width = round(height / math.sqrt(3)) - 1;
+    # width = min(round(height/sqrt(3)), size(tile1, 2)) - 1;
+
+    # define rhombus-shaped mask
+
+    xy = np.array ([[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]]);
+    
+    #patternPath = sPath + "_Rhombus_shape" + '.' + "png";
+    #Image.fromarray((cm(xy)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
+    mask = skd.polygon2mask((height, width), xy);
+    tile0 = mask * tile1[:, :width];
+
+    #patternPath = sPath + "_mask" + '.' + "png";
+    #Image.fromarray((cm(mask.astype(int) * 255)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+
+    #patternPath = sPath + "_tile0" + '.' + "png";
+    #Image.fromarray((cm(tile0)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+
+    # rotate rectangle by 120, 240 degs
    
-        # note on 120deg rotation: 120 deg rotation of rhombus-shaped 
-        # texture preserves the size, so 'crop' option can be used to 
-        # tile size.
+    # note on 120deg rotation: 120 deg rotation of rhombus-shaped 
+    # texture preserves the size, so 'crop' option can be used to 
+    # tile size.
     
     
-        tile0Im = Image.fromarray(tile0, 'I');
-        tile0Im2 = Image.fromarray(tile0, 'I');
-        tile0Im_rot120 = tile0Im.rotate(120, Image.NEAREST, expand = False);
-        tile120 = np.array(tile0Im_rot120, np.uint32);
-        tile0Im_rot240 = tile0Im2.rotate(240, Image.NEAREST, expand = True);
-        tile240 = np.array(tile0Im_rot240, np.uint32);
+    tile0Im = Image.fromarray(tile0);
+    tile0Im_rot120 = tile0Im.rotate(120, Image.BILINEAR, expand = False);
+    tile120 = np.array(tile0Im_rot120);
+    tile0Im_rot240 = tile0Im.rotate(240, Image.BILINEAR, expand = True);
+    tile240 = np.array(tile0Im_rot240);
     
-        # manually trim the tiles:
+    # manually trim the tiles:
+ 
+    #patternPath = sPath + "_tile0Im_rot120" + '.' + "png";
+    #Image.fromarray((cm(tile120.astype(int))[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");   
+    
+    #patternPath = sPath + "_tile0Im_rot240" + '.' + "png";
+    #Image.fromarray((cm(tile240.astype(int))[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
    
-        # tile120 should have the same size as rectangle: [heigh x width]
-        # tile120 = tile120(1:height, (floor(0.5*width) + 1):(floor(0.5*width) + width));
+    # tile120 should have the same size as rectangle: [heigh x width]
+    # tile120 = tile120(1:height, (floor(0.5*width) + 1):(floor(0.5*width) + width));
    
-        # tile240 should have the size [s x 2*width]
-        # find how much we need to cut from both sides
-        diff = round(0.5 * (np.size(tile240, 1) - 2 * width));
-        rowStart = round(0.25 * s);
-        rowEnd = round(0.25 * s) + s;
-        colStart = diff;
-        colEnd = 2 * width + diff;
-        tile240 = tile240[rowStart:rowEnd, colStart:colEnd].astype(np.uint32);
+    # tile240 should have the size [s x 2*width]
+    # find how much we need to cut from both sides
+    diff = round(0.5 * (np.size(tile240, 1) - 2 * width));
+    rowStart = round(0.25 * s);
+    rowEnd = round(0.25 * s) + s;
+    colStart = diff;
+    colEnd = 2 * width + diff;
+    tile240 = tile240[rowStart:rowEnd, colStart:colEnd];
+    
+    # Start to pad tiles and glue them together
+    # Resulting tile will have the size [3*height x 2* width]
+    
+    two_thirds1 = np.concatenate((tile0, tile120), axis=1);
+    two_thirds2 = np.concatenate((tile120, tile0), axis=1);
+    
+    #patternPath = sPath + "_two_thirds1" + '.' + "png";
+    #Image.fromarray((cm(two_thirds1)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
+    #patternPath = sPath + "_two_thirds2" + '.' + "png";
+    #Image.fromarray((cm(two_thirds2)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
+    two_thirds = np.concatenate((two_thirds1, two_thirds2));
+    
+    #patternPath = sPath + "_two_thirds" + '.' + "png";
+    #Image.fromarray((cm(two_thirds)[:, :, :3] * 255).astype(np.uint8)).save(patternPath, "png");
+    
+    #lower half of tile240 on the top, zero-padded to [height x 2 width]
+    rowStart = int(0.5 * s);
+    colEnd = 2 * width;
+    one_third11 = np.concatenate((tile240[rowStart:,:], np.zeros((s, colEnd))));
+    
+    #upper half of tile240 on the bottom, zero-padded to [height x 2 width]
+    rowEnd = int(0.5 * s); 
+    one_third12 = np.concatenate((np.zeros((s, colEnd)), tile240[:rowEnd,:]));
+    
+    # right half of tile240 in the middle, zero-padded to [height x 2 width]
+    colStart = width;
+    one_third21 = np.concatenate((np.zeros((s, width)), tile240[:,colStart:], np.zeros((s, width))));
+    
+    # left half of tile240in the middle, zero-padded to [height x 2 width]
+    one_third22 = np.concatenate((np.zeros((s, width)), tile240[:,:width], np.zeros((s, width))));
+    
+    # cat them together
+    one_third1 = np.concatenate((one_third11, one_third12));
+    one_third2 = np.concatenate((one_third21, one_third22), axis=1);
+    
+   # glue everything together, shrink and replicate
+    one_third = np.maximum(one_third1,one_third2);
+    
+    #size(whole) = [3xheight 2xwidth]
+    whole = np.maximum(two_thirds, one_third);
 
-        # Start to pad tiles and glue them together
-        # Resulting tile will have the size [3*height x 2* width]
+    wholeIm = Image.fromarray(whole);
+    # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+    wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
     
-        two_thirds1 = np.concatenate((tile0, tile120), axis=1).astype(np.uint32);
-        two_thirds2 = np.concatenate((tile120, tile0), axis=1).astype(np.uint32);
-    
-        two_thirds = np.concatenate((two_thirds1, two_thirds2)).astype(np.uint32);
-    
-        #lower half of tile240 on the top, zero-padded to [height x 2 width]
-        rowStart = int(0.5 * s);
-        colEnd = 2 * width;
-        one_third11 = np.concatenate((tile240[rowStart:,:], np.zeros((s, colEnd)))).astype(np.uint32);
+    p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC));
+    #p3 = np.hstack((p3, p3));
 
-        #upper half of tile240 on the bottom, zero-padded to [height x 2 width]
-        rowEnd = int(0.5 * s); 
-        one_third12 = np.concatenate((np.zeros((s, colEnd)), tile240[:rowEnd,:])).astype(np.uint32);
-
-        # right half of tile240 in the middle, zero-padded to [height x 2 width]
-        colStart = width;
-        one_third21 = np.concatenate((np.zeros((s, width)), tile240[:,colStart:], np.zeros((s, width)))).astype(np.uint32);
-
-        # left half of tile240in the middle, zero-padded to [height x 2 width]
-        one_third22 = np.concatenate((np.zeros((s, width)), tile240[:,:width], np.zeros((s, width)))).astype(np.uint32);
-
-        # cat them together
-        one_third1 = np.concatenate((one_third11, one_third12)).astype(np.uint32);
-        one_third2 = np.concatenate((one_third21, one_third22), axis=1).astype(np.uint32);
-
-
-        # glue everything together, shrink and replicate
-        one_third = np.maximum(one_third1,one_third2).astype(np.uint32);
-
-        #size(whole) = [3xheight 2xwidth]
-        whole = np.maximum(two_thirds, one_third).astype(np.uint32);
-        whole[np.where(whole == 0)] = np.max(whole);
-       
-        wholeIm = Image.fromarray(whole, 'I');
-    
-        # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-        wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
-    
-        p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC)).astype(np.uint32);
-        return p3;
-    else:
-
-        #cm = plt.get_cmap("gray");
-        #saveStr = os.getcwd() + '\\WPSet\\';
-        #today = datetime.today();
-        #timeStr = today.strftime("%Y%m%d_%H%M%S");
-        #sPath = saveStr + timeStr; 
-    
-        tileIm = Image.fromarray(tile);
-
-        # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
-        
-        tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
-        
-    
-        height = np.size(tile1, 0);
-
-        # fundamental region is equlateral rhombus with side length = s
-    
-        s1 = round((height / 3));
-        s = 2 * s1;
-    
-        # NOTE on 'ugly' way of calculating the widt = h
-        # after magnification width(tile1) > tan(pi/6)*height(tile1) (should be equal)
-        # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
-        # bigger or equal, because we cat them together).
-        # subtract one, to avoid screwing by imrotate(240)
-    
-        width = round(height / math.sqrt(3)) - 1;
-        # width = min(round(height/sqrt(3)), size(tile1, 2)) - 1;
-
-        # define rhombus-shaped mask
-
-        xy = np.array ([[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]]);
-    
-        mask = skd.polygon2mask((height, width), xy);
-        tile0 = mask * tile1[:, :width];
-
-        # rotate rectangle by 120, 240 degs
-   
-        # note on 120deg rotation: 120 deg rotation of rhombus-shaped 
-        # texture preserves the size, so 'crop' option can be used to 
-        # tile size.
-    
-    
-        tile0Im = Image.fromarray(tile0);
-        tile0Im_rot120 = tile0Im.rotate(120, Image.BILINEAR, expand = False);
-        tile120 = np.array(tile0Im_rot120);
-        tile0Im_rot240 = tile0Im.rotate(240, Image.BILINEAR, expand = True);
-        tile240 = np.array(tile0Im_rot240);
-    
-        # manually trim the tiles:
-   
-        # tile120 should have the same size as rectangle: [heigh x width]
-        # tile120 = tile120(1:height, (floor(0.5*width) + 1):(floor(0.5*width) + width));
-   
-        # tile240 should have the size [s x 2*width]
-        # find how much we need to cut from both sides
-        diff = round(0.5 * (np.size(tile240, 1) - 2 * width));
-        rowStart = round(0.25 * s);
-        rowEnd = round(0.25 * s) + s;
-        colStart = diff;
-        colEnd = 2 * width + diff;
-        tile240 = tile240[rowStart:rowEnd, colStart:colEnd];
-    
-        # Start to pad tiles and glue them together
-        # Resulting tile will have the size [3*height x 2* width]
-    
-        two_thirds1 = np.concatenate((tile0, tile120), axis=1);
-        two_thirds2 = np.concatenate((tile120, tile0), axis=1);
-    
-        two_thirds = np.concatenate((two_thirds1, two_thirds2));
-    
-        #lower half of tile240 on the top, zero-padded to [height x 2 width]
-        rowStart = int(0.5 * s);
-        colEnd = 2 * width;
-        one_third11 = np.concatenate((tile240[rowStart:,:], np.zeros((s, colEnd))));
-    
-        #upper half of tile240 on the bottom, zero-padded to [height x 2 width]
-        rowEnd = int(0.5 * s); 
-        one_third12 = np.concatenate((np.zeros((s, colEnd)), tile240[:rowEnd,:]));
-    
-        # right half of tile240 in the middle, zero-padded to [height x 2 width]
-        colStart = width;
-        one_third21 = np.concatenate((np.zeros((s, width)), tile240[:,colStart:], np.zeros((s, width))));
-    
-        # left half of tile240in the middle, zero-padded to [height x 2 width]
-        one_third22 = np.concatenate((np.zeros((s, width)), tile240[:,:width], np.zeros((s, width))));
-    
-        # cat them together
-        one_third1 = np.concatenate((one_third11, one_third12));
-        one_third2 = np.concatenate((one_third21, one_third22), axis=1);
-    
-        # glue everything together, shrink and replicate
-        one_third = np.maximum(one_third1,one_third2);
-    
-        #size(whole) = [3xheight 2xwidth]
-        whole = np.maximum(two_thirds, one_third);
-
-        wholeIm = Image.fromarray(whole);
-        # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-        wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
-    
-        p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC));
-
-        return p3;
+    return p3;
 
 def new_p3m1(tile):
 
@@ -639,7 +586,7 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         if isSpatFreqFilt:
             texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
         elif isDots:
-            texture = dW.genDotsFund(n, 0.02, 0.1, 6, wptype);
+            texture = dW.genDotsFund(n, 0.01, 0.25, 12, wptype);
         else:
             texture = filterTile(np.random.rand(n,n), grain);  
         #patternPath = sPath + "_Stage1"  + '.' + "png";
@@ -1021,11 +968,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 height = round(n/2);
                 width = height;
                 start_tile = texture[:height, :width];
-                xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]);
+                xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]);    
                 mask = skd.polygon2mask((height, width), xy);
                 tile1 = mask * start_tile;
-                #if (isDots):
-                #    tile1 = start_tile;
                 tile2 = np.fliplr(tile1);
                 tile2 = np.rot90(tile2, 1);
                 tile = np.maximum(tile1, tile2);
@@ -1035,8 +980,6 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1);
                 concatTmp2 = np.concatenate((tile, tile_rot90), axis=1); 
                 p4g = np.concatenate((concatTmp1, concatTmp2));
-                if (isDots):
-                    p4g[np.where(p4g == 0)] = np.max(p4g);
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p4g.shape[0] * p4g.shape[1]) / 8):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4g.shape[0] * p4g.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
@@ -1060,27 +1003,22 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     diaFRIm.save(diagPath2, "png");
                 image = catTiles(p4g, N, wptype);   
                 
-                #patternPath = sPath + "_P4G_Start"  + '.' + "png";
+                patternPath = sPath + "_P4G_Start"  + '.' + "png";
                 #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
-                #Image.fromarray((start_tile[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P4G_Stage1"  + '.' + "png";
+                Image.fromarray((start_tile[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                patternPath = sPath + "_P4G_Stage1"  + '.' + "png";
                 #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
-                #Image.fromarray((p4g[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P4G_Stage2"  + '.' + "png";
-                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
-                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                Image.fromarray((p4g[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                patternPath = sPath + "_P4G_Stage2"  + '.' + "png";
+                image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
+                Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;
         elif wptype == 'P3':
                 alpha = np.pi/3;
                 s = n  / math.sqrt(3 * np.tan(alpha));
                 height = math.floor(s * 1.5);
-
                 start_tile = texture[:height,:];
-                if (isDots):
-                    p3 = new_p3(texture, isDots);
-                else:
-                    p3 = new_p3(start_tile, isDots);
-
+                p3 = new_p3(start_tile);
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p3.shape[0] * p3.shape[1]) / 18):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3.shape[0] * p3.shape[1]) / 18)) / (N**2 * ratio)) * 100):.2f}%');
@@ -1105,13 +1043,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 image = catTiles(p3, N, wptype);
                 #patternPath = sPath + "_Stage2_P3_"  + '.' + "png";
                 #Image.fromarray((p3[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                #patternPath = sPath + "_P3_Start"  + '.' + "png";
-                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P3_Stage1"  + '.' + "png";       
-                #Image.fromarray((p3[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P3_Stage2"  + '.' + "png";
-                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
-                #Image.fromarray((image[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                patternPath = sPath + "_P3_Stage2"  + '.' + "png";
+                #image_c = (200*(texture - np.min(texture))/np.ptp(texture)).astype(np.uint32)        
+                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;                
         elif wptype == 'P3M1':
                 alpha = np.pi/3;

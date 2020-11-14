@@ -28,8 +28,8 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
     elif (wptype == 'P3'):
         alpha = np.pi/3;
         s = size  / math.sqrt(3 * np.tan(alpha));
-        height = math.floor(s * 1.5) * 6;
-        width = size * 6;
+        height = math.floor(s * 1.5);
+        width = size;
     elif (wptype == 'P3M1'):
         alpha = np.pi/3;
         s = size / math.sqrt(3 * np.tan(alpha));
@@ -67,12 +67,9 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
     for x in range(numOfDots):
         isPossibleDot = False;
         while isPossibleDot == False:
-            radius = np.random.uniform(minRad, maxRad);
+            radius = np.random.uniform(0.01, 0.15);
             xc = np.random.uniform(radius, 1-radius);   
             yc = np.random.uniform(radius, 1-radius);
-            if (wptype == 'P3'):
-                xc = np.random.uniform(radius, 1-max(0.75, radius * 2));   
-                yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2));
 
             if x == 0:
                 ctx.set_source_rgb(0, 0, 0)  # Solid color
@@ -87,10 +84,10 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
                     if (d > radSumSq):
                         isPossibleDot = True;
                     else:
-                        isPossibleDot = False;
-                        break;
+                       isPossibleDot = False;
+                       break;
             if isPossibleDot == True:
-                ctx.set_source_rgb(0 + radius * 5, 0 + radius * 5, 0 + radius * 5)  # Solid color
+                ctx.set_source_rgb(0 + radius * 2, 0 + radius * 2, 0 + radius * 2)  # Solid color
                 ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle0
                 ctx.fill();
                 previousDots.append([xc,yc, radius]);
@@ -111,8 +108,4 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
 
     surface.write_to_png("example.png");
     buf = surface.get_data()
-    if (wptype == 'P3'):
-        result = np.ndarray(shape=(height, width),dtype=np.uint32,buffer=buf)
-    else:
-        result = np.ndarray(shape=(width, height),dtype=np.uint32,buffer=buf)
-    return result;
+    return np.ndarray(shape=(width, height),dtype=np.uint32,buffer=buf)

@@ -127,7 +127,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             #scrambled_masked = cm(maskImg(scrambled_filtered, wpSize)); 
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
-            raw_image_c = raw_image;
+            
             # saving averaged and scrambled images
             if(printAnalysis):
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(sPath + "analysis\\steps_" + group + "_" + str(k), "JPEG");
@@ -140,12 +140,9 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '_FWHM_' + str(spatFreqFiltFWHM) + '.' + saveFmt;
             else:
                 patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
-            if (isDots):
-                raw_image_c = (200*(raw_image - np.min(raw_image))/np.ptp(raw_image)).astype(np.uint32);
-                Image.fromarray((raw_image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-            else:    
-                Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
-            
+            raw_image_c = (200*(raw_image - np.min(raw_image))/np.ptp(raw_image)).astype(np.uint32)        
+            Image.fromarray((raw_image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+            #Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             if(pssscrambled == True or psscrambled == True):
                 if (spatFreqFilt):
                     scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_FWHM_' + str(spatFreqFiltFWHM) + '.' + saveFmt;
