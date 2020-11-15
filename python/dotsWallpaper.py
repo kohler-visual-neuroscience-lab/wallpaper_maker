@@ -33,8 +33,8 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
     elif (wptype == 'P3M1'):
         alpha = np.pi/3;
         s = size / math.sqrt(3 * np.tan(alpha));
-        width = round(s);
-        height = size;
+        height = round(s) * 10;
+        width = size * 10;
     elif (wptype == 'P31M' or wptype == 'P6'):
         s = size / math.sqrt(math.sqrt(3));
         width = round(s);
@@ -72,6 +72,9 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
             yc = np.random.uniform(radius, 1-radius);
             if (wptype == 'P3'):
                 xc = np.random.uniform(radius, 1-max(0.75, radius * 2));   
+                yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2));
+            elif (wptype == 'P3M1'):
+                xc = np.random.uniform(0.05 + radius, 1-max(0.975, radius * 2));   
                 yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2));
 
             if x == 0:
@@ -111,7 +114,7 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
 
     surface.write_to_png("example.png");
     buf = surface.get_data()
-    if (wptype == 'P3'):
+    if (wptype == 'P3' or wptype == 'P3M1'):
         result = np.ndarray(shape=(height, width),dtype=np.uint32,buffer=buf)
     else:
         result = np.ndarray(shape=(width, height),dtype=np.uint32,buffer=buf)

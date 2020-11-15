@@ -273,98 +273,182 @@ def new_p3(tile, isDots):
         wholeIm = Image.fromarray(whole);
         # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
         wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
-    
+
         p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC));
 
         return p3;
 
-def new_p3m1(tile):
+def new_p3m1(tile, isDots):
 
-    magfactor = 6;
-    tileIm = Image.fromarray(tile);
-    # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
-    tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
-    height = np.shape(tile1)[0];
-    
-    
-    # fundamental region is equlateral triangle with side length = height 
-    width = round(0.5 * height * math.sqrt(3));
+    magfactor = 10;
+    if (isDots):
+        height = tile.shape[0];
+        # fundamental region is equlateral triangle with side length = height 
+        width = round(0.5 * height * math.sqrt(3));
+        y1 = round(height/2);
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]];
+        # Create half of the mask
+        # reflect and concatenate, to get the full mask:   
+        mask_half = skd.polygon2mask((y1, width), mask_xy).astype(np.uint32);
+        mask = np.concatenate((mask_half, np.flipud(mask_half))).astype(np.uint32);
+        
+        tile0 = (tile[:, :width] * mask).astype(np.uint32);
+        
+        # continue to modify the tile
+        
+        # reflect and rotate
+        tile1_mirror = np.fliplr(tile0).astype(np.uint32);
+        tile1_mirrorIm = Image.fromarray(tile1_mirror, 'I');
+        tile240_Im = tile1_mirrorIm.rotate(240, Image.NEAREST, expand = True);
+        tile240 = np.array(tile240_Im, np.uint32);
+        # AY: I directly cut the tiles, because trim will
+        # return slightly different size
+        
+        t_r1x = np.shape(tile240)[0];
+        start_row = t_r1x - height;
+        tile240 = tile240[start_row:, :width].astype(np.uint32);
+        
+        # AY: rotating mirrored tile(as opposed to tileR1) will cause less
+        # border effects when we'll add it to two other tiles.
+        tile120_Im = tile1_mirrorIm.rotate(120, Image.NEAREST, expand = True);
+        tile120 = np.array(tile120_Im, np.uint32);
+        tile120 = tile120[:height, :width].astype(np.uint32);
+        
+        # Assembling the tiles
+        
+        # We have 3 tiles with the same triangle rotated 0, 120 and 240
+        # pad them and put them together
+        zero_tile = np.zeros((y1, width));
+        tile2 = np.concatenate((zero_tile, tile0, zero_tile)).astype(np.uint32);
+        tile240 = np.concatenate((zero_tile, zero_tile, tile240)).astype(np.uint32);
+        tile120 = np.concatenate((tile120, zero_tile, zero_tile)).astype(np.uint32);
 
-    y1 = round(height/2);
-   
-    # vetrices of the triangle (closed polygon => four points)
-    mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]];
-    
-    # Create half of the mask
-    # reflect and concatenate, to get the full mask:   
 
-    mask_half = skd.polygon2mask((y1, width), mask_xy);
-    mask = np.concatenate((mask_half, np.flipud(mask_half)));
+        # Using max() will give us smoother edges, as opppose to sum()
+        half1 = np.maximum(tile2, tile240).astype(np.uint32);
+        half = np.maximum(half1, tile120).astype(np.uint32);
+    
+        # By construction, size(whole) = [4*y1 2*x1]
+        whole = np.concatenate((half, np.fliplr(half)), axis=1).astype(np.uint32);
+        
+        # Shifting by 2 pix (as oppose to zero), we'll smoothly glue tile together. 
+        # Set delta_pix value to zero and see the difference
+        delta_pix = 2;
+        start_row1 = 3 * y1 - delta_pix;
+        start_row2 = 3 * y1;
+        end_row1 = 4 * y1 - delta_pix;
+        end_row2 = y1 + delta_pix;
+        end_row3 = 4 * y1;
+        end_col1 = 2 * width;
+        
+        topbit = np.concatenate((whole[start_row1:end_row1, width:end_col1], whole[start_row1:end_row1, :width]), axis=1).astype(np.uint32);
+        botbit = np.concatenate((whole[delta_pix:end_row2, width:end_col1], whole[delta_pix:end_row2, :width]), axis=1).astype(np.uint32);
+        
+        whole[:y1, :] = np.maximum(whole[delta_pix:end_row2, :], topbit).astype(np.uint32);
+        whole[start_row2:end_row3, :] = np.maximum(whole[start_row1:end_row1, :], botbit).astype(np.uint32);
+        #whole[np.where(whole == 0)] = np.max(whole).astype(np.uint32);
 
-    # equilateral triangle inscribed into rectangle 
-    tile0 = tile1[:, :width] * mask;
- 
-    # continue to modify the tile
-    
-    # reflect and rotate
-    tile1_mirror = np.fliplr(tile0);
-    tile1_mirrorIm = Image.fromarray(tile1_mirror);
-    tile240_Im = tile1_mirrorIm.rotate(240, Image.BILINEAR, expand = True);
-    tile240 = np.array(tile240_Im);
-    # AY: I directly cut the tiles, because trim will
-    # return slightly different size
-    
-    t_r1x = np.shape(tile240)[0];
-    start_row = t_r1x - height;
-    tile240 = tile240[start_row:, :width];
-    
-    # AY: rotating mirrored tile(as opposed to tileR1) will cause less
-    # border effects when we'll add it to two other tiles.
-    tile120_Im = tile1_mirrorIm.rotate(120, Image.BILINEAR, expand = True);
-    tile120 = np.array(tile120_Im);
-    
-    tile120 = tile120[:height, :width];
-    # Assembling the tiles
-    
-    # We have 3 tiles with the same triangle rotated 0, 120 and 240
-    # pad them and put them together
-    zero_tile = np.zeros((y1, width));
-    tile2 = np.concatenate((zero_tile, tile0, zero_tile));
-    tile240 = np.concatenate((zero_tile, zero_tile, tile240));
-    tile120 = np.concatenate((tile120, zero_tile, zero_tile));
-    
-    # Using max() will give us smoother edges, as opppose to sum()
-    half1 = np.maximum(tile2, tile240);
-    half = np.maximum(half1, tile120);
+        # cutting middle piece of tile
+        mid_tile = whole[y1:start_row2, :width].astype(np.uint32);
+        # reflecting middle piece and glueing both pieces to the bottom
+        # size(bigTile)  = [6*y1 2*x1]  
+        cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1).astype(np.uint32);
+        bigTile = np.concatenate((whole, cat_mid_flip)).astype(np.uint32);
+        bigTile[np.where(bigTile == 0)] = np.max(bigTile);
 
-    # By construction, size(whole) = [4*y1 2*x1]
-    whole = np.concatenate((half, np.fliplr(half)), axis=1);
-    # Shifting by 2 pix (as oppose to zero), we'll smoothly glue tile together. 
-    # Set delta_pix value to zero and see the difference
-    delta_pix = 2;
-    start_row1 = 3 * y1 - delta_pix;
-    start_row2 = 3 * y1;
-    end_row1 = 4 * y1 - delta_pix;
-    end_row2 = y1 + delta_pix;
-    end_row3 = 4 * y1;
-    end_col1 = 2 * width;
+        bigTileIm = Image.fromarray(bigTile, 'I');
+        # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+        bigTile_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(bigTile.shape));
+        p3m1 = np.array(bigTileIm.resize(bigTile_new_size, Image.BICUBIC)).astype(np.uint32);
+
+        return p3m1;
+
+    else:
+        tileIm = Image.fromarray(tile);
+        # (tuple(i * magfactor for i in reversed(tile.shape)) to calculate the (width, height) of the image
+        tile1 = np.array(tileIm.resize((tuple(i * magfactor for i in reversed(tile.shape))), Image.BICUBIC));
+        height = np.shape(tile1)[0];
+        
+        
+        # fundamental region is equlateral triangle with side length = height 
+        width = round(0.5 * height * math.sqrt(3));
     
-    topbit = np.concatenate((whole[start_row1:end_row1, width:end_col1], whole[start_row1:end_row1, :width]), axis=1);
-    botbit = np.concatenate((whole[delta_pix:end_row2, width:end_col1], whole[delta_pix:end_row2, :width]), axis=1);
+        y1 = round(height/2);
+       
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]];
+        
+        # Create half of the mask
+        # reflect and concatenate, to get the full mask:   
     
-    whole[:y1, :] = np.maximum(whole[delta_pix:end_row2, :], topbit);
-    whole[start_row2:end_row3, :] = np.maximum(whole[start_row1:end_row1, :], botbit);
-    # cutting middle piece of tile
-    mid_tile = whole[y1:start_row2, :width];
-    # reflecting middle piece and glueing both pieces to the bottom
-    # size(bigTile)  = [6*y1 2*x1]  
-    cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1);
-    bigTile = np.concatenate((whole, cat_mid_flip));
-    bigTileIm = Image.fromarray(bigTile);
-    # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-    bigTile_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(bigTile.shape));
-    p3m1 = np.array(bigTileIm.resize(bigTile_new_size, Image.BICUBIC));
-    return p3m1;
+        mask_half = skd.polygon2mask((y1, width), mask_xy);
+        mask = np.concatenate((mask_half, np.flipud(mask_half)));
+    
+        # equilateral triangle inscribed into rectangle 
+        tile0 = tile1[:, :width] * mask;
+     
+        # continue to modify the tile
+        
+        # reflect and rotate
+        tile1_mirror = np.fliplr(tile0);
+        tile1_mirrorIm = Image.fromarray(tile1_mirror);
+        tile240_Im = tile1_mirrorIm.rotate(240, Image.BILINEAR, expand = True);
+        tile240 = np.array(tile240_Im);
+        # AY: I directly cut the tiles, because trim will
+        # return slightly different size
+        
+        t_r1x = np.shape(tile240)[0];
+        start_row = t_r1x - height;
+        tile240 = tile240[start_row:, :width];
+        
+        # AY: rotating mirrored tile(as opposed to tileR1) will cause less
+        # border effects when we'll add it to two other tiles.
+        tile120_Im = tile1_mirrorIm.rotate(120, Image.BILINEAR, expand = True);
+        tile120 = np.array(tile120_Im);
+        
+        tile120 = tile120[:height, :width];
+        # Assembling the tiles
+        
+        # We have 3 tiles with the same triangle rotated 0, 120 and 240
+        # pad them and put them together
+        zero_tile = np.zeros((y1, width));
+        tile2 = np.concatenate((zero_tile, tile0, zero_tile));
+        tile240 = np.concatenate((zero_tile, zero_tile, tile240));
+        tile120 = np.concatenate((tile120, zero_tile, zero_tile));
+        
+        # Using max() will give us smoother edges, as opppose to sum()
+        half1 = np.maximum(tile2, tile240);
+        half = np.maximum(half1, tile120);
+    
+        # By construction, size(whole) = [4*y1 2*x1]
+        whole = np.concatenate((half, np.fliplr(half)), axis=1);
+        # Shifting by 2 pix (as oppose to zero), we'll smoothly glue tile together. 
+        # Set delta_pix value to zero and see the difference
+        delta_pix = 2;
+        start_row1 = 3 * y1 - delta_pix;
+        start_row2 = 3 * y1;
+        end_row1 = 4 * y1 - delta_pix;
+        end_row2 = y1 + delta_pix;
+        end_row3 = 4 * y1;
+        end_col1 = 2 * width;
+        
+        topbit = np.concatenate((whole[start_row1:end_row1, width:end_col1], whole[start_row1:end_row1, :width]), axis=1);
+        botbit = np.concatenate((whole[delta_pix:end_row2, width:end_col1], whole[delta_pix:end_row2, :width]), axis=1);
+        
+        whole[:y1, :] = np.maximum(whole[delta_pix:end_row2, :], topbit);
+        whole[start_row2:end_row3, :] = np.maximum(whole[start_row1:end_row1, :], botbit);
+        # cutting middle piece of tile
+        mid_tile = whole[y1:start_row2, :width];
+        # reflecting middle piece and glueing both pieces to the bottom
+        # size(bigTile)  = [6*y1 2*x1]  
+        cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1);
+        bigTile = np.concatenate((whole, cat_mid_flip));
+        bigTileIm = Image.fromarray(bigTile);
+        # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+        bigTile_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(bigTile.shape));
+        p3m1 = np.array(bigTileIm.resize(bigTile_new_size, Image.BICUBIC));
+        return p3m1;
 
 def  new_p31m(tile):
     
@@ -639,7 +723,7 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         if isSpatFreqFilt:
             texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
         elif isDots:
-            texture = dW.genDotsFund(n, 0.02, 0.1, 6, wptype);
+            texture = dW.genDotsFund(n, 0.02, 0.05, 4, wptype);
         else:
             texture = filterTile(np.random.rand(n,n), grain);  
         #patternPath = sPath + "_Stage1"  + '.' + "png";
@@ -1117,14 +1201,17 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 alpha = np.pi/3;
                 s = n/math.sqrt(3*np.tan(alpha));
                 height = round(s);
-                start_tile = texture[:height,:];               
-                p3m1 = new_p3m1(start_tile);                
+                start_tile = texture[:height,:]; 
+                if (isDots):
+                    p3m1 = new_p3m1(texture, isDots);  
+                else:
+                    p3m1 = new_p3m1(start_tile, isDots);  
+                print(height);
+                print(texture.shape)
                 image = catTiles(p3m1, N, wptype);
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p3m1.shape[0] * p3m1.shape[1]) / 36):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3m1.shape[0] * p3m1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
-                patternPath = sPath + "_Stage2"  + '.' + "png";
-                #Image.fromarray((p3m1[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image;                
         elif wptype == 'P31M':
                 s = n/math.sqrt(math.sqrt(3));
