@@ -37,12 +37,12 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
         width = size * 10;
     elif (wptype == 'P31M' or wptype == 'P6'):
         s = size / math.sqrt(math.sqrt(3));
-        width = round(s);
-        height = size;
+        height = round(s) * 6;
+        width = size * 6;
     elif (wptype == 'P6M'):
         s = size / math.sqrt(math.sqrt(3));
-        width = round(s/2);
-        height = size;
+        height = round(s/2) * 10;
+        width = size * 10;
     elif (wptype == 'CMM'):
         width = round(size/4);
         height = 2*width;
@@ -74,9 +74,19 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
                 xc = np.random.uniform(radius, 1-max(0.75, radius * 2));   
                 yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2));
             elif (wptype == 'P3M1'):
-                xc = np.random.uniform(0.05 + radius, 1-max(0.975, radius * 2));   
-                yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2));
+                xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2));   
+                yc = np.random.uniform(0.30 + radius, 1-max(0.45, radius * 2));
+            elif (wptype == 'P31M'):
+                xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2));   
+                yc = np.random.uniform(0.30 + radius, 1-max(0.45, radius * 2));
+            elif (wptype == 'P6'):
+                xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2));   
+                yc = np.random.uniform(0.30 + radius, 1-max(0.45, radius * 2));
+            elif (wptype == 'P6M'):
+                xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2));   
+                yc = np.random.uniform(0.30 + radius, 1-max(0.45, radius * 2));
 
+            
             if x == 0:
                 ctx.set_source_rgb(0, 0, 0)  # Solid color
                 ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle
@@ -93,7 +103,7 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
                         isPossibleDot = False;
                         break;
             if isPossibleDot == True:
-                ctx.set_source_rgb(0 + radius * 5, 0 + radius * 5, 0 + radius * 5)  # Solid color
+                ctx.set_source_rgb(0 + radius * 10, 0 + radius * 10, 0 + radius * 10)  # Solid color
                 ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle0
                 ctx.fill();
                 previousDots.append([xc,yc, radius]);
@@ -114,7 +124,7 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
 
     surface.write_to_png("example.png");
     buf = surface.get_data()
-    if (wptype == 'P3' or wptype == 'P3M1'):
+    if (wptype == 'P3' or wptype == 'P3M1' or wptype == 'P31M' or wptype == 'P6' or wptype == 'P6M'):
         result = np.ndarray(shape=(height, width),dtype=np.uint32,buffer=buf)
     else:
         result = np.ndarray(shape=(width, height),dtype=np.uint32,buffer=buf)
