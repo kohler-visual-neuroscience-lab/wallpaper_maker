@@ -15,6 +15,7 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
     #size = 500;
     height = 0;
     width = 0;
+    print(size)
     #get correct size of dots tile based on wallpaper chosen
     if (wptype == "P1"):
         height = size;
@@ -41,8 +42,8 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
         width = size * 6;
     elif (wptype == 'P6M'):
         s = size / math.sqrt(math.sqrt(3));
-        height = round(s/2) * 10;
-        width = size * 10;
+        height = round(s/2) * 6;
+        width = size * 6;
     elif (wptype == 'CMM'):
         width = round(size/4);
         height = 2*width;
@@ -54,7 +55,7 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
     pat = cr.SolidPattern(0.5, 0.5, 0.5, 1.0)
 
 
-
+    ctx.set_source_rgb(0, 0, 0)  # Solid color
     ctx.rectangle(0, 0, width, height)  # Rectangle(x0, y0, x1, y1)
     ctx.set_source(pat)
     ctx.fill()
@@ -66,6 +67,8 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
     previousDots = [];
     for x in range(numOfDots):
         isPossibleDot = False;
+        colour = np.random.uniform(0,0.5);
+        ctx.set_source_rgb(colour, colour, colour)  # Solid color
         while isPossibleDot == False:
             radius = np.random.uniform(minRad, maxRad);
             xc = np.random.uniform(radius, 1-radius);   
@@ -85,13 +88,12 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
             elif (wptype == 'P6M'):
                 xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2));   
                 yc = np.random.uniform(0.30 + radius, 1-max(0.45, radius * 2));
-
             
             if x == 0:
-                ctx.set_source_rgb(0, 0, 0)  # Solid color
-                ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle
-                ctx.fill();
-                previousDots.append([xc,yc, radius]);
+                #ctx.set_source_rgb(0, 0, 0)  # Solid color
+                #ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle
+                #ctx.fill();
+                #previousDots.append([xc,yc, radius]);
                 isPossibleDot = True;
             else:
                 for y in previousDots:
@@ -103,10 +105,43 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
                         isPossibleDot = False;
                         break;
             if isPossibleDot == True:
-                ctx.set_source_rgb(0 + radius * 10, 0 + radius * 10, 0 + radius * 10)  # Solid color
-                ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle0
-                ctx.fill();
+                blobs = np.random.randint(1, 1000);
                 previousDots.append([xc,yc, radius]);
+                
+                for i in range(blobs):
+                    #if i == 0:
+                       # ctx.arc(xc, yc, radius / 2, 0, 2*math.pi) #circle0
+                        #ctx.close_path();
+                        #ctx.fill();
+                        #path = "blob" + str(x) + "_" + str(i) + ".png";
+                        #surface.write_to_png(path);
+                    #else:
+                    #print ("radius = " + str(radius) + " xc = " + str(xc) + " yc = " + str(yc))
+                    xc1 = np.random.uniform(xc - radius, radius + xc);
+                    yc1 = np.random.uniform(yc - radius, radius + yc);
+                    #print(xc1)
+                    #print(yc1)
+                    #xc1 = xc1 - 0.05;
+                    #yc1 = yc1 - 0.05;
+                    radius1 = radius / np.random.randint(3, 5);
+                    #if radius1 > radius / 1000:
+                        #radius1 = radius1 + 0.02
+                    #if xc1 + radius1 <= 1 && xc1 - radius1 >= 0 && yc1 + radius1 <= 1 && yc1 - radius1 >= 0:
+                    ctx.arc(xc1, yc1, radius1, 0, 2*math.pi) #circle0
+                    #ctx.close_path();
+                    ctx.fill();
+                print(radius1);
+                path = "blob" + str(x) + "_" + str(i) + ".png";
+                surface.write_to_png(path);
+                    
+                
+                
+                
+
+               
+                   
+                    
+
         
 
     # Arc(cx, cy, radius, start_angle, stop_angle)

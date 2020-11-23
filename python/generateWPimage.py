@@ -774,7 +774,7 @@ def new_p6(tile, isDots):
 
 def new_p6m(tile, isDots):
 
-    magfactor = 10;
+    magfactor = 6;
     if (isDots):
         tile1 = tile.astype(np.uint32);
     
@@ -957,7 +957,7 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         if isSpatFreqFilt:
             texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
         elif isDots:
-            texture = dW.genDotsFund(n, 0.01, 0.05, 8, wptype);
+            texture = dW.genDotsFund(n, 0.05, 0.1, 8, wptype);
         else:
             texture = filterTile(np.random.rand(n,n), grain);  
         #patternPath = sPath + "_Stage1"  + '.' + "png";
@@ -1290,8 +1290,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
                     diaFRIm.save(diagPath2, "png");
                 image = catTiles(p4, N, wptype);
-                #patternPath = sPath + "_Stage2_P4_"  + '.' + "png";
-                #Image.fromarray((p4[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
+                patternPath = sPath + "_Stage2_P4_"  + '.' + "png";
+                Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image; 
         elif wptype == 'P4M':
                 height = round(n/2);
@@ -1423,8 +1423,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 image = catTiles(p3, N, wptype);
                 #patternPath = sPath + "_Stage2_P3_"  + '.' + "png";
                 #Image.fromarray((p3[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                #patternPath = sPath + "_P3_Start"  + '.' + "png";
-                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                patternPath = sPath + "_P3_Start"  + '.' + "png";
+                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 #patternPath = sPath + "_P3_Stage1"  + '.' + "png";       
                 #Image.fromarray((p3[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 #patternPath = sPath + "_P3_Stage2"  + '.' + "png";
