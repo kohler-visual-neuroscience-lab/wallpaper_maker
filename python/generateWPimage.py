@@ -967,7 +967,7 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         if isSpatFreqFilt:
             texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
         elif isDots:
-            texture = dW.genDotsFund(n, 0.02, 0.05, 3, wptype);
+            texture = dW.genDotsFund(n, 0.03, 0.03, 3, wptype);
         else:
             texture = filterTile(np.random.rand(n,n), grain);  
         #patternPath = sPath + "_Stage1"  + '.' + "png";
@@ -1300,8 +1300,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
                     diaFRIm.save(diagPath2, "png");
                 image = catTiles(p4, N, wptype);
-                patternPath = sPath + "_Stage2_P4_"  + '.' + "png";
-                Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
+                #patternPath = sPath + "_Stage2_P4_"  + '.' + "png";
+                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 return image; 
         elif wptype == 'P4M':
                 height = round(n/2);
@@ -1466,17 +1466,15 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     p3m1 = new_p3m1(texture, isDots);  
                 else:
                     p3m1 = new_p3m1(start_tile, isDots);  
-                print(height);
-                print(texture.shape)
                 image = catTiles(p3m1, N, wptype);
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p3m1.shape[0] * p3m1.shape[1]) / 36):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3m1.shape[0] * p3m1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
 
-                patternPath = sPath + "_p3m1_Start"  + '.' + "png";
-                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                patternPath = sPath + "_p3m1_Stage1"  + '.' + "png";       
-                Image.fromarray((p3m1[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p3m1_Start"  + '.' + "png";
+                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p3m1_Stage1"  + '.' + "png";       
+                #Image.fromarray((p3m1[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
 
                 return image;                
         elif wptype == 'P31M':
@@ -1497,10 +1495,10 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 patternPath = sPath + "_Stage2"  + '.' + "png";
                 #Image.fromarray((p31m_1[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 
-                patternPath = sPath + "_p31m_Start"  + '.' + "png";
-                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                patternPath = sPath + "_p31m_Stage1"  + '.' + "png";       
-                Image.fromarray((p31m_1[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p31m_Start"  + '.' + "png";
+                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p31m_Stage1"  + '.' + "png";       
+                #Image.fromarray((p31m_1[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;
         elif wptype == 'P6':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1514,12 +1512,12 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6.shape[0] * p6.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p6, N, wptype);
-                patternPath = sPath + "_Stage2"  + '.' + "png";
+                #patternPath = sPath + "_Stage2"  + '.' + "png";
                 #Image.fromarray((p6[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                patternPath = sPath + "_p6_Start"  + '.' + "png";
-                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                patternPath = sPath + "_p6_Stage1"  + '.' + "png";       
-                Image.fromarray((p6[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p6_Start"  + '.' + "png";
+                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p6_Stage1"  + '.' + "png";       
+                #Image.fromarray((p6[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;
         elif wptype == 'P6M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1533,12 +1531,12 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6m.shape[0] * p6m.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p6m, N, wptype); 
-                patternPath = sPath + "_Stage2"  + '.' + "png";
+                #patternPath = sPath + "_Stage2"  + '.' + "png";
                 #Image.fromarray((p6m[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                patternPath = sPath + "_p6_Start"  + '.' + "png";
-                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                patternPath = sPath + "_p6_Stage1"  + '.' + "png";       
-                Image.fromarray((p6m[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p6_Start"  + '.' + "png";
+                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_p6_Stage1"  + '.' + "png";       
+                #Image.fromarray((p6m[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 return image;
         else:
                 warnings.warn('Unexpected Wallpaper Group type. Returning random noise.', UserWarning);
