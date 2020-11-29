@@ -17,7 +17,7 @@ import sys
 import cv2 as cv
 
 from scipy.ndimage import rotate
-
+from scipy.stats import mode
 #generate random noise tile
 def filterTile(inTile, filterIntensity):
     #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
@@ -89,23 +89,27 @@ def spatial_filterTile(im_deg, inTile, lowpass=True, fwhm=1, f_center=0):
 def new_p3(tile, isDots):
     # For magfactor, use a multiple of 3 to avoid the rounding error
     # when stacking two_tirds, one_third tiles together
+    
+    saveStr = os.getcwd() + '\\WPSet\\';
+    today = datetime.today();
+    timeStr = today.strftime("%Y%m%d_%H%M%S");
+    sPath = saveStr + timeStr; 
+    patternPath = sPath + "_P3_Start_2"  + '.' + "png";
     magfactor = 6;
     if (isDots):
         height = tile.shape[0];
         s1 = round((height / 3));
         s = 2 * s1;
         width = round(height / math.sqrt(3)) - 1;
-        xy = np.array ([[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]]);
+        xy = np.array ([[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]]).astype(np.uint32);
         mask = skd.polygon2mask((height, width), xy).astype(np.uint32);
-        tile0 = mask * tile[:, :width].astype(np.uint32);
-    
-
+        tile0 = (mask * tile[:, :width]).astype(np.uint32);
+        
         # rotate rectangle by 120, 240 degs
    
         # note on 120deg rotation: 120 deg rotation of rhombus-shaped 
         # texture preserves the size, so 'crop' option can be used to 
         # tile size.
-    
     
         tile0Im = Image.fromarray(tile0, 'I');
         tile0Im2 = Image.fromarray(tile0, 'I');
@@ -135,7 +139,9 @@ def new_p3(tile, isDots):
         two_thirds2 = np.concatenate((tile120, tile0), axis=1).astype(np.uint32);
     
         two_thirds = np.concatenate((two_thirds1, two_thirds2)).astype(np.uint32);
-    
+        
+        
+        
         #lower half of tile240 on the top, zero-padded to [height x 2 width]
         rowStart = int(0.5 * s);
         colEnd = 2 * width;
@@ -162,14 +168,15 @@ def new_p3(tile, isDots):
 
         #size(whole) = [3xheight 2xwidth]
         whole = np.maximum(two_thirds, one_third).astype(np.uint32);
-        whole[np.where(whole == 0)] = np.max(whole);
+        whole[np.where(whole == np.min(whole))] = mode(whole, axis=None)[0].astype(np.uint32);
        
         wholeIm = Image.fromarray(whole, 'I');
     
         # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
         wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
     
-        p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC)).astype(np.uint32);
+        p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.NEAREST)).astype(np.uint32);
+        #Image.fromarray((whole[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
         return p3;
     else:
 
@@ -355,12 +362,12 @@ def new_p3m1(tile, isDots):
         # size(bigTile)  = [6*y1 2*x1]  
         cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1).astype(np.uint32);
         bigTile = np.concatenate((whole, cat_mid_flip)).astype(np.uint32);
-        bigTile[np.where(bigTile == 0)] = np.max(bigTile).astype(np.uint32);
+        bigTile[np.where(bigTile == np.min(bigTile))] = mode(bigTile, axis=None)[0].astype(np.uint32);
 
         bigTileIm = Image.fromarray(bigTile, 'I');
         # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
         bigTile_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(bigTile.shape));
-        p3m1 = np.array(bigTileIm.resize(bigTile_new_size, Image.BICUBIC)).astype(np.uint32);
+        p3m1 = np.array(bigTileIm.resize(bigTile_new_size, Image.NEAREST)).astype(np.uint32);
 
         return p3m1;
 
@@ -523,6 +530,7 @@ def  new_p31m(tile, isDots):
     
         # size(tile3) = [height 6width]
         tile3 = np.concatenate((tile2, np.fliplr(tile2)), axis=1).astype(np.uint32);
+        tile3[np.where(tile3 == np.min(tile3))] = mode(tile3, axis=None)[0].astype(np.uint32);
         tile3_Im = Image.fromarray(tile3, 'I');
         # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
         tile3_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(tile3.shape));
@@ -685,6 +693,7 @@ def new_p6(tile, isDots):
         
         # size(tile3) = [2y1 x 6x1]
         tile3 =  np.concatenate((tile2, tile2_flipped),axis=1).astype(np.uint32);
+        tile3[np.where(tile3 == np.min(tile3))] = mode(tile3, axis=None)[0].astype(np.uint32);
         tile3_Im = Image.fromarray(tile3, 'I');
         # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
         tile3_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(tile3.shape));
@@ -846,6 +855,7 @@ def new_p6m(tile, isDots):
         tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :])).astype(np.uint32); 
         # size(tile3) = [2y1 x 6x1]
         tile3 =  np.concatenate((tile2, tile2_flipped),axis=1).astype(np.uint32);
+        tile3[np.where(tile3 == np.min(tile3))] = mode(tile3, axis=None)[0].astype(np.uint32);
         tile3_Im = Image.fromarray(tile3, 'I');
         # tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
         
@@ -957,7 +967,7 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         if isSpatFreqFilt:
             texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
         elif isDots:
-            texture = dW.genDotsFund(n, 0.05, 0.1, 8, wptype);
+            texture = dW.genDotsFund(n, 0.02, 0.05, 3, wptype);
         else:
             texture = filterTile(np.random.rand(n,n), grain);  
         #patternPath = sPath + "_Stage1"  + '.' + "png";
@@ -1338,23 +1348,39 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         elif wptype == 'P4G':
                 height = round(n/2);
                 width = height;
-                start_tile = texture[:height, :width];
-                xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]);
-                mask = skd.polygon2mask((height, width), xy);
-                tile1 = mask * start_tile;
-                #if (isDots):
-                #    tile1 = start_tile;
-                tile2 = np.fliplr(tile1);
-                tile2 = np.rot90(tile2, 1);
-                tile = np.maximum(tile1, tile2);
-                tile_rot90 = np.rot90(tile, 1);
-                tile_rot180 = np.rot90(tile, 2);
-                tile_rot270 = np.rot90(tile, 3);
-                concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1);
-                concatTmp2 = np.concatenate((tile, tile_rot90), axis=1); 
-                p4g = np.concatenate((concatTmp1, concatTmp2));
+                
+
                 if (isDots):
-                    p4g[np.where(p4g == 0)] = np.max(p4g);
+                    start_tile = texture[:height, :width].astype(np.uint32);
+                    xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]).astype(np.uint32);
+                    mask = skd.polygon2mask((height, width), xy).astype(np.uint32);
+                    tile1 = (mask.astype(np.uint32) * start_tile.astype(np.uint32)).astype(np.uint32);
+                    tile1 = start_tile - tile1;
+                    tile2 = np.fliplr(tile1).astype(np.uint32);
+                    tile2 = np.rot90(tile2, 1).astype(np.uint32);
+                    tile = np.maximum(tile1, tile2).astype(np.uint32);
+                    tile_rot90 = np.rot90(tile, 1).astype(np.uint32);
+                    tile_rot180 = np.rot90(tile, 2).astype(np.uint32);
+                    tile_rot270 = np.rot90(tile, 3).astype(np.uint32);
+                    concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1).astype(np.uint32);
+                    concatTmp2 = np.concatenate((tile, tile_rot90), axis=1).astype(np.uint32); 
+                    p4g = np.concatenate((concatTmp1, concatTmp2)).astype(np.uint32);
+                else:
+                    start_tile = texture[:height, :width];
+                    xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]);
+                    mask = skd.polygon2mask((height, width), xy);
+                    tile1 = mask * start_tile;
+                    #if (isDots):
+                    #    tile1 = start_tile;
+                    tile2 = np.fliplr(tile1);
+                    tile2 = np.rot90(tile2, 1);
+                    tile = np.maximum(tile1, tile2);
+                    tile_rot90 = np.rot90(tile, 1);
+                    tile_rot180 = np.rot90(tile, 2);
+                    tile_rot270 = np.rot90(tile, 3);
+                    concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1);
+                    concatTmp2 = np.concatenate((tile, tile_rot90), axis=1); 
+                    p4g = np.concatenate((concatTmp1, concatTmp2));
                 print('Area of Fundamental Region of ' + wptype + f' =  {((p4g.shape[0] * p4g.shape[1]) / 8):.2f}');
                 print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
                 print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4g.shape[0] * p4g.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
@@ -1380,7 +1406,7 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 
                 #patternPath = sPath + "_P4G_Start"  + '.' + "png";
                 #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
-                #Image.fromarray((start_tile[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #Image.fromarray((p4g_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 #patternPath = sPath + "_P4G_Stage1"  + '.' + "png";
                 #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
                 #Image.fromarray((p4g[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
@@ -1423,8 +1449,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 image = catTiles(p3, N, wptype);
                 #patternPath = sPath + "_Stage2_P3_"  + '.' + "png";
                 #Image.fromarray((p3[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                patternPath = sPath + "_P3_Start"  + '.' + "png";
-                Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #patternPath = sPath + "_P3_Start"  + '.' + "png";
+                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 #patternPath = sPath + "_P3_Stage1"  + '.' + "png";       
                 #Image.fromarray((p3[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
                 #patternPath = sPath + "_P3_Stage2"  + '.' + "png";

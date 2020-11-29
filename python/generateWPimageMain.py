@@ -25,7 +25,9 @@ np.set_printoptions(threshold=sys.maxsize)
 import texture_synthesis_g as pss
 import logging
 import argparse
+import cairo as cr
 
+from scipy.stats import mode
 SCRIPT_NAME = os.path.basename(__file__)
 
 # logging
@@ -105,7 +107,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         for k in range(nGroup):
             raw = gwi.generateWPimage(group, wpSize, int(n), ratio, visualAngle, False, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots);
             cm = plt.get_cmap(cmap);
-            raw_image =  (raw);
+            raw_image =  raw;
             rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
             avgMag = np.array([]); 
             if(new_mag == True):
@@ -141,8 +143,16 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             else:
                 patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
             if (isDots):
-                raw_image_c = (200*(raw_image - np.min(raw_image))/np.ptp(raw_image)).astype(np.uint32);
-                Image.fromarray((raw_image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                #raw_image_c = (255*(raw_image - np.min(raw_image))/np.ptp(raw_image)).astype(np.uint32);
+                #raw_image_c = scale(raw, 0, 255);
+                #cm(raw_image_c)
+                #print(mode(raw_image_c, axis=None))
+                #raw_image_c = scale(raw, np.min(raw), np.max(raw));
+                #raw_image_c = cm(raw_image_c);
+                #print(raw_image_c);
+                #surface = cr.ImageSurface.create_for_data(raw_image, cr.FORMAT_ARGB32, raw_image.shape[0], raw_image.shape[1])
+                #surface.write_to_png(patternPath);
+                Image.fromarray((raw_image[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
             else:    
                 Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
             
@@ -161,6 +171,11 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         #symFiltered[:,i]= np.concatenate((filtered, scrambled_filtered));
         #symMasked[:,i]= np.concatenate((masked, scrambled_masked));
     #save([sPath,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups');
+def scale(X, x_min, x_max):
+    nom = (X-X.min(axis=0))*(x_max-x_min)
+    denom = X.max(axis=0) - X.min(axis=0)
+    denom[denom==0] = 1
+    return x_min + nom/denom 
 
 def matlab_style_gauss2D(shape,sigma):
     """

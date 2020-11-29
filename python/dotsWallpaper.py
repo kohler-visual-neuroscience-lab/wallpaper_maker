@@ -55,7 +55,7 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
     pat = cr.SolidPattern(0.5, 0.5, 0.5, 1.0)
 
 
-    ctx.set_source_rgb(0, 0, 0)  # Solid color
+    #ctx.set_source_rgb(0, 0, 0)  # Solid color
     ctx.rectangle(0, 0, width, height)  # Rectangle(x0, y0, x1, y1)
     ctx.set_source(pat)
     ctx.fill()
@@ -63,16 +63,19 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
 
 
     #generate random dots
-    #numOfDots = 10;
+    numOfDots = 4;
+    
     previousDots = [];
     for x in range(numOfDots):
+        
         isPossibleDot = False;
-        colour = np.random.uniform(0,0.5);
-        ctx.set_source_rgb(colour, colour, colour)  # Solid color
+        colour = np.linspace(0., 1., numOfDots);
+        ctx.set_source_rgb(colour[x], colour[x], colour[x])  # Solid color
         while isPossibleDot == False:
             radius = np.random.uniform(minRad, maxRad);
             xc = np.random.uniform(radius, 1-radius);   
             yc = np.random.uniform(radius, 1-radius);
+                
             if (wptype == 'P3'):
                 xc = np.random.uniform(radius, 1-max(0.75, radius * 2));   
                 yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2));
@@ -90,6 +93,9 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
                 yc = np.random.uniform(0.30 + radius, 1-max(0.45, radius * 2));
             
             if x == 0:
+                #ctx.set_source_rgb(0, 0, 0);
+                #ctx.arc(xc, yc, 0.008, 0, 2*math.pi)
+                #ctx.fill();
                 #ctx.set_source_rgb(0, 0, 0)  # Solid color
                 #ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle
                 #ctx.fill();
@@ -105,7 +111,8 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
                         isPossibleDot = False;
                         break;
             if isPossibleDot == True:
-                blobs = np.random.randint(1, 1000);
+                #blobs = np.random.randint(1, 15);
+                blobs = 5;
                 previousDots.append([xc,yc, radius]);
                 
                 for i in range(blobs):
@@ -123,14 +130,13 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
                     #print(yc1)
                     #xc1 = xc1 - 0.05;
                     #yc1 = yc1 - 0.05;
-                    radius1 = radius / np.random.randint(3, 5);
+                    radius1 = radius / 2; #np.random.randint(3, 5);
                     #if radius1 > radius / 1000:
                         #radius1 = radius1 + 0.02
                     #if xc1 + radius1 <= 1 && xc1 - radius1 >= 0 && yc1 + radius1 <= 1 && yc1 - radius1 >= 0:
                     ctx.arc(xc1, yc1, radius1, 0, 2*math.pi) #circle0
                     #ctx.close_path();
                     ctx.fill();
-                print(radius1);
                 path = "blob" + str(x) + "_" + str(i) + ".png";
                 surface.write_to_png(path);
                     
