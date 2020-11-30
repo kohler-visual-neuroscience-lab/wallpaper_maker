@@ -10,8 +10,6 @@ import warnings
 import matplotlib.pyplot as plt
 import dotsWallpaper as dW
 
-import psychopyFilter as filters
-
 import cairo as cr
 import sys
 import cv2 as cv
