@@ -14,15 +14,19 @@ import cairo as cr
 import sys
 import cv2 as cv
 
+import logging
+
 from scipy.ndimage import rotate
 from scipy.stats import mode
-#generate random noise tile
+
+
 def filterTile(inTile, filterIntensity):
-    #outTile = generate_ftile(size(inTile, 1), size(inTile, 2));
+    # generate random noise tile
 
     mu = 0.5;
     nx = np.size(inTile, 0);
     ny = np.size(inTile, 1);
+    
     # make adaptive filtering
     
     sigma_x = 10*filterIntensity/nx;
@@ -40,13 +44,14 @@ def filterTile(inTile, filterIntensity):
     gauss2 = gauss2 * 5;
     
     filtered = np.abs(np.fft.ifft2(np.fft.fft2(inTile) * gauss2));
-    #normalize tile
+    
+    # normalize tile
 
     outTile = filtered - filtered.min();
     outTile = outTile / outTile.max();
     return outTile;
 
-#generate random noise tile filtered using a spatial frequency filter
+# generate random noise tile filtered using a spatial frequency filter
 def spatial_filterTile(im_deg, inTile, lowpass=True, fwhm=1, f_center=0):
     #def make_noise(im_deg=10, rimg=False, lowpass=True, fwhm=1, f_center=0):
     #if not rimg:
@@ -85,6 +90,8 @@ def spatial_filterTile(im_deg, inTile, lowpass=True, fwhm=1, f_center=0):
     return filt_inTile;
 
 def new_p3(tile, isDots):
+    # Generate p3 wallpaper
+    
     # For magfactor, use a multiple of 3 to avoid the rounding error
     # when stacking two_tirds, one_third tiles together
     
@@ -284,7 +291,7 @@ def new_p3(tile, isDots):
         return p3;
 
 def new_p3m1(tile, isDots):
-
+    # Generate p3m1 wallpaper
     magfactor = 10;
     if (isDots):
         height = tile.shape[0];
@@ -456,7 +463,7 @@ def new_p3m1(tile, isDots):
         return p3m1;
 
 def  new_p31m(tile, isDots):
-    
+    # Generate p31m wallpaper
     magfactor = 6;
     
     if (isDots):
@@ -615,7 +622,7 @@ def  new_p31m(tile, isDots):
     return p31m;
 
 def new_p6(tile, isDots):
-    
+    # Generate p6 wallpaper
     magfactor = 6;
     
     if (isDots):
@@ -780,7 +787,8 @@ def new_p6(tile, isDots):
     return p6;
 
 def new_p6m(tile, isDots):
-
+    # Generate p6m wallpaper
+    
     magfactor = 6;
     if (isDots):
         tile1 = tile.astype(np.uint32);
@@ -939,7 +947,7 @@ def new_p6m(tile, isDots):
         p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC));
     return p6m;
 
-def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, isDots, optTexture = None):
+def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, isDots, optTexture = None):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -952,8 +960,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
     # whether spatialfrequency filter is lowpass or highpass
     # isDots generate wallpaper using dots rather than random noise
     
-    #default
-    #save paths for debugging
+    # default
+    # save paths for debugging
     saveStr = os.getcwd() + '\\WPSet\\';
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
@@ -965,21 +973,18 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         if isSpatFreqFilt:
             texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
         elif isDots:
-            texture = dW.genDotsFund(n, 0.03, 0.03, 3, wptype);
+            texture = dW.genDotsFund(n, 0.1, 0.1, 3, wptype);
         else:
             texture = filterTile(np.random.rand(n,n), grain);  
-        #patternPath = sPath + "_Stage1"  + '.' + "png";
-        #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
     else:
         minDim = np.min(np.shape(optTexture));
-        #stretch user-defined texture, if it is too small for sampling
+        # stretch user-defined texture, if it is too small for sampling
         if minDim < n:
             ratioTexture = round(n / minDim);
-            #optTexture = imresize(optTexture, ratioTexture, 'nearest');
             optTexture = np.array(Image.resize(reversed((optTexture.shape * ratioTexture)), Image.NEAREST));
         texture = optTexture;
     try:
-
+        # generate the wallpapers
         if wptype == 'P0':
                 p0 = np.array(Image.resize(reversed((texture.shape * round(N/n))), Image.NEAREST));
                 image = p0;
@@ -988,64 +993,19 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 width = n;
                 height = width;
                 p1 = texture[:height, :width];
-                #patternPath = sPath + "_Stage1_P1"  + '.' + "png";
-                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p1.shape[0] * p1.shape[1])):.1f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - p1.shape[0] * p1.shape[1]) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(p1);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, p1.shape[0], p1.shape[1]), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaFRIm);
-                    draw.rectangle((0, 0, p1.shape[0] - 1, p1.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(p1, N, wptype);
-                
-                #patternPath = sPath + "_P1_Stage2"  + '.' + "png";
-                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
-                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p1, isFR, isLattice, N, ratio);
                 return image;                
         elif wptype == 'P2':
-                #patternPath = sPath + "_Stage1_P2"  + '.' + "png";
-                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 height = round(n/2);
                 width = 2*height;
                 start_tile = texture[:height, :width];
-                #start_tileIm = Image.fromarray(start_tile);
                 tileR180 = np.rot90(start_tile, 2)
-                #tileR180 = start_tileIm.rotate(180)
-                #tileR180 = np.array(tileR180);
                 p2 = np.concatenate((start_tile, tileR180));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p2.shape[0] * p2.shape[1]) / 2):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - (p2.shape[0] * p2.shape[1]) / 2) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(p2);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, p2.shape[0] - 1, p2.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.rectangle((0, p2.shape[1] / 2, p2.shape[0], p2.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(p2, N, wptype);
-                
-                #patternPath = sPath + "_P2_Stage2"  + '.' + "png";
-                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
-                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p2, isFR, isLattice, N, ratio);     
                 return image;
         elif wptype == 'PM':
                 height = round(n/2);
@@ -1053,54 +1013,20 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 start_tile = texture[:height, :width];
                 mirror = np.flipud(start_tile);
                 pm = np.concatenate((start_tile, mirror));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((pm.shape[0] * pm.shape[1]) / 2):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pm.shape[0] * pm.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(pm);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, pm.shape[0] - 1, pm.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.rectangle((0, pm.shape[1] / 2, pm.shape[0], pm.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(pm, N, wptype);
+                if (isDiagnostic):
+                    diagnostic(image, wptype, pm, isFR, isLattice, N, ratio); 
                 return image;                
         elif wptype == 'PG':
                 height = round(n/2);
                 width = 2*height;
                 start_tile = texture[:height, :width];
-                #start_tileIm = Image.fromarray(start_tile);
                 tile = np.rot90(start_tile, 3);
-                #tile = np.array(tile);
                 glide = np.flipud(tile);
                 pg = np.concatenate((tile, glide), axis=1);
-                print('Area of Fundamental Region of ' + wptype + f' =  {((pg.shape[0] * pg.shape[1]) / 2):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pg.shape[0] * pg.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(pg);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, pg.shape[0] - 1, pg.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.rectangle((pg.shape[0] / 2, 0, pg.shape[0], pg.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(pg.T, N, wptype);
+                if (isDiagnostic):
+                    diagnostic(image, wptype, pg, isFR, isLattice, N, ratio);
                 return image;                  
         elif wptype == 'CM':
                 height = round(n/2);
@@ -1110,33 +1036,11 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 tile1 = np.concatenate((start_tile, mirror), axis=1);
                 tile2 = np.concatenate((mirror, start_tile), axis=1);
                 cm = np.concatenate((tile1, tile2));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((cm.shape[0] * cm.shape[1]) / 4):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((cm.shape[0] * cm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cma = plt.get_cmap("gray");
-                    tileCm = cma(cm);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.line(((cm.shape[0] / 2, 0), (0, cm.shape[1] / 2), (cm.shape[0] / 2,cm.shape[1]), (cm.shape[0], cm.shape[1] / 2),(cm.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.polygon(((0, cm.shape[1] / 2), (cm.shape[0] / 2,cm.shape[1]), (cm.shape[0], cm.shape[1] / 2)), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.line(((cm.shape[0] / 2, 0), (0, cm.shape[1] / 2), (cm.shape[0] / 2,cm.shape[1]), (cm.shape[0], cm.shape[1] / 2),(cm.shape[0] / 2, 0)), fill=(255, 255, 0, 255), width=2, joint="curve");
-                    alpha_mask__rec_draw.line(((0, cm.shape[1] / 2), (cm.shape[0], cm.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
-                #patternPath = sPath + "_Stage2_CM_"  + '.' + "png";
-                #Image.fromarray((cm[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 image = catTiles(cm, N, wptype);
+                if (isDiagnostic):
+                    diagnostic(image, wptype, cm, isFR, isLattice, N, ratio);
                 return image;                
         elif wptype == 'PMM':
-                #patternPath = sPath + "_Stage1_PMM"  + '.' + "png";
-                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 height = round(n/2);
                 width = height;
                 start_tile = texture[:height, :width];                    
@@ -1144,32 +1048,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 concatTmp1 = np.concatenate((start_tile, mirror), axis=1);
                 concatTmp2 = np.concatenate((np.flipud(start_tile), np.flipud(mirror)), axis=1);
                 pmm = np.concatenate((concatTmp1, concatTmp2));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((pmm.shape[0] * pmm.shape[1]) / 4):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pmm.shape[0] * pmm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(pmm);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, pmm.shape[0] - 1, pmm.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.rectangle((0, pmm.shape[1] / 2, pmm.shape[0] / 2, pmm.shape[1]), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.rectangle((0, 0, pmm.shape[0] - 1, pmm.shape[1] - 1), outline=(255,255,0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, pmm.shape[1] / 2), (pmm.shape[0], pmm.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((pmm.shape[0] / 2, 0), (pmm.shape[0] / 2, pmm.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
-                #patternPath = sPath + "_Stage2_PMM_"  + '.' + "png";
-                #Image.fromarray((pmm[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
                 image = catTiles(pmm, N, wptype);
-                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
-                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, pmm, isFR, isLattice, N, ratio);
                 return image;                 
         elif wptype == 'PMG':
                 height = round(n/2);
@@ -1179,28 +1060,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 concatTmp1 = np.concatenate((start_tile, start_tile_rot180), axis=1);
                 concatTmp2 = np.concatenate((np.flipud(start_tile), np.fliplr(start_tile)), axis=1);
                 pmg = np.concatenate((concatTmp1, concatTmp2));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((pmg.shape[0] * pmg.shape[1]) / 4):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pmg.shape[0] * pmg.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(pmg);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, pmg.shape[0] - 1, pmg.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.rectangle((0, pmg.shape[1] / 2, pmg.shape[0] / 2, pmg.shape[1]), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.rectangle((0, 0, pmg.shape[0] - 1, pmg.shape[1] - 1), outline=(255,255,0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, pmg.shape[1] / 2), (pmg.shape[0], pmg.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((pmg.shape[0] / 2, 0), (pmg.shape[0] / 2, pmg.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(pmg, N, wptype);
+                if (isDiagnostic):
+                    diagnostic(image, wptype, pmg, isFR, isLattice, N, ratio);
                 return image;                 
         elif wptype == 'PGG':
                 height = round(n/2);
@@ -1210,28 +1072,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 concatTmp1 = np.concatenate((start_tile, np.flipud(start_tile)), axis=1);
                 concatTmp2 = np.concatenate((np.fliplr(start_tile), start_tile_rot180), axis=1);
                 pgg = np.concatenate((concatTmp1, concatTmp2));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((pgg.shape[0] * pgg.shape[1]) / 4):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((pgg.shape[0] * pgg.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(pgg);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, pgg.shape[0] - 1, pgg.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.polygon(((0, pgg.shape[1] / 2), (pgg.shape[0] / 2, pgg.shape[1]), (pgg.shape[0], pgg.shape[1] / 2)), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.rectangle((0, 0, pgg.shape[0] - 1, pgg.shape[1] - 1), outline=(255,255,0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, pgg.shape[1] / 2), (pgg.shape[0], pgg.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, pgg.shape[1] / 2), (pgg.shape[0] / 2, pgg.shape[1]), (pgg.shape[0], pgg.shape[1] / 2), (pgg.shape[0] / 2, 0), (0, pgg.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(pgg, N, wptype);
+                if (isDiagnostic):
+                    diagnostic(image, wptype, pgg, isFR, isLattice, N, ratio);
                 return image;                 
         elif wptype == 'CMM':
                 height = round(n/4);
@@ -1243,28 +1086,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 concatTmp1 = np.concatenate((tile1, tile2), axis=1);
                 concatTmp2 = np.concatenate((tile2, tile1), axis=1);
                 cmm = np.concatenate((concatTmp1, concatTmp2)); 
-                print('Area of Fundamental Region of ' + wptype + f' =  {((cmm.shape[0] * cmm.shape[1]) / 4):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((cmm.shape[0] * cmm.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(cmm);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.line(((cmm.shape[0] / 2, 0), (0, cmm.shape[1] / 2), (cmm.shape[0] / 2,cmm.shape[1]), (cmm.shape[0], cmm.shape[1] / 2),(cmm.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.polygon(((0, cmm.shape[1] / 2), (cmm.shape[0] / 2, cmm.shape[1] / 2), (cmm.shape[0] / 2, cmm.shape[1])), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.line(((0, cmm.shape[1] / 2), (cmm.shape[0], cmm.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((cmm.shape[1] / 2, 0), (cmm.shape[0] / 2, cmm.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, cmm.shape[1] / 2), (cmm.shape[0] / 2, cmm.shape[1]), (cmm.shape[0], cmm.shape[1] / 2), (cmm.shape[0] / 2, 0), (0, cmm.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(cmm, N, wptype);
+                if (isDiagnostic):
+                    diagnostic(image, wptype, cmm, isFR, isLattice, N, ratio);
                 return image;                 
         elif wptype == 'P4':
                 height = round(n/2);
@@ -1276,30 +1100,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 concatTmp1 = np.concatenate((start_tile, start_tile_rot270), axis=1);
                 concatTmp2 = np.concatenate((start_tile_rot90, start_tile_rot180), axis=1);                
                 p4 = np.concatenate((concatTmp1, concatTmp2));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p4.shape[0] * p4.shape[1]) / 4):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4.shape[0] * p4.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(p4);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, p4.shape[0] - 1, p4.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.rectangle((0, p4.shape[1] / 2, p4.shape[0] / 2, p4.shape[1]), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.rectangle((0, 0, p4.shape[0] - 1, p4.shape[1] - 1), outline=(255,255,0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, p4.shape[1] / 2), (p4.shape[0], p4.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((p4.shape[0] / 2, 0), (p4.shape[0] / 2, p4.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(p4, N, wptype);
-                #patternPath = sPath + "_Stage2_P4_"  + '.' + "png";
-                #Image.fromarray((texture[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p4, isFR, isLattice, N, ratio);                
                 return image; 
         elif wptype == 'P4M':
                 height = round(n/2);
@@ -1317,37 +1120,13 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 concatTmp1 = np.concatenate((tile, tile_rot270), axis=1);
                 concatTmp2 = np.concatenate((tile_rot90, tile_rot180), axis=1); 
                 p4m = np.concatenate((concatTmp1, concatTmp2));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p4m.shape[0] * p4m.shape[1]) / 8):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4m.shape[0] * p4m.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(p4m);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.rectangle((0, 0, p4m.shape[0] - 1, p4m.shape[1] - 1), outline=(255,255,0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.polygon(((p4m.shape[0] / 2, p4m.shape[1] / 2), (p4m.shape[0] / 2, p4m.shape[1]),(0, p4m.shape[1])), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.rectangle((0, 0, p4m.shape[0] - 1, p4m.shape[1] - 1), outline=(255,255,0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, p4m.shape[1] / 2), (p4m.shape[0], p4m.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((p4m.shape[0] / 2, 0), (p4m.shape[0] / 2, p4m.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, 0), (p4m.shape[0], p4m.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((p4m.shape[0], 0), (0, p4m.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(p4m, N, wptype);
-
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p4m, isFR, isLattice, N, ratio); 
                 return image; 
         elif wptype == 'P4G':
                 height = round(n/2);
                 width = height;
-                
-
                 if (isDots):
                     start_tile = texture[:height, :width].astype(np.uint32);
                     xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]).astype(np.uint32);
@@ -1368,8 +1147,6 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     xy = np.array ([[0, 0], [width, 0], [width, height], [0, 0]]);
                     mask = skd.polygon2mask((height, width), xy);
                     tile1 = mask * start_tile;
-                    #if (isDots):
-                    #    tile1 = start_tile;
                     tile2 = np.fliplr(tile1);
                     tile2 = np.rot90(tile2, 1);
                     tile = np.maximum(tile1, tile2);
@@ -1379,38 +1156,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     concatTmp1 = np.concatenate((tile_rot270, tile_rot180), axis=1);
                     concatTmp2 = np.concatenate((tile, tile_rot90), axis=1); 
                     p4g = np.concatenate((concatTmp1, concatTmp2));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p4g.shape[0] * p4g.shape[1]) / 8):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p4g.shape[0] * p4g.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(p4g);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    draw.line(((p4g.shape[0] / 2, 0), (0, p4g.shape[1] / 2), (p4g.shape[0] / 2,p4g.shape[1]), (p4g.shape[0], p4g.shape[1] / 2),(p4g.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.polygon(((0, p4g.shape[1] / 2), (p4g.shape[0] / 2, p4g.shape[1] / 2), (p4g.shape[0] / 2, p4g.shape[1])), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.line(((0, p4g.shape[1] / 2), (p4g.shape[0], p4g.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((p4g.shape[1] / 2, 0), (p4g.shape[0] / 2, p4g.shape[1])), fill=(255, 255, 0, 255), width=2);
-                    alpha_mask__rec_draw.line(((0, p4g.shape[1] / 2), (p4g.shape[0] / 2, p4g.shape[1]), (p4g.shape[0], p4g.shape[1] / 2), (p4g.shape[0] / 2, 0), (0, p4g.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(p4g, N, wptype);   
-                
-                #patternPath = sPath + "_P4G_Start"  + '.' + "png";
-                #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
-                #Image.fromarray((p4g_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P4G_Stage1"  + '.' + "png";
-                #p4g_c = (200*(p4g - np.min(p4g))/np.ptp(p4g)).astype(np.uint32)        
-                #Image.fromarray((p4g[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P4G_Stage2"  + '.' + "png";
-                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
-                #Image.fromarray((image_c[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p4g, isFR, isLattice, N, ratio);               
                 return image;
         elif wptype == 'P3':
                 alpha = np.pi/3;
@@ -1422,38 +1170,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     p3 = new_p3(texture, isDots);
                 else:
                     p3 = new_p3(start_tile, isDots);
-
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p3.shape[0] * p3.shape[1]) / 18):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3.shape[0] * p3.shape[1]) / 18)) / (N**2 * ratio)) * 100):.2f}%');
-                if (isDiagnostic):
-                    diagPath1 = sPath + "_DIAGNOSTIC_LATTICE"  + '.' + "png";
-                    cm = plt.get_cmap("gray");
-                    tileCm = cm(p3);
-                    diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    draw = ImageDraw.Draw(diaLatIm);
-                    print(p3.shape);
-                    draw.line(((p3.shape[1] - 1, 0), (p3.shape[1] / 2, p3.shape[0] / 6), (p3.shape[1] / 2, p3.shape[0] / 2), (p3.shape[1] - 1, p3.shape[0] / 3), (p3.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
-                    diaLatIm.save(diagPath1, "png");
-                    diagPath2 = sPath + "_DIAGNOSTIC_FR"  + '.' + "png";
-                    diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-                    alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
-                    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-                    alpha_mask__rec_draw.polygon(((p3.shape[1] / 2, p3.shape[0] / 6), (((p3.shape[1] - p3.shape[1]) / 2) / 2, (np.sqrt(3)/2) * (p3.shape[0] - p3.shape[0] / 2)), (p3.shape[1] - 1, p3.shape[0] / 3)), fill=(255, 0, 0, 125));
-                    alpha_mask__rec_draw.line(((p3.shape[1] / 2, p3.shape[0] / 6), ((np.sqrt(3)/2) * (p3.shape[1] - p3.shape[1] / 2),((p3.shape[0] - p3.shape[0] / 6 - (p3.shape[0]) / 2)) / 2), (p3.shape[1] - 1, p3.shape[0] / 3)),  fill=(255, 255, 0), width=3);
-                    alpha_mask__rec_draw.line(((p3.shape[1] - 1, 0), (p3.shape[1] / 2, p3.shape[0] / 6), (p3.shape[1] / 2, p3.shape[0] / 2), (p3.shape[1] - 1, p3.shape[0] / 3), (p3.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
-                    diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec)
-                    diaFRIm.save(diagPath2, "png");
                 image = catTiles(p3, N, wptype);
-                #patternPath = sPath + "_Stage2_P3_"  + '.' + "png";
-                #Image.fromarray((p3[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                #patternPath = sPath + "_P3_Start"  + '.' + "png";
-                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P3_Stage1"  + '.' + "png";       
-                #Image.fromarray((p3[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_P3_Stage2"  + '.' + "png";
-                #image_c = (200*(image - np.min(image))/np.ptp(image)).astype(np.uint32)        
-                #Image.fromarray((image[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p3, isFR, isLattice, N, ratio);                
                 return image;                
         elif wptype == 'P3M1':
                 alpha = np.pi/3;
@@ -1465,15 +1184,8 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 else:
                     p3m1 = new_p3m1(start_tile, isDots);  
                 image = catTiles(p3m1, N, wptype);
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p3m1.shape[0] * p3m1.shape[1]) / 36):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p3m1.shape[0] * p3m1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
-
-                #patternPath = sPath + "_p3m1_Start"  + '.' + "png";
-                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_p3m1_Stage1"  + '.' + "png";       
-                #Image.fromarray((p3m1[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p3m1, isFR, isLattice, N, ratio); 
                 return image;                
         elif wptype == 'P31M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1484,19 +1196,11 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                 else:
                     p31m = new_p31m(start_tile, isDots);
                
-                #ugly trick
+                # ugly trick
                 p31m_1 = np.fliplr(np.transpose(p31m));
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p31m_1.shape[0] * p31m_1.shape[1]) / 36):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p31m_1.shape[0] * p31m_1.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
-                image = catTiles(p31m_1, N, wptype); 
-                patternPath = sPath + "_Stage2"  + '.' + "png";
-                #Image.fromarray((p31m_1[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                
-                #patternPath = sPath + "_p31m_Start"  + '.' + "png";
-                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_p31m_Stage1"  + '.' + "png";       
-                #Image.fromarray((p31m_1[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                image = catTiles(p31m_1, N, wptype);
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p31m_1, isFR, isLattice, N, ratio); 
                 return image;
         elif wptype == 'P6':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1506,16 +1210,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     p6 = new_p6(texture, isDots); 
                 else:
                     p6 = new_p6(start_tile, isDots);
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p6.shape[0] * p6.shape[1]) / 36):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6.shape[0] * p6.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p6, N, wptype);
-                #patternPath = sPath + "_Stage2"  + '.' + "png";
-                #Image.fromarray((p6[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                #patternPath = sPath + "_p6_Start"  + '.' + "png";
-                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_p6_Stage1"  + '.' + "png";       
-                #Image.fromarray((p6[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p6, isFR, isLattice, N, ratio); 
                 return image;
         elif wptype == 'P6M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1525,16 +1222,9 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
                     p6m = new_p6m(texture, isDots); 
                 else:
                     p6m = new_p6m(start_tile, isDots);
-                print('Area of Fundamental Region of ' + wptype + f' =  {((p6m.shape[0] * p6m.shape[1]) / 72):.2f}');
-                print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
-                print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((p6m.shape[0] * p6m.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%');
                 image = catTiles(p6m, N, wptype); 
-                #patternPath = sPath + "_Stage2"  + '.' + "png";
-                #Image.fromarray((p6m[:, :] * 255).astype(np.uint8)).save(patternPath, "png");
-                #patternPath = sPath + "_p6_Start"  + '.' + "png";
-                #Image.fromarray((texture[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
-                #patternPath = sPath + "_p6_Stage1"  + '.' + "png";       
-                #Image.fromarray((p6m[:, :]  * 255).astype(np.uint32)).save(patternPath, "png");
+                if (isDiagnostic):
+                    diagnostic(image, wptype, p6m, isFR, isLattice, N, ratio); 
                 return image;
         else:
                 warnings.warn('Unexpected Wallpaper Group type. Returning random noise.', UserWarning);
@@ -1545,15 +1235,15 @@ def generateWPimage(wptype,N,n,ratio,angle, isDiagnostic, isSpatFreqFilt, fwhm, 
         print(err.args);
         
 def catTiles(tile, N, wptype):
-    #disp tile square
+    # disp tile square
     sq = np.shape(tile)[0] * np.shape(tile)[1];
     print(wptype + ' area of tile = ', sq);                
     
-    #write tile
+    # write tile
     #tileIm = Image.fromarray(tile);
     #tileIm.save('~/Documents/PYTHON/tiles/' + wptype + '_tile.jpeg', 'JPEG');
     
-    #resize tile to ensure it will fit wallpaper size properly
+    # resize tile to ensure it will fit wallpaper size properly
     if (tile.shape[0] > N):
         tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), : ];
         N = tile.shape[0];
@@ -1569,13 +1259,13 @@ def catTiles(tile, N, wptype):
     row = dN[0];
     col = dN[1];
     
-    #to avoid divide by zero errors
+    # to avoid divide by zero errors
     if(dN[0] == 1):
         row = row + 1;
     if(dN[1] == 1):
         col = col + 1;
     
-    #repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
+    # repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
     img = numpy.matlib.repmat(tile, row - 1, col - 1);
     
     row = math.floor(img.shape[0] + tile.shape[0] * ((1 + (N / tile.shape[0])) - dN[0]));
@@ -1589,7 +1279,7 @@ def catTiles(tile, N, wptype):
     img_final = np.zeros((row, col));
     
 
-    #centers the evenly created tile and then even distributes the rest of the tile around the border s.t. the total size of the wallpaper = the desired input size of the wallpaper
+    # centers the evenly created tile and then even distributes the rest of the tile around the border s.t. the total size of the wallpaper = the desired input size of the wallpaper
     img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2): img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2),math.ceil((img_final.shape[1] - img.shape[1]) / 2): img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[:,:];
     img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2) : img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2), : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[ :, img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):];
     img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2) : img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2), img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2): ] = img[ :, : math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
@@ -1599,7 +1289,353 @@ def catTiles(tile, N, wptype):
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):];
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2) : ] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
     img_final[:math.ceil((img_final.shape[0] - img.shape[0]) / 2) ,  img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2): ] = img[ img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2) : , :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
+    
+
     return img_final
+
+def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
+    # function to take care of all diagnostic tasks related to the wallpaper generation
+    # img is the full wallpaper
+    # wptype is the wallpaper type
+    # tile is a single tile of the wallpaper
+    # isFR is if the wallpaper is sized as a ratio of the fundamental region
+    # isLattice is if the wallpaper is sized as a ratio of the lattice
+    # N is the overall size of the wallpaper
+    # ratio is the ratio of the FR/lattice sizing
+    
+    saveStr = os.getcwd() + '\\WPSet\\';
+    today = datetime.today();
+    timeStr = today.strftime("%Y%m%d_%H%M%S");
+    sPath = saveStr + timeStr; 
+    if (wptype == 'P1'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1])):.1f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - tile.shape[0] * tile.shape[1]) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_" + wptype  + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0], tile.shape[1]), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaFRIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'P2'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - (tile.shape[0] * tile.shape[1]) / 2) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'PM'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'PG'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.rectangle((tile.shape[0] / 2, 0, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'CM'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cma = plt.get_cmap("gray");
+        tileCm = cma(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0, 255), width=2, joint="curve");
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'PMM'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'PMG'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'PGG'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'CMM'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[1] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'P4'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'P4M'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]),(0, tile.shape[1])), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, 0), (tile.shape[0], tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[0], 0), (0, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'P4G'):
+        if(isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[1] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'P3'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 18):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 18)) / (N**2 * ratio)) * 100):.2f}%');
+        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        cm = plt.get_cmap("gray");
+        tileCm = cm(tile);
+        diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        draw = ImageDraw.Draw(diaLatIm);
+        print(tile.shape);
+        draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
+        diaLatIm.save(diagPath1, "png");
+        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.polygon(((tile.shape[1] / 2, tile.shape[0] / 6), (((tile.shape[1] - tile.shape[1]) / 2) / 2, (np.sqrt(3)/2) * (tile.shape[0] - tile.shape[0] / 2)), (tile.shape[1] - 1, tile.shape[0] / 3)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[1] / 2, tile.shape[0] / 6), ((np.sqrt(3)/2) * (tile.shape[1] - tile.shape[1] / 2),((tile.shape[0] - tile.shape[0] / 6 - (tile.shape[0]) / 2)) / 2), (tile.shape[1] - 1, tile.shape[0] / 3)),  fill=(255, 255, 0), width=3);
+        alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        diaFRIm.save(diagPath2, "png");
+    elif (wptype == 'P3M1'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
+    elif (wptype == 'P31M'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
+    elif (wptype == 'P6'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');  
+    elif (wptype == 'P6M'):
+        if (isFR):
+            print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 72):.2f}');
+            print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
+            print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%');
+    
+    # diagnostic plots
+    logging.getLogger('matplotlib.font_manager').disabled = True;
+    patternPath = sPath + wptype  + '_diagnostic_1' + '.' + "png";
+    hidx_0 = 50;
+    hidx_1 = 150;
+    hidx_2 = 300;
+    #fig, axs = plt.subplots(1,3,figsize=(30,5))
+    I = np.dstack([img,img,img]);
+    I[hidx_0-2:hidx_0+2,:] = np.array([1,0,0]);
+    I[hidx_1-2:hidx_1+2,:] = np.array([0,1,0]);
+    I[hidx_2-2:hidx_2+2,:] = np.array([0,0,1]);
+    cm = plt.get_cmap("gray");
+    cm(I);
+    plt.imshow(I);
+    plt.title(wptype + ' diagnostic image 1');
+    plt.savefig(patternPath);
+    plt.clf();
+    
+    patternPath = sPath + wptype  + '_diagnostic_2' + '.' + "png";
+    plt.plot(img[hidx_0,:],c=[1,0,0])
+    plt.plot(img[hidx_1,:],c=[0,1,0])
+    plt.plot(img[hidx_2,:],c=[0,0,1])
+    plt.title('Sample values along the horizontal lines {} {} and {}'.format(hidx_0, hidx_1, hidx_2)) ;
+    plt.savefig(patternPath);
+    plt.clf();
+    
+    patternPath = sPath + wptype  + '_diagnostic_3' + '.' + "png";
+    bins = np.linspace(0, 1, 100)
+    plt.hist(img[hidx_0,:],bins,color=[1,0,0]) ;
+    plt.hist(img[hidx_1,:],bins,color=[0,1,0]) ;
+    plt.hist(img[hidx_2,:],bins,color=[0,0,1]) ;
+    plt.title('Frequency of sample values across the horizontal lines');
+    plt.savefig(patternPath);
+    
+    
 
 #old cat function
 # def catTiles(tile, N, wptype):

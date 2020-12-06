@@ -38,27 +38,6 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngle: float=30.0, wpSize: int=500, latticeSize: bool=False,
                           fundRegSize: bool=False, ratio: float=1.0, spatFreqFilt: bool=False, spatFreqFiltFWHM: int=5, spatFreqFiltLowpass: bool=True, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
                           cmap: str="gray", debug: bool=False):
-    #mapGroup = containers.Map(keySet, valueSet);
-    #hexLattice = ['P3', 'P6'];
-    #sqrLattice = ['P4'];
-    #recLattice = [];
-    #rhoLattice = [];
-    #obqLattice = ['P1', 'P2'];
-    # hexLattice = ['P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-    # sqrLattice = ['P4', 'P4M', 'P4G'];
-    # recLattice = ['PM', 'PMM', 'PMG', 'PGG', 'PG'];
-    # rhoLattice = ['CM', 'CMM'];
-    # obqLattice = ['P1', 'P2'];
-    # define groups to be generated
-    #Groups = ['P1','P2','P4','P3','P6'];
-    #Groups = ['P1', 'P2', 'PM' ,'PG', 'CM', 'PMM', 'PMG', 'PGG', 'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M'];
-    # image parameters
-    # image size determined by visual angle
-    #app = QApplication(sys.argv)
-    #screen = app.screens()[0]
-    #dpi = screen.physicalDotsPerInch()
-    #wpSize = (round((math.tan(math.radians(visualAngle / 2)) * (2 * distance)) * dpi / 2.54));
-    #app.quit();   
 
     # save parameters
     saveStr = os.getcwd() + '\\WPSet\\';
@@ -93,7 +72,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             os.mkdirs(sAnalysisPath);
     except:
         print('PYTHON:generateWPSet:mkdir ', sPath);
-    isDots = True;
+    isDots = False;
     # Generating WPs and scrambling 
     for i in range(len(Groups)):    
         print('generating ', Groups[i]);
@@ -105,7 +84,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         else:
             n = sizeTile (ratio, wpSize, group);
         for k in range(nGroup):
-            raw = gwi.generateWPimage(group, wpSize, int(n), ratio, visualAngle, False, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots);
+            raw = gwi.generateWPimage(group, wpSize, int(n), fundRegSize, latticeSize, ratio, visualAngle, False, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots);
             cm = plt.get_cmap(cmap);
             raw_image =  raw;
             rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
@@ -143,15 +122,6 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             else:
                 patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
             if (isDots):
-                #raw_image_c = (255*(raw_image - np.min(raw_image))/np.ptp(raw_image)).astype(np.uint32);
-                #raw_image_c = scale(raw, 0, 255);
-                #cm(raw_image_c)
-                #print(mode(raw_image_c, axis=None))
-                #raw_image_c = scale(raw, np.min(raw), np.max(raw));
-                #raw_image_c = cm(raw_image_c);
-                #print(raw_image_c);
-                #surface = cr.ImageSurface.create_for_data(raw_image, cr.FORMAT_ARGB32, raw_image.shape[0], raw_image.shape[1])
-                #surface.write_to_png(patternPath);
                 Image.fromarray((raw_image[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
             else:    
                 Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
@@ -191,9 +161,9 @@ def matlab_style_gauss2D(shape,sigma):
         h /= sumh
     return h
 
-# Filter/mask every image
+# filter/mask every image
 def filterImg(inImg, N):        
-    # Make filter intensity adaptive (600 is empirical number)
+    # make filter intensity adaptive (600 is empirical number)
     sigma = N / 600;
     lowpass = matlab_style_gauss2D((9, 9), sigma);
     
@@ -244,7 +214,7 @@ def spectra(in_image, pssscrambled=False, psscrambled=False, new_mag=np.array([]
     if(new_mag.size != 0):
         mag = new_mag;
     cmplxIm = mag * np.exp(1j * phase);
-    #get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
+    # get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
     outImage = np.abs(np.real(np.fft.ifft2(cmplxIm)));
     return outImage;
 
@@ -267,6 +237,7 @@ def previous_power_2(x):
     return x - (x >> 1);
 
 def str2bool(v):
+    # convert str to bool for commandline input
     if isinstance(v, bool):
        return v;
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -277,6 +248,7 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.');
 
 def str2list(v):
+    # convert str to list for commandline input
     if isinstance(v, list):
         return v;
     else:
@@ -360,8 +332,7 @@ def meanMag(freqGroup):
     out = np.median(mag,2);
     return out;
 
-#generateWPTImagesMain(debug=True);
-
+# for commandline input
 if __name__ == "__main__":
 	LOGGER.info('Generating Wallpapers')
 
