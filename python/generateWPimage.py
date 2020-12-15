@@ -19,6 +19,8 @@ import logging
 from scipy.ndimage import rotate
 from scipy.stats import mode
 
+from IPython.display import display, Markdown
+
 
 def filterTile(inTile, filterIntensity):
     # generate random noise tile
@@ -1324,6 +1326,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         draw = ImageDraw.Draw(diaFRIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P2'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
@@ -1343,6 +1349,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'PM'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
@@ -1362,6 +1372,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'PG'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
@@ -1381,6 +1395,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.rectangle((tile.shape[0] / 2, 0, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'CM'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
@@ -1402,6 +1420,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'PMM'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
@@ -1424,6 +1446,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'PMG'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
@@ -1446,6 +1472,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'PGG'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
@@ -1468,6 +1498,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'CMM'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
@@ -1490,6 +1524,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P4'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
@@ -1512,6 +1550,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P4M'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
@@ -1536,6 +1578,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[0], 0), (0, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P4G'):
         if(isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
@@ -1558,6 +1604,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P3'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 18):.2f}');
@@ -1579,6 +1629,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.polygon(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 0, 0, 125));
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P3M1'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
@@ -1601,6 +1655,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P31M'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
@@ -1623,6 +1681,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=2);        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P6'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
@@ -1645,6 +1707,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2);        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
     elif (wptype == 'P6M'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 72):.2f}');
@@ -1657,6 +1723,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
         diaLatIm.save(diagPath1, "png");
+        
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
@@ -1668,6 +1735,11 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2);        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
+        display(Markdown('Lattice for ' + wptype))
+        display(diaLatIm);
+        display(Markdown('Fundamental Region for ' + wptype))
+        display(diaFRIm);
+        
     
     # diagnostic plots
     logging.getLogger('matplotlib.font_manager').disabled = True;
@@ -1682,26 +1754,33 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
     I[hidx_2-2:hidx_2+2,:] = np.array([0,0,1]);
     cm = plt.get_cmap("gray");
     cm(I);
+    #ax = plt.subplot()
     plt.imshow(I);
     plt.title(wptype + ' diagnostic image 1');
-    plt.savefig(patternPath);
-    plt.clf();
+    plt.show();
+    #plt.savefig(patternPath);
     
+    #plt.clf();
+    #ax = plt.subplot()
     patternPath = sPath + wptype  + '_diagnostic_2' + '.' + "png";
     plt.plot(img[hidx_0,:],c=[1,0,0])
     plt.plot(img[hidx_1,:],c=[0,1,0])
     plt.plot(img[hidx_2,:],c=[0,0,1])
     plt.title('Sample values along the horizontal lines {} {} and {}'.format(hidx_0, hidx_1, hidx_2)) ;
-    plt.savefig(patternPath);
-    plt.clf();
+    plt.show();
+    #plt.savefig(patternPath);
     
+    #plt.clf();
+    #ax = plt.subplot()
     patternPath = sPath + wptype  + '_diagnostic_3' + '.' + "png";
     bins = np.linspace(0, 1, 100)
     plt.hist(img[hidx_0,:],bins,color=[1,0,0]) ;
     plt.hist(img[hidx_1,:],bins,color=[0,1,0]) ;
     plt.hist(img[hidx_2,:],bins,color=[0,0,1]) ;
     plt.title('Frequency of sample values across the horizontal lines');
-    plt.savefig(patternPath);
+    plt.show();
+    #plt.savefig(patternPath);
+    
     
     
 

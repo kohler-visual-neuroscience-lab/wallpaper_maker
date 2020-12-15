@@ -30,6 +30,8 @@ import cairo as cr
 from scipy.stats import mode
 SCRIPT_NAME = os.path.basename(__file__)
 
+from IPython.display import display, Markdown
+
 # logging
 LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
@@ -37,7 +39,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngle: float=30.0, wpSize: int=500, latticeSize: bool=False,
                           fundRegSize: bool=False, ratio: float=1.0, spatFreqFilt: bool=False, spatFreqFiltFWHM: int=5, spatFreqFiltLowpass: bool=True, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
-                          cmap: str="gray", debug: bool=False):
+                          cmap: str="gray", isDiagnostic: bool=True, debug: bool=False):
 
     # save parameters
     saveStr = os.getcwd() + '\\WPSet\\';
@@ -84,7 +86,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         else:
             n = sizeTile (ratio, wpSize, group);
         for k in range(nGroup):
-            raw = gwi.generateWPimage(group, wpSize, int(n), fundRegSize, latticeSize, ratio, visualAngle, False, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots);
+            raw = gwi.generateWPimage(group, wpSize, int(n), fundRegSize, latticeSize, ratio, visualAngle, isDiagnostic, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots);
             cm = plt.get_cmap(cmap);
             raw_image =  raw;
             rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
@@ -125,6 +127,8 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 Image.fromarray((raw_image[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
             else:    
                 Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
+                display(Markdown(str(1000*groupNumber + k) + '_' + group + '_' + cmap));
+                display(Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)));
             
             if(pssscrambled == True or psscrambled == True):
                 if (spatFreqFilt):
@@ -372,12 +376,14 @@ if __name__ == "__main__":
                     help='New magnitude')
 	parser.add_argument('--cmap', '-c', default="gray", type=str,
                     help='Color or greyscale map (hsv or gray)')
+	parser.add_argument('--diagnostic', '-diag', default=True, type=str2bool,
+                    help='Produce diagnostics for wallpapers')
 	parser.add_argument('--debug', '-b', default=False, type=str2bool,
                     help='Debugging default parameters on')
 
 	args = parser.parse_args()
     
     #need to investigate error in eval function
-	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, float(eval("args.ratio")), args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
-                       args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.debug);
+	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, args.ratio, args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
+                       args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.diagnostic, args.debug);
 
