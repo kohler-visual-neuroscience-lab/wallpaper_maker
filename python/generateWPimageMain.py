@@ -20,17 +20,14 @@ import matplotlib.pyplot as plt
 import scipy.ndimage
 import cv2 as cv
 import sys
-from PyQt5.QtWidgets import QApplication
 np.set_printoptions(threshold=sys.maxsize)
 import texture_synthesis_g as pss
 import logging
 import argparse
-import cairo as cr
+from IPython.display import display, Markdown
 
-from scipy.stats import mode
 SCRIPT_NAME = os.path.basename(__file__)
 
-from IPython.display import display, Markdown
 
 # logging
 LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
@@ -86,7 +83,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         else:
             n = sizeTile (ratio, wpSize, group);
         for k in range(nGroup):
-            raw = gwi.generateWPimage(group, wpSize, int(n), fundRegSize, latticeSize, ratio, visualAngle, isDiagnostic, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots);
+            raw = gwi.generateWPimage(group, wpSize, int(n), fundRegSize, latticeSize, ratio, visualAngle, isDiagnostic, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots, cmap);
             cm = plt.get_cmap(cmap);
             raw_image =  raw;
             rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
@@ -99,18 +96,18 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             # image processing steps
             
             # making regular images
-            #avgRaw = (spectra(raw, new_mag=avgMag)); # replace each image's magnitude with the average
-            #filtered = (filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
-            #masked = cm(maskImg(filtered, wpSize)); # masking the image (final step)
+            avgRaw = (spectra(raw, new_mag=avgMag)); # replace each image's magnitude with the average
+            filtered = (filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
+            masked = (maskImg(filtered, wpSize)); # masking the image (final step)
             #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
             
             # making scrambled images
-            #scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
-            #scrambled_filtered = (filterImg(scrambled_raw, wpSize));
-            #scrambled_masked = cm(maskImg(scrambled_filtered, wpSize)); 
+            scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
+            scrambled_filtered = (filterImg(scrambled_raw, wpSize));
+            scrambled_masked = cm(maskImg(scrambled_filtered, wpSize)); 
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
-            raw_image_c = raw_image;
+            
             # saving averaged and scrambled images
             if(printAnalysis):
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(sPath + "analysis\\steps_" + group + "_" + str(k), "JPEG");
@@ -125,17 +122,19 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
             if (isDots):
                 Image.fromarray((raw_image[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
-            else:    
-                Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
                 display(Markdown(str(1000*groupNumber + k) + '_' + group + '_' + cmap));
-                display(Image.fromarray((raw_image[:, :] * 255).astype(np.uint8)));
+                display(Image.fromarray((raw_image[:, :]).astype(np.uint32), 'RGBA'));
+            else:    
+                Image.fromarray((masked[:, :] * 255).astype(np.uint8)).save(patternPath, saveFmt);
+                display(Markdown(str(1000*groupNumber + k) + '_' + group + '_' + cmap));
+                display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)));
             
             if(pssscrambled == True or psscrambled == True):
                 if (spatFreqFilt):
                     scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_FWHM_' + str(spatFreqFiltFWHM) + '.' + saveFmt;
                 else:
                     scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt; 
-                #Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
+                Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
            
             
         #all_in_one = cellfun(@(x,y,z) cat(2,x(1:wpSize,1:wpSize),y(1:wpSize,1:wpSize),z(1:wpSize,1:wpSize)),raw,avgRaw,filtered,'uni',false);
@@ -144,12 +143,7 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
         #symAveraged[:,i]= np.concatenate((avgRaw, scrambled_raw));
         #symFiltered[:,i]= np.concatenate((filtered, scrambled_filtered));
         #symMasked[:,i]= np.concatenate((masked, scrambled_masked));
-    #save([sPath,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups');
-def scale(X, x_min, x_max):
-    nom = (X-X.min(axis=0))*(x_max-x_min)
-    denom = X.max(axis=0) - X.min(axis=0)
-    denom[denom==0] = 1
-    return x_min + nom/denom 
+    #save([sPath,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups'); 
 
 def matlab_style_gauss2D(shape,sigma):
     """

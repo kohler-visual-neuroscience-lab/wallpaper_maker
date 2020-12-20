@@ -10,13 +10,11 @@ import warnings
 import matplotlib.pyplot as plt
 import dotsWallpaper as dW
 
-import cairo as cr
 import sys
 import cv2 as cv
 
 import logging
 
-from scipy.ndimage import rotate
 from scipy.stats import mode
 
 from IPython.display import display, Markdown
@@ -949,7 +947,7 @@ def new_p6m(tile, isDots):
         p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC));
     return p6m;
 
-def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, isDots, optTexture = None):
+def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, isDots, cmap, optTexture = None):
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -997,7 +995,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 p1 = texture[:height, :width];
                 image = catTiles(p1, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p1, isFR, isLattice, N, ratio);
+                    diagnostic(image, wptype, p1, isFR, isLattice, N, ratio, cmap);
                 return image;                
         elif wptype == 'P2':
                 height = round(n/2);
@@ -1007,7 +1005,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 p2 = np.concatenate((start_tile, tileR180));
                 image = catTiles(p2, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p2, isFR, isLattice, N, ratio);     
+                    diagnostic(image, wptype, p2, isFR, isLattice, N, ratio, cmap);     
                 return image;
         elif wptype == 'PM':
                 height = round(n/2);
@@ -1017,7 +1015,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 pm = np.concatenate((start_tile, mirror));
                 image = catTiles(pm, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, pm, isFR, isLattice, N, ratio); 
+                    diagnostic(image, wptype, pm, isFR, isLattice, N, ratio, cmap); 
                 return image;                
         elif wptype == 'PG':
                 height = round(n/2);
@@ -1028,7 +1026,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 pg = np.concatenate((tile, glide), axis=1);
                 image = catTiles(pg.T, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, pg, isFR, isLattice, N, ratio);
+                    diagnostic(image, wptype, pg, isFR, isLattice, N, ratio, cmap);
                 return image;                  
         elif wptype == 'CM':
                 height = round(n/2);
@@ -1040,7 +1038,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 cm = np.concatenate((tile1, tile2));
                 image = catTiles(cm, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, cm, isFR, isLattice, N, ratio);
+                    diagnostic(image, wptype, cm, isFR, isLattice, N, ratio, cmap);
                 return image;                
         elif wptype == 'PMM':
                 height = round(n/2);
@@ -1052,7 +1050,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 pmm = np.concatenate((concatTmp1, concatTmp2));
                 image = catTiles(pmm, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, pmm, isFR, isLattice, N, ratio);
+                    diagnostic(image, wptype, pmm, isFR, isLattice, N, ratio, cmap);
                 return image;                 
         elif wptype == 'PMG':
                 height = round(n/2);
@@ -1064,7 +1062,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 pmg = np.concatenate((concatTmp1, concatTmp2));
                 image = catTiles(pmg, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, pmg, isFR, isLattice, N, ratio);
+                    diagnostic(image, wptype, pmg, isFR, isLattice, N, ratio, cmap);
                 return image;                 
         elif wptype == 'PGG':
                 height = round(n/2);
@@ -1076,7 +1074,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 pgg = np.concatenate((concatTmp1, concatTmp2));
                 image = catTiles(pgg, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, pgg, isFR, isLattice, N, ratio);
+                    diagnostic(image, wptype, pgg, isFR, isLattice, N, ratio, cmap);
                 return image;                 
         elif wptype == 'CMM':
                 height = round(n/4);
@@ -1090,7 +1088,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 cmm = np.concatenate((concatTmp1, concatTmp2)); 
                 image = catTiles(cmm, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, cmm, isFR, isLattice, N, ratio);
+                    diagnostic(image, wptype, cmm, isFR, isLattice, N, ratio, cmap);
                 return image;                 
         elif wptype == 'P4':
                 height = round(n/2);
@@ -1104,7 +1102,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 p4 = np.concatenate((concatTmp1, concatTmp2));
                 image = catTiles(p4, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p4, isFR, isLattice, N, ratio);                
+                    diagnostic(image, wptype, p4, isFR, isLattice, N, ratio, cmap);                
                 return image; 
         elif wptype == 'P4M':
                 height = round(n/2);
@@ -1124,7 +1122,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 p4m = np.concatenate((concatTmp1, concatTmp2));
                 image = catTiles(p4m, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p4m, isFR, isLattice, N, ratio); 
+                    diagnostic(image, wptype, p4m, isFR, isLattice, N, ratio, cmap); 
                 return image; 
         elif wptype == 'P4G':
                 height = round(n/2);
@@ -1160,7 +1158,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                     p4g = np.concatenate((concatTmp1, concatTmp2));
                 image = catTiles(p4g, N, wptype);   
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p4g, isFR, isLattice, N, ratio);               
+                    diagnostic(image, wptype, p4g, isFR, isLattice, N, ratio, cmap);               
                 return image;
         elif wptype == 'P3':
                 alpha = np.pi/3;
@@ -1174,7 +1172,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                     p3 = new_p3(start_tile, isDots);
                 image = catTiles(p3, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p3, isFR, isLattice, N, ratio);                
+                    diagnostic(image, wptype, p3, isFR, isLattice, N, ratio, cmap);                
                 return image;                
         elif wptype == 'P3M1':
                 alpha = np.pi/3;
@@ -1187,7 +1185,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                     p3m1 = new_p3m1(start_tile, isDots);  
                 image = catTiles(p3m1, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p3m1, isFR, isLattice, N, ratio); 
+                    diagnostic(image, wptype, p3m1, isFR, isLattice, N, ratio, cmap); 
                 return image;                
         elif wptype == 'P31M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1202,7 +1200,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                 p31m_1 = np.fliplr(np.transpose(p31m));
                 image = catTiles(p31m_1, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p31m_1, isFR, isLattice, N, ratio); 
+                    diagnostic(image, wptype, p31m_1, isFR, isLattice, N, ratio, cmap); 
                 return image;
         elif wptype == 'P6':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1214,7 +1212,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                     p6 = new_p6(start_tile, isDots);
                 image = catTiles(p6, N, wptype);
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p6, isFR, isLattice, N, ratio); 
+                    diagnostic(image, wptype, p6, isFR, isLattice, N, ratio, cmap); 
                 return image;
         elif wptype == 'P6M':
                 s = n/math.sqrt(math.sqrt(3));
@@ -1226,7 +1224,7 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
                     p6m = new_p6m(start_tile, isDots);
                 image = catTiles(p6m, N, wptype); 
                 if (isDiagnostic):
-                    diagnostic(image, wptype, p6m, isFR, isLattice, N, ratio); 
+                    diagnostic(image, wptype, p6m, isFR, isLattice, N, ratio, cmap); 
                 return image;
         else:
                 warnings.warn('Unexpected Wallpaper Group type. Returning random noise.', UserWarning);
@@ -1295,7 +1293,7 @@ def catTiles(tile, N, wptype):
 
     return img_final
 
-def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
+def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
     # function to take care of all diagnostic tasks related to the wallpaper generation
     # img is the full wallpaper
     # wptype is the wallpaper type
@@ -1305,6 +1303,12 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
     # N is the overall size of the wallpaper
     # ratio is the ratio of the FR/lattice sizing
     
+    #tile = filterImg(tile,N);
+    #img = filterImg(img,N);
+    tile = np.array(tile * 255, dtype=np.uint8);
+    tile[:,:] = cv.equalizeHist(tile[:,:]);
+    #img = np.array(img * 255, dtype=np.uint8); 
+    #img[:,:] = cv.equalizeHist(img[:,:]);
     saveStr = os.getcwd() + '\\WPSet\\';
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
@@ -1679,12 +1683,24 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=2);        
+        alpha_mask__rec_draw.line((((tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1), tile.shape[0] / 3))), fill=(255, 255, 0), width=2);
+        alpha_mask__rec_draw.line((((tile.shape[1] - 1, 0), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75))), fill=(255, 255, 0), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 30, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 30, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] - 5, 3), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
+        
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
-        display(diaLatIm);
+        display(diaLatIm.rotate(270, expand=1));
         display(Markdown('Fundamental Region for ' + wptype))
-        display(diaFRIm);
+        display(diaFRIm.rotate(270, expand=1));
     elif (wptype == 'P6'):
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
@@ -1705,11 +1721,25 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2);        
+        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2);
+        alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2);
+        
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2), 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
-        display(Markdown('Lattice for ' + wptype))
+        display(Markdown('Lattice for ' + wptype));
         display(diaLatIm);
-        display(Markdown('Fundamental Region for ' + wptype))
+        display(Markdown('Fundamental Region for ' + wptype));
         display(diaFRIm);
     elif (wptype == 'P6M'):
         if (isFR):
@@ -1733,21 +1763,35 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
         alpha_mask__rec_draw.line(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2);        
+        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2);
+        alpha_mask__rec_draw.line((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5), tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2);
+        alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2);
+        alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2), 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
+        
         diaFRIm.save(diagPath2, "png");
-        display(Markdown('Lattice for ' + wptype))
+        display(Markdown('Lattice for ' + wptype));
         display(diaLatIm);
-        display(Markdown('Fundamental Region for ' + wptype))
+        display(Markdown('Fundamental Region for ' + wptype));
         display(diaFRIm);
         
-    
     # diagnostic plots
     logging.getLogger('matplotlib.font_manager').disabled = True;
     patternPath = sPath + wptype  + '_diagnostic_1' + '.' + "png";
     hidx_0 = 50;
     hidx_1 = 150;
     hidx_2 = 300;
-
     I = np.dstack([img,img,img]);
     I[hidx_0-2:hidx_0+2,:] = np.array([1,0,0]);
     I[hidx_1-2:hidx_1+2,:] = np.array([0,1,0]);
@@ -1780,9 +1824,6 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio):
     plt.title('Frequency of sample values across the horizontal lines');
     plt.show();
     #plt.savefig(patternPath);
-    
-    
-    
 
 #old cat function
 # def catTiles(tile, N, wptype):
