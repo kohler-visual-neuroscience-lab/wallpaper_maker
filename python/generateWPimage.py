@@ -1314,6 +1314,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
     timeStr = today.strftime("%Y%m%d_%H%M%S");
     sPath = saveStr + timeStr; 
     if (wptype == 'P1'):
+        #rgb(47,79,79)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1])):.1f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1327,14 +1328,18 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-        draw = ImageDraw.Draw(diaFRIm);
-        draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
+        alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), fill=(47,79,79, 125), outline=(255,255,0,255), width=2);
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
         display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'P2'):
+        #rgb(128,0,0)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1350,7 +1355,25 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(128,0,0, 125), outline=(255,255,0,255), width=2);
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.polygon(((2, -1), (-1, 3), (2, 8), (5, 3), (2, -1)), fill=(128,0,0, 125));
+        alpha_mask__rec_draw.line(((1, -2), (-1, 4), (3, 9), (6, 4), (1, -2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, -1), (tile.shape[0] + 1, 3), (tile.shape[0] - 2, 8), (tile.shape[0] - 5, 3), ((tile.shape[0] - 2, -1))), fill=(128,0,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] - 1, -2), (tile.shape[0] + 1, 4), (tile.shape[0] - 3, 9), (tile.shape[0] - 6, 4), (tile.shape[0] - 1, -2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, tile.shape[1] + 1), (tile.shape[0] + 1, tile.shape[1] - 3), (tile.shape[0] - 2, tile.shape[1] - 8), (tile.shape[0] - 5, tile.shape[1] - 3), ((tile.shape[0] - 2, tile.shape[1] + 1))), fill=(128,0,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] - 1, tile.shape[1] + 2), (tile.shape[0] + 1, tile.shape[1] - 4), (tile.shape[0] - 3, tile.shape[1] - 9), (tile.shape[0] - 6, tile.shape[1] - 4), (tile.shape[0] - 1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((2, tile.shape[1] + 1), (-1, tile.shape[1] - 3), (2, tile.shape[1] - 8), (5, tile.shape[1] - 3), (2, tile.shape[1] + 1)), fill=(128,0,0, 125));
+        alpha_mask__rec_draw.line(((1, tile.shape[1] + 2), (-1, tile.shape[1] - 4), (3, tile.shape[1] - 9), (6, tile.shape[1] - 4), (1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 - 2), (tile.shape[0] / 2 + 5, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 2)), fill=(128,0,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] / 2 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 - 3), (tile.shape[0] / 2 + 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 3)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1] / 2), 4), 4, 345, fill=(128,0,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]- 4, tile.shape[1] / 2), 4), 4, 345, fill=(128,0,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1]  - 4), 4), 4, 15, fill=(128,0,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 15, fill=(128,0,0, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1358,6 +1381,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'PM'):
+        #rgb(0,128,0)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1373,7 +1397,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(0,128,0, 125), outline=(255,255,0,255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1381,6 +1405,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'PG'):
+        #rgb(127,0,127)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1396,7 +1421,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.rectangle((tile.shape[0] / 2, 0, tile.shape[0], tile.shape[1]), fill=(255, 0, 0, 125), outline=(255,255,0,255), width=2);
+        alpha_mask__rec_draw.rectangle((tile.shape[0] / 2, 0, tile.shape[0], tile.shape[1]), fill=(127,0,127, 125), outline=(255,255,0,255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1404,6 +1429,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'CM'):
+        #rgb(143,188,143)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1419,7 +1445,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(143,188,143, 125));
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0, 255), width=2, joint="curve");
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
@@ -1429,6 +1455,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'PMM'):
+        #rgb(255,69,0)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1444,10 +1471,27 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255,69,0, 125));
         alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.polygon(((2, -1), (-1, 3), (2, 8), (5, 3), (2, -1)), fill=(255,69,0, 125));
+        alpha_mask__rec_draw.line(((1, -2), (-1, 4), (3, 9), (6, 4), (1, -2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, -1), (tile.shape[0] + 1, 3), (tile.shape[0] - 2, 8), (tile.shape[0] - 5, 3), ((tile.shape[0] - 2, -1))), fill=(255,69,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] - 1, -2), (tile.shape[0] + 1, 4), (tile.shape[0] - 3, 9), (tile.shape[0] - 6, 4), (tile.shape[0] - 1, -2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, tile.shape[1] + 1), (tile.shape[0] + 1, tile.shape[1] - 3), (tile.shape[0] - 2, tile.shape[1] - 8), (tile.shape[0] - 5, tile.shape[1] - 3), ((tile.shape[0] - 2, tile.shape[1] + 1))), fill=(255,69,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] - 1, tile.shape[1] + 2), (tile.shape[0] + 1, tile.shape[1] - 4), (tile.shape[0] - 3, tile.shape[1] - 9), (tile.shape[0] - 6, tile.shape[1] - 4), (tile.shape[0] - 1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((2, tile.shape[1] + 1), (-1, tile.shape[1] - 3), (2, tile.shape[1] - 8), (5, tile.shape[1] - 3), (2, tile.shape[1] + 1)), fill=(255,69,0, 125));
+        alpha_mask__rec_draw.line(((1, tile.shape[1] + 2), (-1, tile.shape[1] - 4), (3, tile.shape[1] - 9), (6, tile.shape[1] - 4), (1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 - 2), (tile.shape[0] / 2 + 5, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 2)), fill=(255,69,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] / 2 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 - 3), (tile.shape[0] / 2 + 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 3)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1] / 2), 4), 4, 345, fill=(255,69,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]- 4, tile.shape[1] / 2), 4), 4, 345, fill=(255,69,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1]  - 4), 4), 4, 15, fill=(255,69,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 15, fill=(255,69,0, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1455,6 +1499,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'PMG'):
+        #rgb(255,165,0)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1470,10 +1515,25 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255,165,0, 125));
         alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.polygon(((1, tile.shape[1] / 4), (3, tile.shape[1] / 4 - 5), (6, tile.shape[1] / 4), (3, tile.shape[1] / 4 + 5), (1, tile.shape[1] / 4)), fill=(255,165,0, 125));
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 4), (4, tile.shape[1] / 4 - 6), (7, tile.shape[1] / 4), (4, tile.shape[1] / 4 + 6), (0, tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((1, tile.shape[1] - tile.shape[1] / 4), (3, tile.shape[1] - tile.shape[1] / 4 - 5), (6, tile.shape[1] - tile.shape[1] / 4), (3, tile.shape[1] - tile.shape[1] / 4 + 5), (1, tile.shape[1] - tile.shape[1] / 4)), fill=(255,165,0, 125));
+        alpha_mask__rec_draw.line(((0, tile.shape[1] - tile.shape[1] / 4), (4, tile.shape[1] - tile.shape[1] / 4 - 6), (7, tile.shape[1] - tile.shape[1] / 4), (4, tile.shape[1] - tile.shape[1] / 4 + 6), (0, tile.shape[1] - tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 4 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] / 4 - 1), (tile.shape[0] / 2, tile.shape[1] / 4 - 4), (tile.shape[0] / 2 + 5, tile.shape[1] / 4 - 1), (tile.shape[0] / 2, tile.shape[1] / 4 + 2)), fill=(255,165,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] / 4 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] / 4 - 5), (tile.shape[0] / 2 + 6, tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] / 4 + 3)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] - tile.shape[1] / 4 - 1), (tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 - 4), (tile.shape[0] / 2 + 5, tile.shape[1] - tile.shape[1] / 4 - 1), (tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 2)), fill=(255,165,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] - tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 - 5), (tile.shape[0] / 2 + 6, tile.shape[1] - tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 3)), fill=(255, 255, 0, 255), width=1);  
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 1, tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] / 4 - 5), (tile.shape[0] - 6, tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] / 4 + 5), (tile.shape[0] - 1, tile.shape[1] / 4)), fill=(255,165,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] / 4 - 6), (tile.shape[0] - 7, tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] / 4 + 6), (tile.shape[0], tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 1, tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] - tile.shape[1] / 4 - 5), (tile.shape[0] - 6, tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] - tile.shape[1] / 4 + 5), (tile.shape[0] - 1, tile.shape[1] - tile.shape[1] / 4)), fill=(255,165,0, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] - tile.shape[1] / 4 - 6), (tile.shape[0] - 7, tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] - tile.shape[1] / 4 + 6), (tile.shape[0], tile.shape[1] - tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1);
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1481,6 +1541,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'PGG'):
+        #rgb(189,183,107)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1496,10 +1557,26 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(189,183,107, 125));
         alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((4, 4), 6), 4, 45, fill=(189,183,107, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1]-5), 6), 4, 45, fill=(189,183,107, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 45, fill=(189,183,107, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, 4), 6), 4, 45, fill=(189,183,107, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 45, fill=(189,183,107, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (4, tile.shape[1] / 2 - 3), (10, tile.shape[1] / 2), (4, tile.shape[1] / 2 + 3), (0, tile.shape[1] / 2)), fill=(189,183,107, 125));
+        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (5, tile.shape[1] / 2 - 4), (11, tile.shape[1] / 2), (5, tile.shape[1] / 2 + 4), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, 0), (tile.shape[0] / 2 - 5, 3), (tile.shape[0] / 2, 6), (tile.shape[0] / 2 + 5, 3), (tile.shape[0] / 2, 0)), fill=(189,183,107, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2 - 6, 4), (tile.shape[0] / 2, 7), (tile.shape[0] / 2 + 6, 4), (tile.shape[0] / 2, 0)), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1]), (tile.shape[0] / 2 - 5, tile.shape[1] - 3), (tile.shape[0] / 2, tile.shape[1] - 6), (tile.shape[0] / 2 + 5, tile.shape[1] - 3), (tile.shape[0] / 2, tile.shape[1])), fill=(189,183,107, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1]), (tile.shape[0] / 2 - 6, tile.shape[1] - 4), (tile.shape[0] / 2, tile.shape[1] - 7), (tile.shape[0] / 2 + 6, tile.shape[1] - 4), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=1);
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] / 2), (tile.shape[0] - 4, tile.shape[1] / 2 - 3), (tile.shape[0] - 10, tile.shape[1] / 2), (tile.shape[0] - 4, tile.shape[1] / 2 + 3), (tile.shape[0], tile.shape[1] / 2)), fill=(189,183,107, 125));
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] / 2), (tile.shape[0] - 5, tile.shape[1] / 2 - 4), (tile.shape[0] - 11, tile.shape[1] / 2), (tile.shape[0] - 5, tile.shape[1] / 2 + 4), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=1);
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1507,6 +1584,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'CMM'):
+        #rgb(0,0,205)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1522,10 +1600,18 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(0,0,205, 125));
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 30, fill=(0,0,205, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((6, tile.shape[1] / 2), 6), 4, 345, fill=(0,0,205, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]- 6, tile.shape[1] / 2), 6), 4, 345, fill=(0,0,205, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1]  - 6), 6), 4, 345, fill=(0,0,205, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 6), 6), 4, 345, fill=(0,0,205, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1533,6 +1619,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'P4'):
+        #rgb(124,252,0)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1548,10 +1635,22 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(124,252,0, 125));
         alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((4, 4), 6), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1]-5), 6), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, 4), 6), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1] / 2), 4), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]- 4, tile.shape[1] / 2), 4), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1]  - 4), 4), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1559,6 +1658,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'P4M'):
+        #rgb(0,250,154)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1574,12 +1674,24 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]),(0, tile.shape[1])), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]),(0, tile.shape[1])), fill=(0,250,154, 125));
         alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((0, 0), (tile.shape[0], tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((tile.shape[0], 0), (0, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((4, 4), 6), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1]-5), 6), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, 4), 6), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1] / 2), 4), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]- 4, tile.shape[1] / 2), 4), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1]  - 4), 4), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1587,6 +1699,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'P4G'):
+        #rgb(65,105,225)
         if(isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1602,10 +1715,23 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(65,105,225, 125));
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2);
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
+        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0, 255), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((4, 4), 6), 4, 0, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((4, tile.shape[1]-5), 6), 4, 0, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 0, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]-5, 4), 6), 4, 0, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((6, tile.shape[1] / 2), 6), 4, 45, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0]- 6, tile.shape[1] / 2), 6), 4, 45, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[0] / 2, tile.shape[1]  - 6), 6), 4, 45, fill=(65,105,225, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 6), 6), 4, 45, fill=(65,105,225, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
@@ -1613,6 +1739,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm);
     elif (wptype == 'P3'):
+        #rgb(233,150,122)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 18):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1630,14 +1757,24 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=3);
-        alpha_mask__rec_draw.polygon(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(233,150,122, 125));
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(233,150,122, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(233,150,122, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 0, fill=(233,150,122, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 60, fill=(233,150,122, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] - 5, 3), 5), 3, 210, fill=(233,150,122, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(233,150,122, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
-        display(diaLatIm);
+        display(diaLatIm.rotate(270, expand=1));
         display(Markdown('Fundamental Region for ' + wptype))
-        display(diaFRIm);
+        display(diaFRIm.rotate(270, expand=1));
     elif (wptype == 'P3M1'):
+        #rgb(0,191,255)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1653,17 +1790,27 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(0,191,255, 125));
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] / 1.5, tile.shape[0] / 3), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=2);
+        
+        #symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(0,191,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(0,191,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 0, fill=(0,191,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 60, fill=(0,191,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] - 5, 3), 5), 3, 210, fill=(0,191,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(0,191,255, 125), outline=(255,255,0));
+        
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
         display(Markdown('Lattice for ' + wptype))
-        display(diaLatIm);
+        display(diaLatIm.rotate(270, expand=1));
         display(Markdown('Fundamental Region for ' + wptype))
-        display(diaFRIm);
+        display(diaFRIm.rotate(270, expand=1));
     elif (wptype == 'P31M'):
+        #rgb(255,0,255)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1679,7 +1826,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(255,0,255, 125));
         alpha_mask__rec_draw.line(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=2);        
@@ -1687,12 +1834,12 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         alpha_mask__rec_draw.line((((tile.shape[1] - 1, 0), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75))), fill=(255, 255, 0), width=2);
         
         #symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 30, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 30, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] - 5, 3), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(255,0,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(255,0,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 30, fill=(255,0,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 30, fill=(255,0,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] - 5, 3), 5), 3, 210, fill=(255,0,255, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(255,0,255, 125), outline=(255,255,0));
         
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
@@ -1702,6 +1849,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype))
         display(diaFRIm.rotate(270, expand=1));
     elif (wptype == 'P6'):
+        #rgb(221,160,221)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1717,23 +1865,22 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(221,160,221, 125));
         alpha_mask__rec_draw.line(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2);        
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2);
         
-        
         #symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2), 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(221,160,221, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2), 3), 4, 45, fill=(221,160,221, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(221,160,221, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2), 5), 6, 0, fill=(221,160,221, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(221,160,221, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(221,160,221, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25), 5), 3, 0, fill=(221,160,221, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(221,160,221, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         diaFRIm.save(diagPath2, "png");
@@ -1742,6 +1889,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         display(Markdown('Fundamental Region for ' + wptype));
         display(diaFRIm);
     elif (wptype == 'P6M'):
+        #rgb(255,20,147)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 72):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
@@ -1758,7 +1906,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         diaFRIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
         alpha_mask_rec = Image.new('RGBA', diaFRIm.size, (0,0,0,0));
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
-        alpha_mask__rec_draw.polygon(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 0, 0, 125));
+        alpha_mask__rec_draw.polygon(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255,20,147, 125));
         alpha_mask__rec_draw.line((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2), ((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)))), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2);
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
@@ -1769,14 +1917,14 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap):
         alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2);
         
         #symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2), 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2), 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25), 5), 3, 0, fill=(255, 0, 0, 125), outline=(255,255,0));
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(255, 0, 0, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1]  - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255,20,147, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0]  - (tile.shape[0] / 2), 3), 4, 45, fill=(255,20,147, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255,20,147, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0]  - (tile.shape[0] / 2), 5), 6, 0, fill=(255,20,147, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(255,20,147, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(255,20,147, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25), 5), 3, 0, fill=(255,20,147, 125), outline=(255,255,0));
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(255,20,147, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         
