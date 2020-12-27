@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
 
 def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngle: float=30.0, wpSize: int=500, latticeSize: bool=False,
-                          fundRegSize: bool=False, ratio: float=1.0, spatFreqFilt: bool=False, spatFreqFiltFWHM: int=5, spatFreqFiltLowpass: bool=True, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
+                          fundRegSize: bool=False, ratio: float=1.0, isDots: bool=False, spatFreqFilt: bool=False, spatFreqFiltFWHM: int=5, spatFreqFiltLowpass: bool=True, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
                           cmap: str="gray", isDiagnostic: bool=True, debug: bool=False):
 
     # save parameters
@@ -71,7 +71,6 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             os.mkdirs(sAnalysisPath);
     except:
         print('PYTHON:generateWPSet:mkdir ', sPath);
-    isDots = False;
     # Generating WPs and scrambling 
     for i in range(len(Groups)):    
         print('generating ', Groups[i]);
@@ -96,16 +95,17 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             # image processing steps
             
             # making regular images
-            avgRaw = (spectra(raw, new_mag=avgMag)); # replace each image's magnitude with the average
-            filtered = (filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
-            masked = (maskImg(filtered, wpSize)); # masking the image (final step)
-            #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
-            
-            # making scrambled images
-            scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
-            scrambled_filtered = (filterImg(scrambled_raw, wpSize));
-            scrambled_masked = cm(maskImg(scrambled_filtered, wpSize)); 
-            #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
+            if(isDots == False):
+                avgRaw = (spectra(raw, new_mag=avgMag)); # replace each image's magnitude with the average
+                filtered = (filterImg(avgRaw, wpSize)); # low-pass filtering + histeq
+                masked = (maskImg(filtered, wpSize)); # masking the image (final step)
+                #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show();
+                
+                # making scrambled images
+                scrambled_raw = spectra(raw, pssscrambled, psscrambled, cmap=cmap); # only give spectra only arg, to make randoms
+                scrambled_filtered = (filterImg(scrambled_raw, wpSize));
+                scrambled_masked = cm(maskImg(scrambled_filtered, wpSize)); 
+                #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show();
             groupNumber = mapgroup[group];
             
             # saving averaged and scrambled images
@@ -350,6 +350,8 @@ if __name__ == "__main__":
                     help='Size wallpaper as a ratio between the fundamental region and wallpaper size')
 	parser.add_argument('--ratio', '-ra', default=1.0, type=float,
                     help='Size wallpaper as a ratio')
+	parser.add_argument('--dots', '-d', default=False, type=str2bool,
+                    help='Replace the fundamental region with random dot style patterns')
 	parser.add_argument('--spatFreqFilt', '-sff', default=False, type=str2bool,
                     help='Replace the fundamental region with random noise whoses frequency is relative to the visual angle')
 	parser.add_argument('--spatFreqFiltFWHM', '-fwhm', default=5, type=int,
@@ -378,6 +380,6 @@ if __name__ == "__main__":
 	args = parser.parse_args()
     
     #need to investigate error in eval function
-	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, args.ratio, args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
+	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, args.ratio, args.dots, args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
                        args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.diagnostic, args.debug);
 

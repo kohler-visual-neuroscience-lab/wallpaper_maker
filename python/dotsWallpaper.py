@@ -56,7 +56,7 @@ def genDotsFund(size, minRad, maxRad, numOfDots, wptype):
 
 
     # generate random dots
-    numOfDots = 10;
+    #numOfDots = 10;
     start_time = time.time();
     end_time = time.time();
     previousDots = [];
