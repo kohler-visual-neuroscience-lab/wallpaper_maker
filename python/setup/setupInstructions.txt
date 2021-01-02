@@ -1,0 +1,13 @@
+This code will generate an arbitrary number of exemplars belonging to each of the 17 groups, as well as matched control exemplars using phase-scrambling and Portilla-Simoncelli scrambling.
+
+To run the code use the following function with the available optional parameters:
+
+generateWPTImagesMain(groups to create, number of images per group, visual angle, wallpaper size, lattice Sizing on/off, fundamental Region Sizing on/off, ratio, is Dots on/off, spatFreqFilt on/off, spatFreqFiltFWHM, spatFreqFiltLowpass,
+image save format, save raw, print analysis, Portilla-Simoncelli scrambled, phase scrambled, new magnitude, color or greyscale map, is Diagnostic on/off, debug parameters on/off)
+
+This code is setup to run in both a terminal as well as in Jupyter notebook.
+
+Check script for expected data types for each argument.
+
+To setup: Run the setup script to ensure all necessary packages are installed and up to date. After locating the file folder in the terminal, use the ./setup.sh command on the terminal for Linux/Mac and use ./setup.ps1
+command in the PowerShell terminal for Windows.
