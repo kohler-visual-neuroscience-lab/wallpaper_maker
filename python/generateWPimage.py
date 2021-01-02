@@ -9,6 +9,7 @@ from skimage import draw as skd
 import warnings
 import matplotlib.pyplot as plt
 import dotsWallpaper as dW
+import filter
 
 import cairo as cr
 import sys
@@ -947,7 +948,10 @@ def new_p6m(tile, isDots):
         p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC));
     return p6m;
 
-def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, isDots, optTexture = None):
+#def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, isSpatFreqFilt, fwhm, lowpass, fundamental_region_source_type='white_noise'):
+def generateWPimage(wptype, N, n, isFR, isLattice, ratio,  isDiagnostic, fundemental_region_filter=None,
+                    fundamental_region_source_type='uniform_noise'):
+
     #  generateWPimage(type,N,n,optTexture)
     # generates single wallaper group image
     # wptype defines the wallpaper group
@@ -962,27 +966,49 @@ def generateWPimage(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, i
     
     # default
     # save paths for debugging
-    saveStr = os.getcwd() + '\\WPSet\\';
+    saveStr = os.getcwd() + '_WPSet_';
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
     sPath = saveStr + timeStr; 
-    
-    if optTexture == None: 
-        grain = 1;
-        
-        if isSpatFreqFilt:
-            texture = spatial_filterTile(angle,  np.random.rand(N,N), lowpass, fwhm, 0);
-        elif isDots:
-            texture = dW.genDotsFund(n, 0.1, 0.1, 3, wptype);
-        else:
-            texture = filterTile(np.random.rand(n,n), grain);  
-    else:
+
+    # TODO: just a quick hack to make it compatible to previous naming
+    isDots = False
+    if fundamental_region_source_type == 'uniform_noise':
+        # TODO: do we  need white noise here as well?
+        print('uniform noise')
+        texture = np.random.rand(n,n)
+    elif fundamental_region_source_type == 'random_dots':
+        print('random dots')
+        texture = dW.genDotsFund(n, 0.1, 0.1, 3, wptype);
+        # TODO: just a quick hack to make it compatible to previous naming
+        isDots = True
+    elif isinstance(fundamental_region_source_type,np.ndarray):
+        print('texture was passed explicitly')
+        optTexture = fundamental_region_source_type
         minDim = np.min(np.shape(optTexture));
         # stretch user-defined texture, if it is too small for sampling
+        # TODO: not exaclty sure what this is supposed to do
         if minDim < n:
             ratioTexture = round(n / minDim);
             optTexture = np.array(Image.resize(reversed((optTexture.shape * ratioTexture)), Image.NEAREST));
         texture = optTexture;
+    else:
+        raise Exception ('this source type ({})is not implemented'.format(type(fundamental_region_source_type)))
+
+    # do filtering
+    if fundemental_region_filter:
+        if isinstance(fundemental_region_filter, filter.Cosine_filter):
+            texture = fundemental_region_filter.filter_image(texture)
+            #scale texture into range 0...1
+            texture = (texture-texture.min())/(texture.max()-texture.min())
+        else:
+            raise Exception ('this filter type ({}) is not implemented'.format(type(fundemental_region_filter)))
+    else:
+       # TODO: not exactly sure, what this lowpass filter is supposed to do. in any case:
+       #       it should be adapted to this structure that separates the noise generation from the filtering
+       grain = 1;
+       texture = filterTile(np.random.rand(n, n), grain);
+
     try:
         # generate the wallpapers
         if wptype == 'P0':
