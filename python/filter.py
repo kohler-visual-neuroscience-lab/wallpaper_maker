@@ -34,7 +34,7 @@ class Cosine_filter:
 
         xx, yy = np.meshgrid(self.cyc_per_degree_ver,self.cyc_per_degree_hor)
         ff    = (xx**2+yy**2)**0.5 ;
-        self.ff = ff    
+        self.ff = ff
         self.spectral_filter_mask = 0.5*(1+np.cos(np.pi*(np.log2(np.maximum(ff,np.exp(-20)))-np.log2(center_cyc_per_degree))))
         self.spectral_filter_mask[(ff < 0.5*center_cyc_per_degree) | (2*center_cyc_per_degree < ff)] = 0
         self.padded_spectral_filter_mask = np.pad(self.spectral_filter_mask, self.pad_width)
@@ -48,7 +48,9 @@ class Cosine_filter:
         filtered_padded_img =\
         np.fft.ifft2(np.fft.ifftshift(np.fft.fftshift(np.fft.fft2(padded_img))*self.padded_spectral_filter_mask))
         filtered_img = filtered_padded_img[self.pad_width:self.pad_width+img.shape[0],self.pad_width:self.pad_width+img.shape[1]]
-        assert np.abs(np.real(filtered_img)/np.imag(filtered_img)).min()>10^10, 'something is fishy: imaginery part is unreasonable large'
+#        assert np.abs(np.real(filtered_img)/(np.imag(filtered_img)+10)).max()<10^10,\
+#            'something is fishy: imaginery part is unreasonable large. imag/real={}'.format(
+#            np.abs(np.real(filtered_img) / (np.imag(filtered_img) + 10 )).max())
         return np.real(filtered_img)
 
     def display(self):
