@@ -24,6 +24,7 @@ np.set_printoptions(threshold=sys.maxsize)
 import texture_synthesis_g as pss
 import logging
 import argparse
+import filter
 from IPython.display import display, Markdown
 
 SCRIPT_NAME = os.path.basename(__file__)
@@ -35,7 +36,7 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
 
 def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngle: float=30.0, wpSize: int=500, latticeSize: bool=False,
-                          fundRegSize: bool=False, ratio: float=1.0, isDots: bool=False, spatFreqFilt: bool=False, spatFreqFiltFWHM: int=5, spatFreqFiltLowpass: bool=True, saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
+                          fundRegSize: bool=False, ratio: float=1.0, isDots: bool=False, fundamental_region_filter_center_freq: list=[], saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
                           cmap: str="gray", isDiagnostic: bool=True, debug: bool=False):
 
     # save parameters
@@ -71,6 +72,9 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             os.mkdirs(sAnalysisPath);
     except:
         print('PYTHON:generateWPSet:mkdir ', sPath);
+        
+    # TODO: add configuration to argument parser
+    fundamental_region_source_type = 'uniform_noise';
     # Generating WPs and scrambling 
     for i in range(len(Groups)):    
         print('generating ', Groups[i]);
@@ -81,8 +85,20 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
             n = sizeFundamentalRegion(ratio, wpSize, group);
         else:
             n = sizeTile (ratio, wpSize, group);
+            
+        if fundamental_region_filter_center_freq:
+            if len(fundamental_region_filter_center_freq)==1:
+                # set up filter for the fundamental region
+                fundamental_region_filter = filter.Cosine_filter(fundamental_region_filter_center_freq[0],
+                                                          n, visualAngle/wpSize * n)
+            else:
+                print('multichannel filtering for the fundamental region not implemented.\n SKIPPING FILTERING!')
+                fundamental_region_filter = None
+        else:
+            fundamental_region_filter = None
+            
         for k in range(nGroup):
-            raw = gwi.generateWPimage(group, wpSize, int(n), fundRegSize, latticeSize, ratio, visualAngle, isDiagnostic, spatFreqFilt, spatFreqFiltFWHM, spatFreqFiltLowpass, isDots, cmap);
+            raw = gwi.generateWPimage(group, wpSize, int(n), fundRegSize, latticeSize, ratio, visualAngle, isDiagnostic, fundamental_region_filter,fundamental_region_source_type, isDots, cmap);
             cm = plt.get_cmap(cmap);
             raw_image =  raw;
             rawFreq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]));
@@ -116,8 +132,8 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
                 Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
             
-            if (spatFreqFilt):
-                patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '_FWHM_' + str(spatFreqFiltFWHM) + '.' + saveFmt;
+            if (fundamental_region_filter_center_freq):
+                patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '_f0fr' + str(fundamental_region_filter_center_freq) + '.' + saveFmt;
             else:
                 patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
             if (isDots):
@@ -130,8 +146,8 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
                 display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)));
             
             if(pssscrambled == True or psscrambled == True):
-                if (spatFreqFilt):
-                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_FWHM_' + str(spatFreqFiltFWHM) + '.' + saveFmt;
+                if (fundamental_region_filter_center_freq):
+                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_f0fr' + str(fundamental_region_filter_center_freq) + '.' + saveFmt;
                 else:
                     scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt; 
                 Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
@@ -336,7 +352,7 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(
 	    description='Wallpaper Generator')
-	parser.add_argument('--groups', '-g', default=['P1','P2','P4','P3','P6'], type=str2list, #need to write function to convert str to list
+	parser.add_argument('--groups', '-g', default=['P1','P2','P4','P3','P6'], type=str2list,
                     help='Groups to create')
 	parser.add_argument('--nGroup', '-n', default=10, type=int,
                     help='Number of images per group')
@@ -352,14 +368,16 @@ if __name__ == "__main__":
                     help='Size wallpaper as a ratio')
 	parser.add_argument('--dots', '-d', default=False, type=str2bool,
                     help='Replace the fundamental region with random dot style patterns')
-	parser.add_argument('--spatFreqFilt', '-sff', default=False, type=str2bool,
-                    help='Replace the fundamental region with random noise whoses frequency is relative to the visual angle')
-	parser.add_argument('--spatFreqFiltFWHM', '-fwhm', default=5, type=int,
-                    help='Set fwhm for spatial frequency filtering')
-	parser.add_argument('--spatFreqFiltLowpass', '-sfflp', default=True, type=str2bool,
-                    help='Set spatial frequency filtering to lowpass filtering otherwise it is highpass filtering')
+	#parser.add_argument('--spatFreqFilt', '-sff', default=False, type=str2bool,
+    #               help='Replace the fundamental region with random noise whoses frequency is relative to the visual angle')
+	#parser.add_argument('--spatFreqFiltFWHM', '-fwhm', default=5, type=int,
+    #               help='Set fwhm for spatial frequency filtering')
+	#parser.add_argument('--spatFreqFiltLowpass', '-sfflp', default=True, type=str2bool,
+    #               help='Set spatial frequency filtering to lowpass filtering otherwise it is highpass filtering')
 	parser.add_argument('--saveFmt', '-f', default="png", type=str,
                     help='Image save format')
+	parser.add_argument('--fundamental_region_filter_center_freq', '-f0fr', nargs='+',  default=[], type=list,
+                    help='Center frequency (in cycle per degree) for dyadic bandpass filtering the fundamental region. [] does not invoke filtering. Might be extended for a multichannel filterbanks later.')
 	parser.add_argument('--saveRaw', '-r', default=False, type=str2bool,
                     help='save raw')
 	parser.add_argument('--printAnalysis', '-a', default=False, type=str2bool,
@@ -380,6 +398,6 @@ if __name__ == "__main__":
 	args = parser.parse_args()
     
     #need to investigate error in eval function
-	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, args.ratio, args.dots, args.spatFreqFilt, args.spatFreqFiltFWHM, args.spatFreqFiltLowpass, args.saveFmt, args.saveRaw, 
+	generateWPTImagesMain(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, args.ratio, args.dots, args.fundamental_region_filter_center_freq, args.saveFmt, args.saveRaw, 
                        args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.diagnostic, args.debug);
 
