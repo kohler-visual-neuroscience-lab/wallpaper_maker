@@ -30,6 +30,7 @@ from IPython.display import display, Markdown
 SCRIPT_NAME = os.path.basename(__file__)
 
 
+
 # logging
 LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
@@ -44,7 +45,6 @@ def generateWPTImagesMain(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=1
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
     sPath = saveStr + timeStr;    
-    
     # define group to index mapping
     keySet = groups;
     
@@ -346,6 +346,7 @@ def meanMag(freqGroup):
     out = np.median(mag,2);
     return out;
 
+
 # for commandline input
 if __name__ == "__main__":
 	LOGGER.info('Generating Wallpapers')
@@ -376,7 +377,7 @@ if __name__ == "__main__":
     #               help='Set spatial frequency filtering to lowpass filtering otherwise it is highpass filtering')
 	parser.add_argument('--saveFmt', '-f', default="png", type=str,
                     help='Image save format')
-	parser.add_argument('--fundamental_region_filter_center_freq', '-f0fr', nargs='+',  default=[], type=list,
+	parser.add_argument('--fundamental_region_filter_center_freq', '-f0fr', nargs='+',  default=[], type=float,
                     help='Center frequency (in cycle per degree) for dyadic bandpass filtering the fundamental region. [] does not invoke filtering. Might be extended for a multichannel filterbanks later.')
 	parser.add_argument('--saveRaw', '-r', default=False, type=str2bool,
                     help='save raw')
