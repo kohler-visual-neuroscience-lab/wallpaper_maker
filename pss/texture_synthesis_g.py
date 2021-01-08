@@ -24,9 +24,6 @@ import sys, os
 import logging
 import argparse, copy
 import time
-import sutils
-import steerable_pyramid as steerable
-import texture_analysis_g as ta
 
 SCRIPT_NAME = os.path.basename(__file__)
 
@@ -42,7 +39,7 @@ ALPHA = 0.8
 '''
 def synthesis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor, iter):
 	# analyse original image
-	orig_data = ta.TextureAnalysis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor)
+	orig_data = TextureAnalysis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor)
 	orig_data.analyse()
 
 	# initialize random image
@@ -63,7 +60,7 @@ def synthesis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor, iter):
 		# ------------------------------------
 		# Create pyramids of each PCA channel
 		# steerable pyramid
-		_sp = steerable.SteerablePyramid(im, resol_x, resol_y, num_depth, num_ori, '', '', 0)
+		_sp = SteerablePyramid(im, resol_x, resol_y, num_depth, num_ori, '', '', 0)
 		_sp.create_pyramids()
 
 		# subtract means from lowpass residuals

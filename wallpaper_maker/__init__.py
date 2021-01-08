@@ -1,1 +1,1 @@
-from .shablona import *
+from .wallpaper_maker import *

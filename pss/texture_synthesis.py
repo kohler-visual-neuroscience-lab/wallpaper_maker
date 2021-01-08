@@ -27,10 +27,6 @@ import logging
 import argparse, copy
 import time
 
-import sutils
-import steerable_pyramid as steerable
-import texture_analysis as ta
-
 SCRIPT_NAME = os.path.basename(__file__)
 
 # logging
@@ -44,7 +40,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 '''
 def synthesis(image, resol_x: int, resol_y: int, num_depth: int=5, num_ori: int=4, num_neighbor: int=7, iteration: int=100):
 	# analyse original image
-	orig_data = ta.TextureAnalysis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor)
+	orig_data = TextureAnalysis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor)
 	orig_data.analyse()
 
 	# initialize random image
@@ -98,7 +94,7 @@ def synthesis(image, resol_x: int, resol_y: int, num_depth: int=5, num_ori: int=
 		# Create pyramids of each PCA channel
 		for clr in range(3):
 			# steerable pyramid
-			_sp = steerable.SteerablePyramid(im[:, :, clr], resol_x, resol_y, num_depth, num_ori, '', '', 0)
+			_sp = SteerablePyramid(im[:, :, clr], resol_x, resol_y, num_depth, num_ori, '', '', 0)
 			_sp.create_pyramids()
 
 			# subtract means from lowpass residuals
@@ -137,7 +133,7 @@ def synthesis(image, resol_x: int, resol_y: int, num_depth: int=5, num_ori: int=
 		for clr in range(3):
 			# get lowband
 			_z = np.zeros_like(lr_l[clr]['f'])
-			_s = steerable.SteerablePyramid(_z, _z.shape[1], _z.shape[0], 1, num_ori, '', '', 0)
+			_s = SteerablePyramid(_z, _z.shape[1], _z.shape[0], 1, num_ori, '', '', 0)
 			_lr_f = lr_l[clr]['f'] * _s.L0_FILT
 			_lr_s = np.fft.ifft2(np.fft.ifftshift(_lr_f)).real
 			# modify central auto correlation
@@ -262,7 +258,7 @@ def synthesis(image, resol_x: int, resol_y: int, num_depth: int=5, num_ori: int=
 			for clr in range(3):
 				# same size
 				_z = np.zeros_like(_rc[clr][0])
-				_s = steerable.SteerablePyramid(_z, _z.shape[1], _z.shape[0], 1, num_ori, '', '', 0)
+				_s = SteerablePyramid(_z, _z.shape[1], _z.shape[0], 1, num_ori, '', '', 0)
 
 				_recon = np.zeros_like(_z)
 				for k in range(num_ori):

@@ -11,9 +11,6 @@ from PIL import Image
 import sys, os, copy
 import logging
 
-import sutils
-import steerable_pyramid as steerable
-
 SCRIPT_NAME = os.path.basename(__file__)
 # logging
 LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
@@ -101,7 +98,7 @@ class TextureAnalysis():
 
 			#-----------------------------------------
 			# create steerable pyramid
-			_sp = steerable.SteerablePyramid(_pim, self.XRES, self.YRES, self.N, self.K, '', '', 0)
+			_sp = SteerablePyramid(_pim, self.XRES, self.YRES, self.N, self.K, '', '', 0)
 			_sp.create_pyramids()
 			self.SP.append(copy.deepcopy(_sp))
 
@@ -117,7 +114,7 @@ class TextureAnalysis():
 			self.LR.append(lr)
 			## marginal statistics of lowpass residual
 			## get L0 of LR of small size.(this tric is for synthesis process)
-			_s = steerable.SteerablePyramid(lr['s'], lr['s'].shape[1], lr['s'].shape[0], 1, 4, '', '', 0)
+			_s = SteerablePyramid(lr['s'], lr['s'].shape[1], lr['s'].shape[0], 1, 4, '', '', 0)
 			_s.create_pyramids()
 
 			# initial value of coarse to fine
@@ -170,7 +167,7 @@ class TextureAnalysis():
 			for dp in range(self.N-1, -1, -1):
 				# create steerable pyramid (create filters only)
 				_z = np.zeros_like(bnd[dp][0]['s'])
-				_s = steerable.SteerablePyramid(_z, _z.shape[1], _z.shape[0], 1, self.K, '', '', 0)
+				_s = SteerablePyramid(_z, _z.shape[1], _z.shape[0], 1, self.K, '', '', 0)
 				# reconstruct dummy pyramid
 				_recon = np.zeros_like(_z)
 				for k in range(self.K):
