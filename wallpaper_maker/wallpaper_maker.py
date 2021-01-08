@@ -2748,6 +2748,6 @@ if __name__ == "__main__":
 	args = parser.parse_args()
     
     #need to investigate error in eval function
-	generate(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, args.ratio, args.dots, args.fundamental_region_filter_center_freq, args.saveFmt, args.saveRaw, 
+	make_set(args.groups, args.nGroup, args.visualAngle, args.wallpaperSize, args.latticeSize, args.fundRegSize, args.ratio, args.dots, args.fundamental_region_filter_center_freq, args.saveFmt, args.saveRaw, 
                        args.printAnalysis, args.pssscrambled, args.psscrambled, args.new_mag, args.cmap, args.diagnostic, args.debug);
 
