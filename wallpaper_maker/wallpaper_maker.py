@@ -36,8 +36,8 @@ from IPython.display import display, Markdown
 
 np.set_printoptions(threshold=sys.maxsize)
 
-import pss
-import filter
+#import pss
+#import filter
 
 SCRIPT_NAME = os.path.basename(__file__)
 
@@ -51,10 +51,13 @@ def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngl
                           cmap: str="gray", isDiagnostic: bool=True, debug: bool=False):
 
     # save parameters
-    saveStr = os.getcwd() + '\\WPSet\\';
+    saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
+    if not os.path.exists(saveStr):
+        os.makedirs(saveStr)
+    #saveStr = os.getcwd() + '\\WPSet\\';
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
-    sPath = saveStr + timeStr;    
+    sPath = os.path.join(saveStr, timeStr);    
     # define group to index mapping
     keySet = groups;
     
@@ -159,7 +162,9 @@ def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngl
                 if (fundamental_region_filter_center_freq):
                     scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_f0fr' + str(fundamental_region_filter_center_freq) + '.' + saveFmt;
                 else:
-                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt; 
+                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
+                display(Markdown(str(1000*groupNumber + k) + '_' + group + '_Scrambled_' + cmap));
+                display(Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)));
                 Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
            
             
@@ -345,55 +350,17 @@ def filterTile(inTile, filterIntensity):
     outTile = outTile / outTile.max();
     return outTile;
 
-# generate random noise tile filtered using a spatial frequency filter
-def spatial_filterTile(im_deg, inTile, lowpass=True, fwhm=1, f_center=0):
-    #def make_noise(im_deg=10, rimg=False, lowpass=True, fwhm=1, f_center=0):
-    #if not rimg:
-    #    rimg = np.random.randn(500, 500)
-    #    rimg = (rimg-rimg.min())/(rimg.max()-rimg.min())
-    
-    w = inTile.shape[1];
-    h = inTile.shape[0];
-    pix_per_degree = h/im_deg;
-    
-    # get into the frequency domain
-    inTile_ = np.fft.fftshift(np.fft.fft2(inTile));
-    
-    # get frequency domain units
-    cyc_per_pix_hor = np.linspace(-0.5, 0.5, w);
-    cyc_per_pix_ver = np.linspace(-0.5, 0.5, h);
-    cyc_per_deg_hor = cyc_per_pix_hor*pix_per_degree;
-    cyc_per_deg_ver = cyc_per_pix_ver*pix_per_degree;
-    
-    # define mask in cyc per deg
-    sig = fwhm/(2*np.sqrt(2*np.log2(2)));
-    xx,yy = np.meshgrid(cyc_per_deg_hor,cyc_per_deg_ver);
-    mask = np.exp(- ((xx**2+yy**2)**0.5-f_center)**2/(2*sig**2));
-    if not lowpass:
-        mask = 1-mask;
-    
-    # multiply the mask with the Fourier domain representation of our image
-    filt_inTile_ = mask*inTile_;
-    
-    # back to image space
-    filt_inTile = np.fft.ifft2(np.fft.ifftshift(filt_inTile_));
-    # throw away imaginary parts
-    filt_inTile = np.real(filt_inTile);
-    # rescale image
-    filt_inTile = (filt_inTile-filt_inTile.min())/(filt_inTile.max()-filt_inTile.min());
-    return filt_inTile;
-
 def new_p3(tile, isDots):
     # Generate p3 wallpaper
     
     # For magfactor, use a multiple of 3 to avoid the rounding error
     # when stacking two_tirds, one_third tiles together
     
-    saveStr = os.getcwd() + '\\WPSet\\';
-    today = datetime.today();
-    timeStr = today.strftime("%Y%m%d_%H%M%S");
-    sPath = saveStr + timeStr; 
-    patternPath = sPath + "_P3_Start_2"  + '.' + "png";
+    #saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
+    #today = datetime.today();
+    #timeStr = today.strftime("%Y%m%d_%H%M%S");
+    #sPath = saveStr + timeStr; 
+    #patternPath = sPath + "_P3_Start_2"  + '.' + "png";
     magfactor = 6;
     if (isDots):
         height = tile.shape[0];
@@ -581,7 +548,6 @@ def new_p3(tile, isDots):
         wholeIm_new_size = tuple(int(np.ceil(i * (1 / magfactor))) for i in reversed(whole.shape));
 
         p3 = np.array(wholeIm.resize(wholeIm_new_size, Image.BICUBIC));
-
         return p3;
 
 def new_p3m1(tile, isDots):
@@ -1257,7 +1223,7 @@ def make_single(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, funde
     
     # default
     # save paths for debugging
-    saveStr = os.getcwd() + '_WPSet_';
+    saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
     sPath = saveStr + timeStr; 
@@ -1613,9 +1579,11 @@ def diagCatTiles(tile, N, diagTile):
     # resize tile to ensure it will fit wallpaper size properly
     if (tile.shape[0] > N):
         tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), : ];
+        diagTile = diagTile[round((diagTile.shape[0] - N) / 2): round((N + (diagTile.shape[0] - N) / 2)), : ];
         N = tile.shape[0];
     if (tile.shape[1] > N):
         tile = tile[:, round((tile.shape[1] - N) / 2): round((N + (tile.shape[1] - N) / 2))];
+        diagTile = diagTile[:, round((diagTile.shape[1] - N) / 2): round((N + (diagTile.shape[1] - N) / 2))];
         N = tile.shape[1];
     if (tile.shape[0] % 2 != 0):
         tile = tile[:tile.shape[0] - 1,:];
@@ -1657,7 +1625,7 @@ def diagCatTiles(tile, N, diagTile):
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):];
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2): , img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2) : ] = img[ : math.ceil((img_final.shape[0] - img.shape[0]) / 2), :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
     img_final[:math.ceil((img_final.shape[0] - img.shape[0]) / 2) ,  img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2): ] = img[ img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2) : , :math.ceil((img_final.shape[1] - img.shape[1]) / 2)];
-    
+    print("here")
     img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2): math.ceil((img_final.shape[0] - img.shape[0]) / 2) + diagTile.shape[0], math.ceil((img_final.shape[1] - img.shape[1]) / 2) : math.ceil((img_final.shape[1] - img.shape[1]) / 2) + diagTile.shape[1]] = diagTile[:, :, 1];
 
     return img_final
@@ -1680,10 +1648,10 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
 
     #img = np.array(img * 255, dtype=np.uint8); 
     #img[:,:] = cv.equalizeHist(img[:,:]);
-    saveStr = os.getcwd() + '\\WPSet\\';
+    saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
-    sPath = saveStr + timeStr; 
+    sPath = os.path.join(saveStr, timeStr); 
     if (wptype == 'P1'):
         #rgb(47,79,79)
         if (isFR):
@@ -1712,7 +1680,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), fill=(47,79,79, 125), outline=(255,255,0,255), width=2);
         alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -1733,7 +1701,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -1761,7 +1729,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 15, fill=(128,0,0, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -1782,7 +1750,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -1792,7 +1760,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
         alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(0,128,0, 125), outline=(255,255,0,255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -1813,7 +1781,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -1823,7 +1791,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec);
         alpha_mask__rec_draw.rectangle((tile.shape[0] / 2, 0, tile.shape[0], tile.shape[1]), fill=(127,0,127, 125), outline=(255,255,0,255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -1844,7 +1812,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -1856,7 +1824,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0, 255), width=2, joint="curve");
         alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2);
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -1877,7 +1845,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -1907,7 +1875,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 15, fill=(255,69,0, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -1928,7 +1896,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -1956,7 +1924,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] - tile.shape[1] / 4 - 6), (tile.shape[0] - 7, tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] - tile.shape[1] / 4 + 6), (tile.shape[0], tile.shape[1] - tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1);
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -1977,7 +1945,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2006,7 +1974,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] / 2), (tile.shape[0] - 5, tile.shape[1] / 2 - 4), (tile.shape[0] - 11, tile.shape[1] / 2), (tile.shape[0] - 5, tile.shape[1] / 2 + 4), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=1);
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2027,7 +1995,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2048,7 +2016,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 6), 6), 4, 345, fill=(0,0,205, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2069,7 +2037,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2094,7 +2062,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 45, fill=(124,252,0, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2115,7 +2083,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2142,7 +2110,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 4), 4), 4, 45, fill=(0,250,154, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2163,7 +2131,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2189,7 +2157,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, 6), 6), 4, 45, fill=(65,105,225, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2210,7 +2178,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2231,7 +2199,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(233,150,122, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm.rotate(270, expand=1));
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2252,7 +2220,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2274,7 +2242,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(0,191,255, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm.rotate(270, expand=1));
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2295,7 +2263,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2320,7 +2288,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype))
         #display(diaLatIm.rotate(270, expand=1));
         display(Markdown('Fundamental Region for ' + wptype))
@@ -2341,7 +2309,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
@@ -2367,7 +2335,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(221,160,221, 125), outline=(255,255,0));
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype));
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype));
@@ -2388,7 +2356,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
-        diaLatIm.save(diagPath1, "png");
+        #diaLatIm.save(diagPath1, "png");
         
         diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
@@ -2419,25 +2387,32 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         
         diaFRIm = Image.alpha_composite(diaFRIm, alpha_mask_rec);
         
-        diaFRIm.save(diagPath2, "png");
+        #diaFRIm.save(diagPath2, "png");
         #display(Markdown('Lattice for ' + wptype));
         #display(diaLatIm);
         display(Markdown('Fundamental Region for ' + wptype));
         #display(diaFRIm);
     #diaFRImTile = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
-
-
+    
+    print(tile.shape)
+    print(N)
+    #print(diaFRIm.shape)
     diagWallpaper = diagCatTiles(tile, N, np.array(diaFRIm).astype(np.uint32));
     #print(diagWallpaper);
     #display(diagWallpaper)
+    
     if isDots:
+        patternPath = sPath + wptype  + '_FundamentalRegion' + '.' + "png";
+        Image.fromarray((diagWallpaper[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
         display(Image.fromarray((diagWallpaper[:, :]).astype(np.uint32), 'RGBA'));
     else:
         display(Image.fromarray((diagWallpaper[:, :]).astype(np.uint8)));
     if (isDots == False):
+        patternPath = sPath + wptype  + '_FundamentalRegion' + '.' + "png";
+        Image.fromarray((diagWallpaper[:, :]).astype(np.uint8)).save(patternPath, "png");
         # diagnostic plots
         logging.getLogger('matplotlib.font_manager').disabled = True;
-        patternPath = sPath + wptype  + '_diagnostic_1' + '.' + "png";
+        patternPath = sPath + wptype  + '_diagnostic' + '.' + "png";
         hidx_0 = int(img.shape[0] * (1/3));
         hidx_1 = int(img.shape[0] / 2);
         hidx_2 = int(img.shape[0] * (2/3));
@@ -2459,7 +2434,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         
         #plt.clf();
         #ax = plt.subplot()
-        patternPath = sPath + wptype  + '_diagnostic_2' + '.' + "png";
+        #patternPath = sPath + wptype  + '_diagnostic_2' + '.' + "png";
         ax2.plot(img[hidx_0,:],c=[1,0,0])
         ax2.plot(img[hidx_1,:],c=[0,1,0])
         ax2.plot(img[hidx_2,:],c=[0,0,1])
@@ -2469,7 +2444,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         #plt.savefig(patternPath);
         #plt.clf();
         #ax = plt.subplot()
-        patternPath = sPath + wptype  + '_diagnostic_3' + '.' + "png";
+        #patternPath = sPath + wptype  + '_diagnostic_3' + '.' + "png";
         bins = np.linspace(0, 1, 100)
         ax3.hist(img[hidx_0,:],bins,color=[1,0,0]) ;
         ax3.hist(img[hidx_1,:],bins,color=[0,1,0]) ;
@@ -2479,7 +2454,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         
         
         plt.show();
-        #plt.savefig(patternPath);
+        fig.savefig(patternPath);
 
 #old cat function
 # def catTiles(tile, N, wptype):
@@ -2588,7 +2563,8 @@ def psScramble(in_image, cmap):
     newSize = previous_power_2(in_image.shape[0]);
     imagetmp = imagetmp.resize((newSize, newSize), Image.BICUBIC);
     in_image = np.array(imagetmp);
-    outImage = pss.synthesis(in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
+    #outImage = pss.synthesis(in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
+    outImage = None;
     return outImage
 
 def previous_power_2(x):
@@ -2718,12 +2694,6 @@ if __name__ == "__main__":
                     help='Size wallpaper as a ratio')
 	parser.add_argument('--dots', '-d', default=False, type=str2bool,
                     help='Replace the fundamental region with random dot style patterns')
-	#parser.add_argument('--spatFreqFilt', '-sff', default=False, type=str2bool,
-    #               help='Replace the fundamental region with random noise whoses frequency is relative to the visual angle')
-	#parser.add_argument('--spatFreqFiltFWHM', '-fwhm', default=5, type=int,
-    #               help='Set fwhm for spatial frequency filtering')
-	#parser.add_argument('--spatFreqFiltLowpass', '-sfflp', default=True, type=str2bool,
-    #               help='Set spatial frequency filtering to lowpass filtering otherwise it is highpass filtering')
 	parser.add_argument('--saveFmt', '-f', default="png", type=str,
                     help='Image save format')
 	parser.add_argument('--fundamental_region_filter_center_freq', '-f0fr', nargs='+',  default=[], type=float,
