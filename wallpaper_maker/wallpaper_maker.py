@@ -318,38 +318,6 @@ def dot_texture(size, minRad, maxRad, numOfDots, wptype):
         result = np.ndarray(shape=(width, height),dtype=np.uint32,buffer=buf)
     return result;
 
-
-def filterTile(inTile, filterIntensity):
-    # generate random noise tile
-
-    mu = 0.5;
-    nx = np.size(inTile, 0);
-    ny = np.size(inTile, 1);
-    
-    # make adaptive filtering
-    
-    sigma_x = 10*filterIntensity/nx;
-    sigma_y = 10*filterIntensity/ny;
-    
-    x = np.linspace(0, 1, nx);
-    y = np.linspace(0, 1, ny);
-    
-    gx = np.exp(-1 * (np.power((x - mu), 2)) / (2*(sigma_x**2))) / (sigma_x * math.sqrt(2 * math.pi));
-    gy = np.exp(-1 * (np.power((y - mu), 2)) / (2*(sigma_y**2))) / (sigma_y * math.sqrt(2 * math.pi));
-
-    gauss2 = np.matmul(gx.reshape(gx.shape[0], 1),gy.reshape(1, gy.shape[0]));
-    gauss2 = gauss2 - gauss2.min();
-    gauss2 = gauss2 / gauss2.max();
-    gauss2 = gauss2 * 5;
-    
-    filtered = np.abs(np.fft.ifft2(np.fft.fft2(inTile) * gauss2));
-    
-    # normalize tile
-
-    outTile = filtered - filtered.min();
-    outTile = outTile / outTile.max();
-    return outTile;
-
 def new_p3(tile, isDots):
     # Generate p3 wallpaper
     
@@ -1229,11 +1197,8 @@ def make_single(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, funde
     sPath = saveStr + timeStr; 
         
     if fundamental_region_source_type == 'uniform_noise' and isDots == False:
-        # TODO: do we  need white noise here as well?
         print('uniform noise');
-        #texture = np.random.rand(n,n);
-        grain = 1;
-        texture = filterTile(np.random.rand(n, n), grain);
+        texture = np.random.rand(n,n);
     elif isDots:
         print('random dots');
         texture = dot_texture(n, 0.05, 0.05, 5, wptype);
