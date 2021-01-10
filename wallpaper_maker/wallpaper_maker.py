@@ -37,7 +37,7 @@ from IPython.display import display, Markdown
 np.set_printoptions(threshold=sys.maxsize)
 
 #import pss
-#import filter
+import filter
 
 SCRIPT_NAME = os.path.basename(__file__)
 
@@ -48,16 +48,17 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngle: float=30.0, wpSize: int=500, latticeSize: bool=False,
                           fundRegSize: bool=False, ratio: float=1.0, isDots: bool=False, fundamental_region_filter_center_freq: list=[], saveFmt: str="png", saveRaw: bool=False, printAnalysis: bool=False, pssscrambled: bool=False, psscrambled: bool=False, new_mag: bool=False, 
-                          cmap: str="gray", isDiagnostic: bool=True, debug: bool=False):
+                          cmap: str="gray", isDiagnostic: bool=True, save_path: str="", debug: bool=False):
 
     # save parameters
-    saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
-    if not os.path.exists(saveStr):
-        os.makedirs(saveStr)
-    #saveStr = os.getcwd() + '\\WPSet\\';
+    if not save_path:
+        save_path = os.path.join(os.path.expanduser('~'),'wallpapers')
     today = datetime.today();
-    timeStr = today.strftime("%Y%m%d_%H%M%S");
-    sPath = os.path.join(saveStr, timeStr);    
+    time_str = today.strftime("%Y%m%d_%H%M%S");
+    save_path = os.path.join(save_path, time_str);   
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+     
     # define group to index mapping
     keySet = groups;
     
@@ -74,17 +75,16 @@ def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngl
     for i in range(valueSet.shape[0]):
         mapgroup[keySet[i]] = valueSet[i];
     Groups = keySet;
-    sRawPath = '';
+    raw_path = '';
     try:
-        os.mkdirs(sPath);
         if(saveRaw):
-            sRawPath = sPath + 'raw\\';
-            os.mkdirs(sRawPath);
+            raw_path = os.path.join(save_path, "raw");
+            os.makedirs(raw_path)
         if(printAnalysis):
-            sAnalysisPath = sPath + 'analysis\\';
-            os.mkdirs(sAnalysisPath);
+            analysis_path = os.path.join(save_path, "analysis");
+            os.makedirs(analysis_path);
     except:
-        print('PYTHON:generateWPSet:mkdir ', sPath);
+        print('PYTHON:generateWPSet:mkdir ', save_path);
         
     # TODO: add configuration to argument parser
     fundamental_region_source_type = 'uniform_noise';
@@ -139,16 +139,21 @@ def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngl
             
             # saving averaged and scrambled images
             if(printAnalysis):
-                Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(sPath + "analysis\\steps_" + group + "_" + str(k), "JPEG");
-                #imwrite(all_in_one{img},  strcat(sPath, 'analysis/steps_',group, '_', num2str(img), '.jpeg'), 'jpeg');
+                Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(save_path + "analysis\\steps_" + group + "_" + str(k), "JPEG");
+                #imwrite(all_in_one{img},  strcat(save_path, 'analysis/steps_',group, '_', num2str(img), '.jpeg'), 'jpeg');
             if(saveRaw):
-                rawPath = sRawPath + group + '_' + str(k) + '.' + saveFmt;
-                Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt);
-            
-            if (fundamental_region_filter_center_freq):
-                patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '_f0fr' + str(fundamental_region_filter_center_freq) + '.' + saveFmt;
+                rawPath = raw_path + group + '_' + str(k) + '.' + saveFmt;
+                Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(rawPath, saveFmt)
+
+            if fundamental_region_filter_center_freq:
+                filter_str = '_f0fr' + str(fundamental_region_filter_center_freq)
             else:
-                patternPath = sPath + str(1000*groupNumber + k) + '_' + group + '_' + cmap  + '.' + saveFmt;
+                filter_str = ''
+
+            main_str = str(1000*groupNumber + k) + '_' + group + '_' + cmap + filter_str
+
+            patternPath = "{0}/{1}_{2}.{3}".format(save_path, time_str, main_str, saveFmt)
+
             if (isDots):
                 Image.fromarray((raw_image[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
                 display(Markdown(str(1000*groupNumber + k) + '_' + group + '_' + cmap));
@@ -160,9 +165,9 @@ def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngl
             
             if(pssscrambled == True or psscrambled == True):
                 if (fundamental_region_filter_center_freq):
-                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_f0fr' + str(fundamental_region_filter_center_freq) + '.' + saveFmt;
+                    scramblePath = save_path + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '_f0fr' + str(fundamental_region_filter_center_freq) + '.' + saveFmt;
                 else:
-                    scramblePath = sPath + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
+                    scramblePath = save_path + str(1000*(groupNumber + 17) + k) + '_' + group + '_Scrambled' + '_' + cmap + '.' + saveFmt;
                 display(Markdown(str(1000*groupNumber + k) + '_' + group + '_Scrambled_' + cmap));
                 display(Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)));
                 Image.fromarray((scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, saveFmt);
@@ -174,7 +179,7 @@ def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngl
         #symAveraged[:,i]= np.concatenate((avgRaw, scrambled_raw));
         #symFiltered[:,i]= np.concatenate((filtered, scrambled_filtered));
         #symMasked[:,i]= np.concatenate((masked, scrambled_masked));
-    #save([sPath,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups'); 
+    #save([save_path,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups'); 
 
 def dot_texture(size, minRad, maxRad, numOfDots, wptype):
     # auxiliary function for generating a dots texture for use with wallpaper generation code make_single.py
@@ -327,8 +332,8 @@ def new_p3(tile, isDots):
     #saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
     #today = datetime.today();
     #timeStr = today.strftime("%Y%m%d_%H%M%S");
-    #sPath = saveStr + timeStr; 
-    #patternPath = sPath + "_P3_Start_2"  + '.' + "png";
+    #save_path = saveStr + timeStr; 
+    #patternPath = save_path + "_P3_Start_2"  + '.' + "png";
     magfactor = 6;
     if (isDots):
         height = tile.shape[0];
@@ -418,7 +423,7 @@ def new_p3(tile, isDots):
         #saveStr = os.getcwd() + '\\WPSet\\';
         #today = datetime.today();
         #timeStr = today.strftime("%Y%m%d_%H%M%S");
-        #sPath = saveStr + timeStr; 
+        #save_path = saveStr + timeStr; 
     
         tileIm = Image.fromarray(tile);
 
@@ -1194,7 +1199,7 @@ def make_single(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, funde
     saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
-    sPath = saveStr + timeStr; 
+    save_path = saveStr + timeStr; 
         
     if fundamental_region_source_type == 'uniform_noise' and isDots == False:
         print('uniform noise');
@@ -1584,14 +1589,14 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
     saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
-    sPath = os.path.join(saveStr, timeStr); 
+    save_path = os.path.join(saveStr, timeStr); 
     if (wptype == 'P1'):
         #rgb(47,79,79)
         if (isFR):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1])):.1f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - tile.shape[0] * tile.shape[1]) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_" + wptype  + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_" + wptype  + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1603,7 +1608,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
         
         draw.rectangle((0, 0, tile.shape[0], tile.shape[1]), outline=(255,255,0), width=2);
         diaLatIm.save(diagPath1, "png");
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1621,7 +1626,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - (tile.shape[0] * tile.shape[1]) / 2) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1631,7 +1636,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1666,7 +1671,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1676,7 +1681,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1693,7 +1698,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1703,7 +1708,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1720,7 +1725,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cma = plt.get_cmap("gray");
         tileCm = cma(tile);
         if(isDots):
@@ -1730,7 +1735,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1749,7 +1754,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1759,7 +1764,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1796,7 +1801,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1806,7 +1811,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1841,7 +1846,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1851,7 +1856,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1887,7 +1892,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1897,7 +1902,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1925,7 +1930,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 4):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1935,7 +1940,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -1967,7 +1972,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -1977,7 +1982,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             diaLatIm = Image.fromarray((tileCm[:, :, :] * 255).astype(np.uint8));
             draw = ImageDraw.Draw(diaLatIm);
         draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255,255,0), width=2);
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -2011,7 +2016,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 8):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -2022,7 +2027,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2,tile.shape[1]), (tile.shape[0], tile.shape[1] / 2),(tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve");
 
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -2055,7 +2060,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 18):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 18)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -2066,7 +2071,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
 
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -2094,7 +2099,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -2105,7 +2110,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
 
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -2134,7 +2139,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -2145,7 +2150,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2);
 
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -2177,7 +2182,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 36):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%'); 
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -2188,7 +2193,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
 
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -2221,7 +2226,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             print('Area of Fundamental Region of ' + wptype + f' =  {((tile.shape[0] * tile.shape[1]) / 72):.2f}');
             print('Area of Fundamental Region of ' + wptype + ' should be = ', (N**2 * ratio));
             print(f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%');
-        diagPath1 = sPath + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
+        diagPath1 = save_path + "_DIAGNOSTIC_LATTICE_"  + wptype + '.' + "png";
         cm = plt.get_cmap("gray");
         tileCm = cm(tile);
         if(isDots):
@@ -2232,7 +2237,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
             draw = ImageDraw.Draw(diaLatIm);
         draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1]  - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2);
         
-        diagPath2 = sPath + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
+        diagPath2 = save_path + "_DIAGNOSTIC_FR_"  + wptype + '.' + "png";
         if(isDots):
             diaFRIm = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA');
         else:
@@ -2271,17 +2276,17 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
     diagWallpaper = diagCatTiles(np.array(diaFRIm2).astype(np.uint32), N, np.array(diaFRIm).astype(np.uint32), wptype);
     
     if isDots:
-        patternPath = sPath + wptype  + '_FundamentalRegion' + '.' + "png";
+        patternPath = save_path + wptype  + '_FundamentalRegion' + '.' + "png";
         Image.fromarray((diagWallpaper[:, :]).astype(np.uint32), 'RGBA').save(patternPath, "png");
         display(Image.fromarray((diagWallpaper[:, :]).astype(np.uint32), 'RGBA'));
     else:
         display(Image.fromarray((diagWallpaper[:, :]).astype(np.uint8)));
     if (isDots == False):
-        patternPath = sPath + wptype  + '_FundamentalRegion' + '.' + "png";
+        patternPath = save_path + wptype  + '_FundamentalRegion' + '.' + "png";
         Image.fromarray((diagWallpaper[:, :]).astype(np.uint8)).save(patternPath, "png");
         # diagnostic plots
         logging.getLogger('matplotlib.font_manager').disabled = True;
-        patternPath = sPath + wptype  + '_diagnostic' + '.' + "png";
+        patternPath = save_path + wptype  + '_diagnostic' + '.' + "png";
         hidx_0 = int(img.shape[0] * (1/3));
         hidx_1 = int(img.shape[0] / 2);
         hidx_2 = int(img.shape[0] * (2/3));
