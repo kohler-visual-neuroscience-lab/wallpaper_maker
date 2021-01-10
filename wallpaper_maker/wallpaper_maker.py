@@ -51,7 +51,7 @@ def make_set(groups: list=['P1','P2','P4','P3','P6'], nGroup: int=10, visualAngl
                           cmap: str="gray", isDiagnostic: bool=True, debug: bool=False):
 
     # save parameters
-    saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
+    saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
     if not os.path.exists(saveStr):
         os.makedirs(saveStr)
     #saveStr = os.getcwd() + '\\WPSet\\';
@@ -324,7 +324,7 @@ def new_p3(tile, isDots):
     # For magfactor, use a multiple of 3 to avoid the rounding error
     # when stacking two_tirds, one_third tiles together
     
-    #saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
+    #saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
     #today = datetime.today();
     #timeStr = today.strftime("%Y%m%d_%H%M%S");
     #sPath = saveStr + timeStr; 
@@ -1191,7 +1191,7 @@ def make_single(wptype, N, n, isFR, isLattice, ratio, angle, isDiagnostic, funde
     
     # default
     # save paths for debugging
-    saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
+    saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
     sPath = saveStr + timeStr; 
@@ -1581,7 +1581,7 @@ def diagnostic(img, wptype, tile, isFR, isLattice, N, ratio, cmap, isDots):
 
     #img = np.array(img * 255, dtype=np.uint8); 
     #img[:,:] = cv.equalizeHist(img[:,:]);
-    saveStr = os.path.join(os.path.expanduser('~'),'Documents\\GeneratedWallPapers')
+    saveStr = os.path.join(os.path.expanduser('~'),'wallpapers')
     today = datetime.today();
     timeStr = today.strftime("%Y%m%d_%H%M%S");
     sPath = os.path.join(saveStr, timeStr); 
