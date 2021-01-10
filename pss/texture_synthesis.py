@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from numpy.linalg import LinAlgError
 from scipy.stats import skew, kurtosis
 from PIL import Image
-import sys, os
+import sys, os, copy
 import logging
 import argparse, copy
 import time

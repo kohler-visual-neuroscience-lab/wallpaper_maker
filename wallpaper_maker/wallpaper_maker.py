@@ -37,7 +37,7 @@ from IPython.display import display, Markdown
 
 np.set_printoptions(threshold=sys.maxsize)
 
-#import pss
+import pss_g
 
 SCRIPT_NAME = os.path.basename(__file__)
 
@@ -48,7 +48,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10, visual_angle: float = 30.0, wp_size: int = 500, lattice_sizing: bool = False,
-             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, fr_filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, print_analysis: bool = False, ps_control: bool = False, scramble_control: bool = False, new_mag: bool = False,
+             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, fr_filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ps_control: bool = False, scramble_control: bool = False, new_mag: bool = False,
              cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", debug: bool = False):
 
     # save parameters
@@ -86,9 +86,6 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
         if(save_raw):
             raw_path = os.path.join(save_path, "raw")
             os.makedirs(raw_path)
-        if(print_analysis):
-            analysis_path = os.path.join(save_path, "analysis")
-            os.makedirs(analysis_path)
     except:
         print('Save Path: ', save_path, "\nGroups to Generate: ", groups,
               "\nNumber of Wallpapers per Group: ", num_group, "\nFiltering Level: ", fr_filter_freq_str)
@@ -153,12 +150,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             group_number = map_group[group]
 
             # saving averaged and scrambled images
-            if(print_analysis):
-                Image.fromarray((raw_image[:, :, :3] * 255).astype(np.uint8)).save(
-                    save_path + "analysis\\steps_" + group + "_" + str(k), "JPEG")
-                # imwrite(all_in_one{img},  strcat(save_path, 'analysis/steps_',group, '_', num2str(img), '.jpeg'), 'jpeg')
             if(save_raw):
-                raw_path = raw_path + group + '_' + str(k) + '.' + save_fmt
+                raw_path = raw_path + '/' + group + '_' + str(k) + '.' + save_fmt
                 display(Markdown(str(1000*group_number + k) +
                                  '_' + group + '_' + cmap + '_raw'))
                 display(Image.fromarray(
@@ -193,11 +186,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
 
             if(ps_control == True or scramble_control == True):
                 if (fr_filter_freq):
-                    scramblePath = save_path + str(1000*(group_number + 17) + k) + '_' + group + \
+                    scramblePath = save_path + '/' + str(1000*(group_number + 17) + k) + '_' + group + \
                         '_Scrambled' + '_' + cmap + '_f0fr' + \
                         str(fr_filter_freq) + '.' + save_fmt
                 else:
-                    scramblePath = save_path + \
+                    scramblePath = save_path + '/' + \
                         str(1000*(group_number + 17) + k) + '_' + group + \
                         '_Scrambled' + '_' + cmap + '.' + save_fmt
                 display(Markdown(str(1000*group_number + k) +
@@ -2886,8 +2879,8 @@ def psScramble(in_image, cmap):
     new_size = previous_power_2(in_image.shape[0])
     image_tmp = image_tmp.resize((new_size, new_size), Image.BICUBIC)
     in_image = np.array(image_tmp)
-    #out_image = pss.synthesis(in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
-    out_image = None
+    out_image = pss_g.synthesis(in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
+    #out_image = None
     return out_image
 
 
@@ -3031,8 +3024,6 @@ if __name__ == "__main__":
                         help='Center frequency (in cycle per degree) for dyadic bandpass filtering the fundamental region. [] does not invoke filtering. Might be extended for a multichannel filterbanks later.')
     parser.add_argument('--save_raw', '-r', default=False, type=str2bool,
                         help='save raw')
-    parser.add_argument('--print_analysis', '-a', default=False, type=str2bool,
-                        help='Print analysis')
     parser.add_argument('--ps_control', '-s', default=False, type=str2bool,
                         help='Portilla-Simoncelli scrambled')
     parser.add_argument('--scramble_control', '-p', default=False, type=str2bool,
@@ -3050,4 +3041,4 @@ if __name__ == "__main__":
 
     # need to investigate error in eval function
     make_set(args.groups, args.num_group, args.visual_angle, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.fr_filter_freq, args.save_fmt, args.save_raw,
-             args.print_analysis, args.ps_control, args.scramble_control, args.new_mag, args.cmap, args.diagnostic, args.debug)
+             args.ps_control, args.scramble_control, args.new_mag, args.cmap, args.diagnostic, args.debug)
