@@ -10,6 +10,7 @@ tile area, image save format, save raw, print analysis, Portilla-Simoncelli scra
 Check function for expected data types for each argument.
 
 """
+import pss_g
 import filter
 import os
 from datetime import datetime
@@ -37,7 +38,6 @@ from IPython.display import display, Markdown
 
 np.set_printoptions(threshold=sys.maxsize)
 
-import pss_g
 
 SCRIPT_NAME = os.path.basename(__file__)
 
@@ -64,7 +64,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
     key_set = groups
 
     # useful parameters for debugging
-    if (debug == True):
+    if debug:
         #num_group = 1
         #ratio = 1
         key_set = ['P1', 'P2', 'PM', 'PG', 'CM', 'PMM', 'PMG', 'PGG',
@@ -98,9 +98,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
     for i in range(len(Groups)):
         print('generating ', Groups[i])
         group = Groups[i]
-        if (lattice_sizing == True):
+        if lattice_sizing:
             n = size_lattice(ratio, wp_size, group)
-        elif (fr_sizing == True):
+        elif fr_sizing:
             n = size_fundamental_region(ratio, wp_size, group)
         else:
             n = size_tile(ratio, wp_size, group)
@@ -109,7 +109,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             if len(fr_filter_freq) == 1:
                 # set up filter for the fundamental region
                 fundamental_region_filter = filter.Cosine_filter(fr_filter_freq[0],
-                                                                 n, visual_angle/wp_size * n)
+                                                                 n, visual_angle / wp_size * n)
             else:
                 print(
                     'multichannel filtering for the fundamental region not implemented.\n SKIPPING FILTERING!')
@@ -124,14 +124,14 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             raw_image = raw
             raw_freq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]))
             avg_mag = np.array([])
-            if(new_mag == True):
+            if new_mag:
                 avg_mag = mean_mag(raw_freq)
         # generating wallpapers, saving freq. representations
 
             # image processing steps
 
             # making regular images
-            if(is_dots == False):
+            if not is_dots:
                 # replace each image's magnitude with the average
                 avg_raw = (spectra(raw, new_mag=avg_mag))
                 # low-pass filtering + histeq
@@ -151,8 +151,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
 
             # saving averaged and scrambled images
             if(save_raw):
-                raw_path = raw_path + '/' + group + '_' + str(k) + '.' + save_fmt
-                display(Markdown(str(1000*group_number + k) +
+                raw_path = raw_path + '/' + group + \
+                    '_' + str(k) + '.' + save_fmt
+                display(Markdown(str(1000 * group_number + k) +
                                  '_' + group + '_' + cmap + '_raw'))
                 display(Image.fromarray(
                     (raw_image[:, :] * 255).astype(np.uint8)))
@@ -164,7 +165,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             else:
                 filter_str = ''
 
-            main_str = str(1000*group_number + k) + '_' + \
+            main_str = str(1000 * group_number + k) + '_' + \
                 group + '_' + cmap + filter_str
 
             pattern_path = "{0}/{1}_{2}.{3}".format(
@@ -173,27 +174,27 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             if (is_dots):
                 Image.fromarray((raw_image[:, :]).astype(
                     np.uint32), 'RGBA').save(pattern_path, "png")
-                display(Markdown(str(1000*group_number + k) +
+                display(Markdown(str(1000 * group_number + k) +
                                  '_' + group + '_' + cmap))
                 display(Image.fromarray(
                     (raw_image[:, :]).astype(np.uint32), 'RGBA'))
             else:
                 Image.fromarray(
                     (masked[:, :] * 255).astype(np.uint8)).save(pattern_path, save_fmt)
-                display(Markdown(str(1000*group_number + k) +
+                display(Markdown(str(1000 * group_number + k) +
                                  '_' + group + '_' + cmap))
                 display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))
 
-            if(ps_control == True or scramble_control == True):
+            if (ps_control is True or scramble_control is True):
                 if (fr_filter_freq):
-                    scramblePath = save_path + '/' + str(1000*(group_number + 17) + k) + '_' + group + \
+                    scramblePath = save_path + '/' + str(1000 * (group_number + 17) + k) + '_' + group + \
                         '_Scrambled' + '_' + cmap + '_f0fr' + \
                         str(fr_filter_freq) + '.' + save_fmt
                 else:
                     scramblePath = save_path + '/' + \
-                        str(1000*(group_number + 17) + k) + '_' + group + \
+                        str(1000 * (group_number + 17) + k) + '_' + group + \
                         '_Scrambled' + '_' + cmap + '.' + save_fmt
-                display(Markdown(str(1000*group_number + k) +
+                display(Markdown(str(1000 * group_number + k) +
                                  '_' + group + '_Scrambled_' + cmap))
                 display(Image.fromarray(
                     (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))
@@ -225,12 +226,12 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
         height = round(size / 2)
         width = height
     elif (wp_type == 'P3'):
-        alpha = np.pi/3
+        alpha = np.pi / 3
         s = size / math.sqrt(3 * np.tan(alpha))
         height = math.floor(s * 1.5) * 6
         width = size * 6
     elif (wp_type == 'P3M1'):
-        alpha = np.pi/3
+        alpha = np.pi / 3
         s = size / math.sqrt(3 * np.tan(alpha))
         height = round(s) * 10
         width = size * 10
@@ -240,11 +241,11 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
         width = size * 6
     elif (wp_type == 'P6M'):
         s = size / math.sqrt(math.sqrt(3))
-        height = round(s/2) * 6
+        height = round(s / 2) * 6
         width = size * 6
     elif (wp_type == 'CMM'):
-        width = round(size/4)
-        height = 2*width
+        width = round(size / 4)
+        height = 2 * width
 
     surface = cr.ImageSurface(cr.FORMAT_ARGB32, width, height)
     ctx = cr.Context(surface)
@@ -267,7 +268,7 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
         is_possible_dot = False
         colour = np.linspace(0., 1., num_of_dots)
         ctx.set_source_rgb(colour[x], colour[x], colour[x])  # Solid color
-        while is_possible_dot == False:
+        while is_possible_dot is False:
             # attempt to regenerate dots if current dots cannot all be placed
             if math.floor(end_time - start_time) % 2 == 0 and math.floor(end_time - start_time) != 0:
                 pat = cr.SolidPattern(0.5, 0.5, 0.5, 1.0)
@@ -281,32 +282,32 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
                 previous_dots = []
                 print("Could not create dots with current values. Starting again.")
             radius = np.random.uniform(min_rad, max_rad)
-            xc = np.random.uniform(radius, 1-radius)
-            yc = np.random.uniform(radius, 1-radius)
+            xc = np.random.uniform(radius, 1 - radius)
+            yc = np.random.uniform(radius, 1 - radius)
 
             # place dots only places where it won't get cut off in wallpaper construction
             if (wp_type == 'P3'):
-                xc = np.random.uniform(radius, 1-max(0.75, radius * 2))
-                yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2))
+                xc = np.random.uniform(radius, 1 - max(0.75, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.35, radius * 2))
             elif (wp_type == 'P4G'):
-                xc = np.random.uniform(0.45 + radius, 1-max(0.25, radius * 2))
-                yc = np.random.uniform(0.45 + radius, 1-max(0.25, radius * 2))
+                xc = np.random.uniform(0.45 + radius, 1 - max(0.25, radius * 2))
+                yc = np.random.uniform(0.45 + radius, 1 - max(0.25, radius * 2))
             elif (wp_type == 'P4M'):
-                xc = np.random.uniform(0.05 + radius, 1-max(0.05, radius * 2))
+                xc = np.random.uniform(0.05 + radius, 1 - max(0.05, radius * 2))
                 yc = np.random.uniform(
-                    0.05 + radius, 1-max(0.7 + radius, radius * 2))
+                    0.05 + radius, 1 - max(0.7 + radius, radius * 2))
             elif (wp_type == 'P3M1'):
-                xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2))
-                yc = np.random.uniform(0.175 + radius, 1-max(0.35, radius * 2))
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.93, radius * 2))
+                yc = np.random.uniform(0.175 + radius, 1 - max(0.35, radius * 2))
             elif (wp_type == 'P31M'):
-                xc = np.random.uniform(0.025 + radius, 1-max(0.85, radius * 2))
-                yc = np.random.uniform(0.30 + radius, 1-max(0.35, radius * 2))
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.85, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.35, radius * 2))
             elif (wp_type == 'P6'):
-                xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2))
-                yc = np.random.uniform(0.30 + radius, 1-max(0.05, radius * 2))
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.93, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.05, radius * 2))
             elif (wp_type == 'P6M'):
-                xc = np.random.uniform(0.025 + radius, 1-max(0.93, radius * 2))
-                yc = np.random.uniform(0.30 + radius, 1-max(0.05, radius * 2))
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.93, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.05, radius * 2))
 
             if x == 0:
                 #ctx.set_source_rgb(0, 0, 0)
@@ -320,7 +321,7 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
             else:
                 # generate radius not touching other dots
                 for y in previous_dots:
-                    d = (xc - y[0])**2 + (yc-y[1])**2
+                    d = (xc - y[0])**2 + (yc - y[1])**2
                     rad_sum_sq = (radius + y[2])**2
                     if (d > rad_sum_sq):
                         is_possible_dot = True
@@ -328,7 +329,7 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
                         is_possible_dot = False
                         break
             # if dot is okay to be placed will generate a blob constrained in the dot
-            if is_possible_dot == True:
+            if is_possible_dot:
                 #blobs = np.random.randint(1, 15)
                 blobs = 5
                 previous_dots.append([xc, yc, radius])
@@ -337,7 +338,7 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
                     xc1 = np.random.uniform(xc - radius, radius + xc)
                     yc1 = np.random.uniform(yc - radius, radius + yc)
                     radius1 = radius / 2
-                    ctx.arc(xc1, yc1, radius1, 0, 2*math.pi)
+                    ctx.arc(xc1, yc1, radius1, 0, 2 * math.pi)
                     ctx.fill()
             end_time = time.time()
 
@@ -574,7 +575,7 @@ def new_p3m1(tile, is_dots):
         height = tile.shape[0]
         # fundamental region is equlateral triangle with side length = height
         width = round(0.5 * height * math.sqrt(3))
-        y1 = round(height/2)
+        y1 = round(height / 2)
         # vetrices of the triangle (closed polygon => four points)
         mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]]
         # Create half of the mask
@@ -674,7 +675,7 @@ def new_p3m1(tile, is_dots):
         # fundamental region is equlateral triangle with side length = height
         width = round(0.5 * height * math.sqrt(3))
 
-        y1 = round(height/2)
+        y1 = round(height / 2)
 
         # vetrices of the triangle (closed polygon => four points)
         mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]]
@@ -930,7 +931,7 @@ def new_p6(tile, is_dots):
         tile1 = tile.astype(np.uint32)
         height = np.shape(tile1)[0]
         width = int(round(0.5 * height * np.tan(np.pi / 6)))
-        y1 = round(height/2)
+        y1 = round(height / 2)
 
         # fundamental region is an isosceles triangle with angles(30, 120, 30)
 
@@ -997,7 +998,7 @@ def new_p6(tile, is_dots):
             (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :])).astype(np.uint32)
 
         tile2 = np.maximum(tri, shifted).astype(np.uint32)
-        t2 = int(np.floor(0.5*np.shape(tile2)[0]))
+        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
 
         tile2_flipped = np.concatenate(
             (tile2[t2:, :], tile2[:t2, :])).astype(np.uint32)
@@ -1022,7 +1023,7 @@ def new_p6(tile, is_dots):
 
         height = np.shape(tile1)[0]
         width = int(round(0.5 * height * np.tan(np.pi / 6)))
-        y1 = round(height/2)
+        y1 = round(height / 2)
 
         # fundamental region is an isosceles triangle with angles(30, 120, 30)
 
@@ -1085,7 +1086,7 @@ def new_p6(tile, is_dots):
             (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
 
         tile2 = np.maximum(tri, shifted)
-        t2 = int(np.floor(0.5*np.shape(tile2)[0]))
+        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
 
         tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
 
@@ -1315,7 +1316,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
         if isinstance(fundemental_region_filter, filter.Cosine_filter):
             texture = fundemental_region_filter.filter_image(texture)
             # scale texture into range 0...1
-            texture = (texture-texture.min())/(texture.max()-texture.min())
+            texture = (texture - texture.min()) / (texture.max() - texture.min())
         else:
             raise Exception('this filter type ({}) is not implemented'.format(
                 type(fundemental_region_filter)))
@@ -1327,7 +1328,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
         # generate the wallpapers
         if wp_type == 'P0':
             p0 = np.array(Image.resize(
-                reversed((texture.shape * round(N/n))), Image.NEAREST))
+                reversed((texture.shape * round(N / n))), Image.NEAREST))
             image = p0
             return image
         elif wp_type == 'P1':
@@ -1340,8 +1341,8 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P2':
-            height = round(n/2)
-            width = 2*height
+            height = round(n / 2)
+            width = 2 * height
             start_tile = texture[:height, :width]
             tileR180 = np.rot90(start_tile, 2)
             p2 = np.concatenate((start_tile, tileR180))
@@ -1351,8 +1352,8 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'PM':
-            height = round(n/2)
-            width = 2*height
+            height = round(n / 2)
+            width = 2 * height
             start_tile = texture[:height, :width]
             mirror = np.flipud(start_tile)
             pm = np.concatenate((start_tile, mirror))
@@ -1362,8 +1363,8 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'PG':
-            height = round(n/2)
-            width = 2*height
+            height = round(n / 2)
+            width = 2 * height
             start_tile = texture[:height, :width]
             tile = np.rot90(start_tile, 3)
             glide = np.flipud(tile)
@@ -1374,7 +1375,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'CM':
-            height = round(n/2)
+            height = round(n / 2)
             width = height
             start_tile = texture[:height, :width]
             mirror = np.fliplr(start_tile)
@@ -1387,7 +1388,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'PMM':
-            height = round(n/2)
+            height = round(n / 2)
             width = height
             start_tile = texture[:height, :width]
             mirror = np.fliplr(start_tile)
@@ -1401,7 +1402,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'PMG':
-            height = round(n/2)
+            height = round(n / 2)
             width = height
             start_tile = texture[:height, :width]
             start_tile_rot180 = np.rot90(start_tile, 2)
@@ -1416,7 +1417,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'PGG':
-            height = round(n/2)
+            height = round(n / 2)
             width = height
             start_tile = texture[:height, :width]
             start_tile_rot180 = np.rot90(start_tile, 2)
@@ -1431,8 +1432,8 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'CMM':
-            height = round(n/4)
-            width = 2*height
+            height = round(n / 4)
+            width = 2 * height
             start_tile = texture[:height, :width]
             start_tile_rot180 = np.rot90(start_tile, 2)
             tile1 = np.concatenate((start_tile, start_tile_rot180))
@@ -1446,7 +1447,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P4':
-            height = round(n/2)
+            height = round(n / 2)
             width = height
             start_tile = texture[:height, :width]
             start_tile_rot90 = np.rot90(start_tile, 1)
@@ -1463,7 +1464,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P4M':
-            height = round(n/2)
+            height = round(n / 2)
             width = height
             start_tile = texture[:height, :width]
             xy = np.array([[0, 0], [width, height], [0, height], [0, 0]])
@@ -1484,7 +1485,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P4G':
-            height = round(n/2)
+            height = round(n / 2)
             width = height
             if (is_dots):
                 start_tile = texture[:height, :width].astype(np.uint32)
@@ -1527,7 +1528,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P3':
-            alpha = np.pi/3
+            alpha = np.pi / 3
             s = n / math.sqrt(3 * np.tan(alpha))
             height = math.floor(s * 1.5)
 
@@ -1542,8 +1543,8 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P3M1':
-            alpha = np.pi/3
-            s = n/math.sqrt(3*np.tan(alpha))
+            alpha = np.pi / 3
+            s = n / math.sqrt(3 * np.tan(alpha))
             height = round(s)
             start_tile = texture[:height, :]
             if (is_dots):
@@ -1556,7 +1557,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P31M':
-            s = n/math.sqrt(math.sqrt(3))
+            s = n / math.sqrt(math.sqrt(3))
             height = round(s)
             start_tile = texture[:height, :]
             if (is_dots):
@@ -1572,7 +1573,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P6':
-            s = n/math.sqrt(math.sqrt(3))
+            s = n / math.sqrt(math.sqrt(3))
             height = round(s)
             start_tile = texture[:height, :]
             if (is_dots):
@@ -1585,8 +1586,8 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                            N, ratio, cmap, is_dots, save_path)
             return image
         elif wp_type == 'P6M':
-            s = n/math.sqrt(math.sqrt(3))
-            height = round(s/2)
+            s = n / math.sqrt(math.sqrt(3))
+            height = round(s / 2)
             start_tile = texture[:height, :]
             if (is_dots):
                 p6m = new_p6m(texture, is_dots)
@@ -1600,7 +1601,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
         else:
             warnings.warn(
                 'Unexpected Wallpaper Group type. Returning random noise.', UserWarning)
-            image = np.matlib.repmat(texture, [np.ceil(N/n),  np.ceil(N/n)])
+            image = np.matlib.repmat(texture, [np.ceil(N / n),  np.ceil(N / n)])
             return image
     except Exception as err:
         print('new_SymmetricNoise:Error making ' + wp_type)
@@ -1618,10 +1619,11 @@ def cat_tiles(tile, N, wp_type):
 
     # resize tile to ensure it will fit wallpaper size properly
     if (tile.shape[0] > N):
-        tile = tile[round((tile.shape[0] - N) / 2)                    : round((N + (tile.shape[0] - N) / 2)), :]
+        tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
         N = tile.shape[0]
     if (tile.shape[1] > N):
-        tile = tile[:, round((tile.shape[1] - N) / 2): round((N + (tile.shape[1] - N) / 2))]
+        tile = tile[:, round((tile.shape[1] - N) / 2)
+                             : round((N + (tile.shape[1] - N) / 2))]
         N = tile.shape[1]
     if (tile.shape[0] % 2 != 0):
         tile = tile[:tile.shape[0] - 1, :]
@@ -1662,15 +1664,15 @@ def cat_tiles(tile, N, wp_type):
               img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):] = img[:, : math.ceil((img_final.shape[1] - img.shape[1]) / 2)]
     img_final[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), math.ceil((img_final.shape[1] - img.shape[1]) / 2): img_final.shape[1] -
               math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, :]
-    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, math.ceil((img_final.shape[1] - img.shape[1]) / 2): img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), :]
+    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, math.ceil((img_final.shape[1] - img.shape[1]) / 2)
+                                             : img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), :]
     img_final[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[img.shape[0] -
                                                                                                                                 math.ceil((img_final.shape[0] - img.shape[0]) / 2):, img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):]
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, : math.ceil((img_final.shape[1] - img.shape[1]) / 2)
               ] = img[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):]
     img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, img_final.shape[1] - math.ceil(
         (img_final.shape[1] - img.shape[1]) / 2):] = img[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), :math.ceil((img_final.shape[1] - img.shape[1]) / 2)]
-    img_final[:math.ceil((img_final.shape[0] - img.shape[0]) / 2),  img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)
-                         :] = img[img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, :math.ceil((img_final.shape[1] - img.shape[1]) / 2)]
+    img_final[:math.ceil((img_final.shape[0] - img.shape[0]) / 2),  img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)              :] = img[img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, :math.ceil((img_final.shape[1] - img.shape[1]) / 2)]
 
     return img_final
 
@@ -1716,7 +1718,7 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
     # N is the overall size of the wallpaper
     # ratio is the ratio of the FR/lattice sizing
 
-    if (is_dots == False):
+    if not is_dots:
         tile = np.array(tile * 255, dtype=np.uint8)
         tile[:, :] = cv.equalizeHist(tile[:, :])
 
@@ -2122,11 +2124,11 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((4, 4), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1]-5), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
+            ((4, tile.shape[1] - 5), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, 4), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, 4), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (4, tile.shape[1] / 2 - 3), (
@@ -2246,11 +2248,11 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((4, 4), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1]-5), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((4, tile.shape[1] - 5), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, 4), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, 4), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
@@ -2312,11 +2314,11 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((4, 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1]-5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((4, tile.shape[1] - 5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
@@ -2377,11 +2379,11 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((4, 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1]-5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            ((4, tile.shape[1] - 5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, tile.shape[1]-5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0]-5, 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            ((tile.shape[0] - 5, 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
@@ -2722,20 +2724,20 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             (diag_wallpaper[:, :]).astype(np.uint32), 'RGBA'))
     else:
         display(Image.fromarray((diag_wallpaper[:, :]).astype(np.uint8)))
-    if (is_dots == False):
+    if not is_dots:
         pattern_path = save_path + '/' + wp_type + '_FundamentalRegion' + '.' + "png"
         Image.fromarray((diag_wallpaper[:, :]).astype(
             np.uint8)).save(pattern_path, "png")
         # diagnostic plots
         logging.getLogger('matplotlib.font_manager').disabled = True
         pattern_path = save_path + '/' + wp_type + '_diagnostic' + '.' + "png"
-        hidx_0 = int(img.shape[0] * (1/3))
+        hidx_0 = int(img.shape[0] * (1 / 3))
         hidx_1 = int(img.shape[0] / 2)
-        hidx_2 = int(img.shape[0] * (2/3))
+        hidx_2 = int(img.shape[0] * (2 / 3))
         I = np.dstack([np.rot90(img, 1), np.rot90(img, 1), np.rot90(img, 1)])
-        I[hidx_0-2:hidx_0+2, :] = np.array([1, 0, 0])
-        I[hidx_1-2:hidx_1+2, :] = np.array([0, 1, 0])
-        I[hidx_2-2:hidx_2+2, :] = np.array([0, 0, 1])
+        I[hidx_0 - 2:hidx_0 + 2, :] = np.array([1, 0, 0])
+        I[hidx_1 - 2:hidx_1 + 2, :] = np.array([0, 1, 0])
+        I[hidx_2 - 2:hidx_2 + 2, :] = np.array([0, 0, 1])
         cm = plt.get_cmap("gray")
         cm(I)
 
@@ -2852,14 +2854,14 @@ def spectra(in_image, ps_control=False, scramble_control=False, new_mag=np.array
     phase = np.angle(in_spectrum)
     mag = np.abs(in_spectrum)
     # phase scrambling
-    if (scramble_control == True):
+    if scramble_control:
         rand_phase = np.fft.fft2(np.random.rand(
             in_image.shape[0], in_image.shape[1]), (in_image.shape[0], in_image.shape[1]))
         phase = np.angle(rand_phase)
         rng = np.random.default_rng()
         [rng.shuffle(x) for x in phase]
     # Portilla-Simoncelli scrambling
-    elif(ps_control == True):
+    elif ps_control:
         out_image = psScramble(in_image, cmap)
         return out_image
     # use new magnitude instead
@@ -2879,7 +2881,8 @@ def psScramble(in_image, cmap):
     new_size = previous_power_2(in_image.shape[0])
     image_tmp = image_tmp.resize((new_size, new_size), Image.BICUBIC)
     in_image = np.array(image_tmp)
-    out_image = pss_g.synthesis(in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
+    out_image = pss_g.synthesis(
+        in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
     #out_image = None
     return out_image
 
