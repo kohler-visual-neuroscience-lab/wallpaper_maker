@@ -48,7 +48,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10, visual_angle: float = 30.0, wp_size: int = 500, lattice_sizing: bool = False,
-             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, fr_filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ps_control: bool = False, scramble_control: bool = False, new_mag: bool = False,
+             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: float = -1.0, save_fmt: str = "png", save_raw: bool = False, ps_control: bool = False, scramble_control: bool = False, new_mag: bool = False,
              cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", debug: bool = False):
 
     # save parameters
@@ -61,36 +61,37 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
         os.makedirs(save_path)
 
     # define group to index mapping
-    key_set = groups
+    #key_set = groups
 
     # useful parameters for debugging
     if debug:
         #num_group = 1
         #ratio = 1
-        key_set = ['P1', 'P2', 'PM', 'PG', 'CM', 'PMM', 'PMG', 'PGG',
+        groups = ['P1', 'P2', 'PM', 'PG', 'CM', 'PMM', 'PMG', 'PGG',
                    'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M']
         #key_set = ['P3']
         #wp_size = 300
-
+    key_set = ['P1', 'P2', 'PM', 'PG', 'CM', 'PMM', 'PMG', 'PGG',
+                   'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M']
     value_set = np.arange(101, 101 + len(key_set), 1)
     map_group = {}
     for i in range(value_set.shape[0]):
         map_group[key_set[i]] = value_set[i]
-    Groups = key_set
+    Groups = groups
     raw_path = ''
-    if (len(fr_filter_freq) == 0):
-        fr_filter_freq_str = "No filtering applied"
+    if (filter_freq == -1.0):
+        filter_freq_str = "No filtering applied"
     else:
-        fr_filter_freq_str = str(fr_filter_freq)
+        filter_freq_str = str(filter_freq)
     try:
         if(save_raw):
             raw_path = os.path.join(save_path, "raw")
             os.makedirs(raw_path)
     except:
         print('Save Path: ', save_path, "\nGroups to Generate: ", groups,
-              "\nNumber of Wallpapers per Group: ", num_group, "\nFiltering Level: ", fr_filter_freq_str)
+              "\nNumber of Wallpapers per Group: ", num_group, "\nFiltering Level: ", filter_freq_str)
     print('Save Path: ', save_path, '\nGroups to Generate: ', groups,
-          '\nNumber of Wallpapers per Group: ', num_group, '\nFiltering Level: ', fr_filter_freq_str, '\n')
+          '\nNumber of Wallpapers per Group: ', num_group, '\nFiltering Level: ', filter_freq_str, '\n')
 
     # TODO: add configuration to argument parser
     fundamental_region_source_type = 'uniform_noise'
@@ -105,21 +106,23 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
         else:
             n = size_tile(ratio, wp_size, group)
 
-        if fr_filter_freq:
-            if len(fr_filter_freq) == 1:
+        if filter_freq:
+            #if len(filter_freq) == 1:
                 # set up filter for the fundamental region
-                fundamental_region_filter = filter.Cosine_filter(fr_filter_freq[0],
-                                                                 n, visual_angle / wp_size * n)
-            else:
-                print(
-                    'multichannel filtering for the fundamental region not implemented.\n SKIPPING FILTERING!')
-                fundamental_region_filter = None
+                #fundamental_region_filter = filter.Cosine_filter(filter_freq[0],
+                #                                                n, visual_angle / wp_size * n)
+            fundamental_region_filter = filter.Cosine_filter(filter_freq,
+                                                             n, visual_angle / wp_size * n)
+            #else:
+            #    print(
+            #        'multichannel filtering for the fundamental region not implemented.\n SKIPPING FILTERING!')
+            #    fundamental_region_filter = None
         else:
             fundamental_region_filter = None
 
         for k in range(num_group):
             raw = make_single(group, wp_size, int(n), fr_sizing, lattice_sizing, ratio, visual_angle, is_diagnostic,
-                              fundamental_region_filter, fundamental_region_source_type, is_dots, cmap, save_path)
+                              fundamental_region_filter, fundamental_region_source_type, is_dots, cmap, save_path, k)
             cm = plt.get_cmap(cmap)
             raw_image = raw
             raw_freq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]))
@@ -142,31 +145,35 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
 
                 # making scrambled images
                 # only give spectra only arg, to make randoms
-                scrambled_raw = spectra(
-                    raw, ps_control, scramble_control, cmap=cmap)
-                scrambled_filtered = (filter_img(scrambled_raw, wp_size))
-                scrambled_masked = cm(mask_img(scrambled_filtered, wp_size))
+                if (ps_control):
+                    ps_raw = spectra(raw, False, ps_control, cmap=cmap)
+                    ps_filtered = (filter_img(ps_raw, wp_size))
+                    ps_masked = cm(mask_img(ps_filtered, wp_size))
+                if (scramble_control):
+                    scrambled_raw = spectra(raw, scramble_control, False, cmap=cmap)
+                    scrambled_filtered = (filter_img(scrambled_raw, wp_size))
+                    scrambled_masked = cm(mask_img(scrambled_filtered, wp_size))
                 #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show()
             group_number = map_group[group]
 
             # saving averaged and scrambled images
             if(save_raw):
-                raw_path = raw_path + '/' + group + \
-                    '_' + str(k) + '.' + save_fmt
-                display(Markdown(str(1000 * group_number + k) +
-                                 '_' + group + '_' + cmap + '_raw'))
+                raw_path_tmp = raw_path + '/' + time_str + '_' + str(1000 * group_number + k + 1) + \
+                    '_' + cmap + '.' + save_fmt
+                display(Markdown(str(1000 * group_number + k + 1) +
+                                 '_' + cmap + '_raw'))
                 display(Image.fromarray(
                     (raw_image[:, :] * 255).astype(np.uint8)))
                 Image.fromarray(
-                    (raw_image[:, :] * 255).astype(np.uint8)).save(raw_path, save_fmt)
+                    (raw_image[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
 
-            if fr_filter_freq:
-                filter_str = '_f0fr' + str(fr_filter_freq)
+            if filter_freq:
+                filter_str = '_f0fr' + str(filter_freq)
             else:
                 filter_str = ''
 
-            main_str = str(1000 * group_number + k) + '_' + \
-                group + '_' + cmap + filter_str
+            main_str = str(1000 * group_number + k + 1) + '_' + \
+                '_' + cmap + filter_str
 
             pattern_path = "{0}/{1}_{2}.{3}".format(
                 save_path, time_str, main_str, save_fmt)
@@ -174,32 +181,49 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             if (is_dots):
                 Image.fromarray((raw_image[:, :]).astype(
                     np.uint32), 'RGBA').save(pattern_path, "png")
-                display(Markdown(str(1000 * group_number + k) +
-                                 '_' + group + '_' + cmap))
+                display(Markdown(str(1000 * group_number + k + 1) +
+                                 '_' + cmap))
                 display(Image.fromarray(
                     (raw_image[:, :]).astype(np.uint32), 'RGBA'))
             else:
                 Image.fromarray(
                     (masked[:, :] * 255).astype(np.uint8)).save(pattern_path, save_fmt)
-                display(Markdown(str(1000 * group_number + k) +
-                                 '_' + group + '_' + cmap))
+                display(Markdown(str(1000 * group_number + k + 1) +
+                                 '_' + cmap))
                 display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))
 
-            if (ps_control is True or scramble_control is True):
-                if (fr_filter_freq):
-                    scramblePath = save_path + '/' + str(1000 * (group_number + 17) + k) + '_' + group + \
-                        '_Scrambled' + '_' + cmap + '_f0fr' + \
-                        str(fr_filter_freq) + '.' + save_fmt
+            if (ps_control is True):
+                if (filter_freq):
+                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
+                        cmap + '_f0fr' + \
+                        str(filter_freq) + '.' + save_fmt
                 else:
                     scramblePath = save_path + '/' + \
-                        str(1000 * (group_number + 17) + k) + '_' + group + \
-                        '_Scrambled' + '_' + cmap + '.' + save_fmt
-                display(Markdown(str(1000 * group_number + k) +
-                                 '_' + group + '_Scrambled_' + cmap))
+                        + time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
+                        cmap + '.' + save_fmt
+                display(Markdown(str(1000 * (group_number + 34) + k + 1) +
+                                 '_' + cmap))
+                display(Image.fromarray(
+                    (ps_masked[:, :, :3] * 255).astype(np.uint8)))
+                Image.fromarray(
+                    (ps_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+            if (scramble_control is True):
+                if (filter_freq):
+                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + k + 1) + '_' + \
+                        cmap + '_f0fr' + \
+                        str(filter_freq) + '.' + save_fmt
+                else:
+                    scramblePath = save_path + '/' + \
+                        time_str + '_' + str(1000 * (group_number + 17) + k + 1) + '_' + \
+                        cmap + '.' + save_fmt
+                display(Markdown(str(1000 * (group_number + 17) + k + 1) +
+                                 '_' + cmap))
                 display(Image.fromarray(
                     (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))
                 Image.fromarray(
                     (scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+            
+            
 
         # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size,1:wp_size),y(1:wp_size,1:wp_size),z(1:wp_size,1:wp_size)),raw,avg_raw,filtered,'uni',false)
 
@@ -1276,7 +1300,7 @@ def new_p6m(tile, is_dots):
 
 
 def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, fundemental_region_filter,
-                fundamental_region_source_type, is_dots, cmap, save_path, opt_texture=None):
+                fundamental_region_source_type, is_dots, cmap, save_path, k, opt_texture=None):
     #  make_single(type,N,n,opt_texture)
     # generates single wallaper group image
     # wp_type defines the wallpaper group
@@ -1338,7 +1362,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p1, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p1, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P2':
             height = round(n / 2)
@@ -1349,7 +1373,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p2, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p2, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'PM':
             height = round(n / 2)
@@ -1360,7 +1384,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(pm, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, pm, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'PG':
             height = round(n / 2)
@@ -1372,7 +1396,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(pg.T, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, pg, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'CM':
             height = round(n / 2)
@@ -1385,7 +1409,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(cm, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, cm, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'PMM':
             height = round(n / 2)
@@ -1399,7 +1423,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(pmm, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, pmm, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'PMG':
             height = round(n / 2)
@@ -1414,7 +1438,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(pmg, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, pmg, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'PGG':
             height = round(n / 2)
@@ -1429,7 +1453,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(pgg, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, pgg, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'CMM':
             height = round(n / 4)
@@ -1444,7 +1468,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(cmm, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, cmm, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P4':
             height = round(n / 2)
@@ -1461,7 +1485,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p4, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p4, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P4M':
             height = round(n / 2)
@@ -1482,7 +1506,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p4m, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p4m, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P4G':
             height = round(n / 2)
@@ -1525,7 +1549,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p4g, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p4g, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P3':
             alpha = np.pi / 3
@@ -1540,7 +1564,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p3, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p3, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P3M1':
             alpha = np.pi / 3
@@ -1554,7 +1578,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p3m1, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p3m1, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P31M':
             s = n / math.sqrt(math.sqrt(3))
@@ -1570,7 +1594,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p31m_1, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p31m_1, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P6':
             s = n / math.sqrt(math.sqrt(3))
@@ -1583,7 +1607,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p6, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p6, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         elif wp_type == 'P6M':
             s = n / math.sqrt(math.sqrt(3))
@@ -1596,7 +1620,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             image = cat_tiles(p6m, N, wp_type)
             if (is_diagnostic):
                 diagnostic(image, wp_type, p6m, is_fr, is_lattice,
-                           N, ratio, cmap, is_dots, save_path)
+                           N, ratio, cmap, is_dots, save_path, k)
             return image
         else:
             warnings.warn(
@@ -1694,10 +1718,13 @@ def diagcat_tiles(tile, N, diag_tile, wp_type):
         row = row + 1
     if(dN[1] == 1):
         col = col + 1
-
     # repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
-    img = np.tile(tile, (1 + (math.floor(row / 2)),
-                         1 + (math.floor(col / 2)), 1))
+    if (wp_type == 'P31M' or wp_type == 'P3M1' or wp_type == 'P6' or wp_type == 'P6M'):
+            img = np.tile(tile, (1 + (math.floor(row / 20)),
+                         1 + (math.floor(col / 20)), 1))
+    else:
+        img = np.tile(tile, (1 + (math.floor(row / 2)),
+                             1 + (math.floor(col / 2)), 1))
     if (diag_tile.shape[0] % 2 != 0):
         diag_tile = diag_tile[:diag_tile.shape[0] - 1, :]
     if (diag_tile.shape[1] % 2 != 0):
@@ -1708,7 +1735,7 @@ def diagcat_tiles(tile, N, diag_tile, wp_type):
     return img
 
 
-def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, save_path):
+def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, save_path, k):
     # function to take care of all diagnostic tasks related to the wallpaper generation
     # img is the full wallpaper
     # wp_type is the wallpaper type
@@ -2717,7 +2744,7 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         np.uint32), N, np.array(dia_fr_im).astype(np.uint32), wp_type)
 
     if is_dots:
-        pattern_path = save_path + '/' + wp_type + '_FundamentalRegion' + '.' + "png"
+        pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
         Image.fromarray((diag_wallpaper[:, :]).astype(
             np.uint32), 'RGBA').save(pattern_path, "png")
         display(Image.fromarray(
@@ -2725,12 +2752,12 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
     else:
         display(Image.fromarray((diag_wallpaper[:, :]).astype(np.uint8)))
     if not is_dots:
-        pattern_path = save_path + '/' + wp_type + '_FundamentalRegion' + '.' + "png"
+        pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
         Image.fromarray((diag_wallpaper[:, :]).astype(
             np.uint8)).save(pattern_path, "png")
         # diagnostic plots
         logging.getLogger('matplotlib.font_manager').disabled = True
-        pattern_path = save_path + '/' + wp_type + '_diagnostic' + '.' + "png"
+        pattern_path = save_path + '/' + wp_type + '_diagnostic_' + str(k + 1) + '.' + "png"
         hidx_0 = int(img.shape[0] * (1 / 3))
         hidx_1 = int(img.shape[0] / 2)
         hidx_2 = int(img.shape[0] * (2 / 3))
@@ -2849,12 +2876,12 @@ def mask_img(inImg, N):
 # replace spectra
 
 
-def spectra(in_image, ps_control=False, scramble_control=False, new_mag=np.array([]), cmap="gray"):
+def spectra(in_image, scrambling_control=False, ps_control=False, new_mag=np.array([]), cmap="gray"):
     in_spectrum = np.fft.fft2(in_image, (in_image.shape[0], in_image.shape[1]))
     phase = np.angle(in_spectrum)
     mag = np.abs(in_spectrum)
     # phase scrambling
-    if scramble_control:
+    if scrambling_control:
         rand_phase = np.fft.fft2(np.random.rand(
             in_image.shape[0], in_image.shape[1]), (in_image.shape[0], in_image.shape[1]))
         phase = np.angle(rand_phase)
@@ -3023,7 +3050,7 @@ if __name__ == "__main__":
                         help='Replace the fundamental region with random dot style patterns')
     parser.add_argument('--save_fmt', '-f', default="png", type=str,
                         help='Image save format')
-    parser.add_argument('--fr_filter_freq', '-f0fr', nargs='+',  default=[], type=float,
+    parser.add_argument('--filter_freq', '-f0fr', nargs='+',  default=-1.0, type=float,
                         help='Center frequency (in cycle per degree) for dyadic bandpass filtering the fundamental region. [] does not invoke filtering. Might be extended for a multichannel filterbanks later.')
     parser.add_argument('--save_raw', '-r', default=False, type=str2bool,
                         help='save raw')
@@ -3043,5 +3070,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # need to investigate error in eval function
-    make_set(args.groups, args.num_group, args.visual_angle, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.fr_filter_freq, args.save_fmt, args.save_raw,
+    make_set(args.groups, args.num_group, args.visual_angle, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.filter_freq, args.save_fmt, args.save_raw,
              args.ps_control, args.scramble_control, args.new_mag, args.cmap, args.diagnostic, args.debug)
