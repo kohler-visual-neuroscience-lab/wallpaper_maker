@@ -47,7 +47,7 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
-def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10, visual_angle: float = 30.0, wp_size: int = 500, lattice_sizing: bool = False,
+def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
              fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: float = -1.0, save_fmt: str = "png", save_raw: bool = False, ps_control: bool = False, scramble_control: bool = False, new_mag: bool = False,
              cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", debug: bool = False):
 
@@ -70,7 +70,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
         groups = ['P1', 'P2', 'PM', 'PG', 'CM', 'PMM', 'PMG', 'PGG',
                    'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M']
         #key_set = ['P3']
-        #wp_size = 300
+        #wp_size_pix= 300
     key_set = ['P1', 'P2', 'PM', 'PG', 'CM', 'PMM', 'PMG', 'PGG',
                    'CMM', 'P4', 'P4M', 'P4G', 'P3', 'P3M1', 'P31M', 'P6', 'P6M']
     value_set = np.arange(101, 101 + len(key_set), 1)
@@ -80,6 +80,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
     Groups = groups
     raw_path = ''
     if (filter_freq == -1.0):
+        filter_freq = False;
         filter_freq_str = "No filtering applied"
     else:
         filter_freq_str = str(filter_freq)
@@ -100,19 +101,19 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
         print('generating ', Groups[i])
         group = Groups[i]
         if lattice_sizing:
-            n = size_lattice(ratio, wp_size, group)
+            n = size_lattice(ratio, wp_size_pix, group)
         elif fr_sizing:
-            n = size_fundamental_region(ratio, wp_size, group)
+            n = size_fundamental_region(ratio, wp_size_pix, group)
         else:
-            n = size_tile(ratio, wp_size, group)
+            n = size_tile(ratio, wp_size_pix, group)
 
         if filter_freq:
             #if len(filter_freq) == 1:
                 # set up filter for the fundamental region
                 #fundamental_region_filter = filter.Cosine_filter(filter_freq[0],
-                #                                                n, visual_angle / wp_size * n)
+                #                                                n, wp_size_dva / wp_size_pix* n)
             fundamental_region_filter = filter.Cosine_filter(filter_freq,
-                                                             n, visual_angle / wp_size * n)
+                                                             n, wp_size_dva / wp_size_pix* n)
             #else:
             #    print(
             #        'multichannel filtering for the fundamental region not implemented.\n SKIPPING FILTERING!')
@@ -121,7 +122,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             fundamental_region_filter = None
 
         for k in range(num_group):
-            raw = make_single(group, wp_size, int(n), fr_sizing, lattice_sizing, ratio, visual_angle, is_diagnostic,
+            raw = make_single(group, wp_size_pix, int(n), fr_sizing, lattice_sizing, ratio, wp_size_dva, is_diagnostic,
                               fundamental_region_filter, fundamental_region_source_type, is_dots, cmap, save_path, k)
             cm = plt.get_cmap(cmap)
             raw_image = raw
@@ -138,21 +139,21 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
                 # replace each image's magnitude with the average
                 avg_raw = (spectra(raw, new_mag=avg_mag))
                 # low-pass filtering + histeq
-                filtered = (filter_img(avg_raw, wp_size))
+                filtered = (filter_img(avg_raw, wp_size_pix))
                 # masking the image (final step)
-                masked = (mask_img(filtered, wp_size))
+                masked = (mask_img(filtered, wp_size_pix))
                 #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show()
 
                 # making scrambled images
                 # only give spectra only arg, to make randoms
                 if (ps_control):
                     ps_raw = spectra(raw, False, ps_control, cmap=cmap)
-                    ps_filtered = (filter_img(ps_raw, wp_size))
-                    ps_masked = cm(mask_img(ps_filtered, wp_size))
+                    ps_filtered = (filter_img(ps_raw, wp_size_pix))
+                    ps_masked = cm(mask_img(ps_filtered, wp_size_pix))
                 if (scramble_control):
                     scrambled_raw = spectra(raw, scramble_control, False, cmap=cmap)
-                    scrambled_filtered = (filter_img(scrambled_raw, wp_size))
-                    scrambled_masked = cm(mask_img(scrambled_filtered, wp_size))
+                    scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
+                    scrambled_masked = cm(mask_img(scrambled_filtered, wp_size_pix))
                 #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show()
             group_number = map_group[group]
 
@@ -173,7 +174,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
                 filter_str = ''
 
             main_str = str(1000 * group_number + k + 1) + '_' + \
-                '_' + cmap + filter_str
+                cmap + filter_str
 
             pattern_path = "{0}/{1}_{2}.{3}".format(
                 save_path, time_str, main_str, save_fmt)
@@ -191,22 +192,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
                 display(Markdown(str(1000 * group_number + k + 1) +
                                  '_' + cmap))
                 display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))
-
-            if (ps_control is True):
-                if (filter_freq):
-                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
-                        cmap + '_f0fr' + \
-                        str(filter_freq) + '.' + save_fmt
-                else:
-                    scramblePath = save_path + '/' + \
-                        + time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
-                        cmap + '.' + save_fmt
-                display(Markdown(str(1000 * (group_number + 34) + k + 1) +
-                                 '_' + cmap))
-                display(Image.fromarray(
-                    (ps_masked[:, :, :3] * 255).astype(np.uint8)))
-                Image.fromarray(
-                    (ps_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+                
             if (scramble_control is True):
                 if (filter_freq):
                     scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + k + 1) + '_' + \
@@ -222,10 +208,27 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
                     (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))
                 Image.fromarray(
                     (scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+
+            if (ps_control is True):
+                if (filter_freq):
+                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
+                        cmap + '_f0fr' + \
+                        str(filter_freq) + '.' + save_fmt
+                else:
+                    scramblePath = save_path + '/' + \
+                        time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
+                        cmap + '.' + save_fmt
+                display(Markdown(str(1000 * (group_number + 34) + k + 1) +
+                                 '_' + cmap))
+                display(Image.fromarray(
+                    (ps_masked[:, :, :3] * 255).astype(np.uint8)))
+                Image.fromarray(
+                    (ps_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+
             
             
 
-        # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size,1:wp_size),y(1:wp_size,1:wp_size),z(1:wp_size,1:wp_size)),raw,avg_raw,filtered,'uni',false)
+        # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size_pix,1:wp_size_pix),y(1:wp_size_pix,1:wp_size_pix),z(1:wp_size_pix,1:wp_size_pix)),raw,avg_raw,filtered,'uni',false)
 
         # variables for saving in a mat file
         #symAveraged[:,i]= np.concatenate((avg_raw, scrambled_raw))
@@ -2905,7 +2908,7 @@ def spectra(in_image, scrambling_control=False, ps_control=False, new_mag=np.arr
 def psScramble(in_image, cmap):
     image_tmp = Image.fromarray(in_image)
     # resize image to nearest power of 2 to make use of the steerable pyramid for PS
-    new_size = previous_power_2(in_image.shape[0])
+    new_size = next_power_2(in_image.shape[0])
     image_tmp = image_tmp.resize((new_size, new_size), Image.BICUBIC)
     in_image = np.array(image_tmp)
     out_image = pss_g.synthesis(
@@ -2914,13 +2917,15 @@ def psScramble(in_image, cmap):
     return out_image
 
 
-def previous_power_2(x):
-    x = x | (x >> 1)
-    x = x | (x >> 2)
-    x = x | (x >> 4)
-    x = x | (x >> 8)
-    x = x | (x >> 16)
-    return x - (x >> 1)
+def next_power_2(x):
+    x = x - 1
+    x |= x >> 1
+    x |= x >> 2
+    x |= x >> 4
+    x |= x >> 8
+    x |= x >> 16
+    x = x + 1
+    return x
 
 
 def str2bool(v):
@@ -3036,7 +3041,7 @@ if __name__ == "__main__":
                         help='Groups to create')
     parser.add_argument('--num_group', '-n', default=10, type=int,
                         help='Number of images per group')
-    parser.add_argument('--visual_angle', '-v', default=30.0, type=float,
+    parser.add_argument('--wp_size_dva', '-v', default=30.0, type=float,
                         help='Wallpaper size (visual angle)')
     parser.add_argument('--wallpaperSize', '-ws', default=500, type=int,
                         help='Side length of the wallpaper in pixels')
@@ -3070,5 +3075,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # need to investigate error in eval function
-    make_set(args.groups, args.num_group, args.visual_angle, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.filter_freq, args.save_fmt, args.save_raw,
+    make_set(args.groups, args.num_group, args.wp_size_dva, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.filter_freq, args.save_fmt, args.save_raw,
              args.ps_control, args.scramble_control, args.new_mag, args.cmap, args.diagnostic, args.debug)
