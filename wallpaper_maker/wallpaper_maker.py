@@ -149,7 +149,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
                 if (ps_control):
                     ps_raw = spectra(raw, False, ps_control, cmap=cmap)
                     ps_filtered = (filter_img(ps_raw, wp_size_pix))
-                    ps_masked = cm(mask_img(ps_filtered, wp_size_pix))
+                    ps_masked = cm(mask_img(ps_filtered, ps_filtered.shape[0]))
                 if (scramble_control):
                     scrambled_raw = spectra(raw, scramble_control, False, cmap=cmap)
                     scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
