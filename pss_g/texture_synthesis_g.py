@@ -42,6 +42,7 @@ PS = 1e-6
 	Texture Synthesis by Portilla-Simoncelli's algorithm
 '''
 def synthesis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor, iter):
+	LOGGER.disabled = True
 	# analyse original image
 	orig_data = TextureAnalysis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor)
 	orig_data.analyse()
