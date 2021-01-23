@@ -97,7 +97,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
     # TODO: add configuration to argument parser
     fundamental_region_source_type = 'uniform_noise'
     # Generating WPs and scrambling
+    orig_wallpapers = []
+    orig_wallpapers_group = []
+    cm = plt.get_cmap(cmap)
     for i in range(len(Groups)):
+        # making regular images
         print('generating ', Groups[i])
         group = Groups[i]
         if lattice_sizing:
@@ -120,110 +124,117 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_group: int = 10,
             #    fundamental_region_filter = None
         else:
             fundamental_region_filter = None
-
+                     
         for k in range(num_group):
             raw = make_single(group, wp_size_pix, int(n), fr_sizing, lattice_sizing, ratio, wp_size_dva, is_diagnostic,
                               fundamental_region_filter, fundamental_region_source_type, is_dots, cmap, save_path, k)
-            cm = plt.get_cmap(cmap)
-            raw_image = raw
-            raw_freq = np.fft.fft2(raw, (raw.shape[0], raw.shape[1]))
-            avg_mag = np.array([])
-            if new_mag:
-                avg_mag = mean_mag(raw_freq)
-        # generating wallpapers, saving freq. representations
-
-            # image processing steps
-
-            # making regular images
-            if not is_dots:
-                # replace each image's magnitude with the average
-                avg_raw = (spectra(raw, new_mag=avg_mag))
-                # low-pass filtering + histeq
-                filtered = (filter_img(avg_raw, wp_size_pix))
-                # masking the image (final step)
-                masked = (mask_img(filtered, wp_size_pix))
-                #Image.fromarray((masked[:, :, :3] * 255).astype(np.uint8)).show()
-
-                # making scrambled images
-                # only give spectra only arg, to make randoms
-                if (ps_control):
-                    ps_raw = spectra(raw, False, ps_control, cmap=cmap)
-                    ps_filtered = (filter_img(ps_raw, wp_size_pix))
-                    ps_masked = cm(mask_img(ps_filtered, ps_filtered.shape[0]))
-                if (scramble_control):
-                    scrambled_raw = spectra(raw, scramble_control, False, cmap=cmap)
-                    scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
-                    scrambled_masked = cm(mask_img(scrambled_filtered, wp_size_pix))
-                #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show()
             group_number = map_group[group]
-
-            # saving averaged and scrambled images
             if(save_raw):
                 raw_path_tmp = raw_path + '/' + time_str + '_' + str(1000 * group_number + k + 1) + \
                     '_' + cmap + '.' + save_fmt
                 display(Markdown(str(1000 * group_number + k + 1) +
                                  '_' + cmap + '_raw'))
                 display(Image.fromarray(
-                    (raw_image[:, :] * 255).astype(np.uint8)))
+                    (raw[:, :] * 255).astype(np.uint8)))
                 Image.fromarray(
-                    (raw_image[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
-
+                    (raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
+            # low-pass filtering + histeq
+            filtered = (filter_img(raw, wp_size_pix))   
+            orig_wallpapers_group.append(Groups[i])
+            orig_wallpapers.append(filtered)
+            
+    avg_mag = np.array([])
+    if new_mag:
+        avg_mag = mean_mag(orig_wallpapers, num_group * len(Groups))
+    # image processing steps
+    for j in range(len(orig_wallpapers)):
+        group = orig_wallpapers_group[j]
+        group_number = map_group[group]
+        if not is_dots:
+            # replace each image's magnitude with the average
+            avg_raw = (spectra(orig_wallpapers[j], new_mag=avg_mag))
+            #orig_wallpapers[j] = avg_raw
+            # masking the image (final step)
+            masked = (mask_img(avg_raw, wp_size_pix))
             if filter_freq:
                 filter_str = '_f0fr' + str(filter_freq)
             else:
                 filter_str = ''
 
-            main_str = str(1000 * group_number + k + 1) + '_' + \
+            main_str = str(1000 * group_number + j + 1) + '_' + \
                 cmap + filter_str
 
             pattern_path = "{0}/{1}_{2}.{3}".format(
                 save_path, time_str, main_str, save_fmt)
 
             if (is_dots):
-                Image.fromarray((raw_image[:, :]).astype(
+                Image.fromarray((raw[:, :]).astype(
                     np.uint32), 'RGBA').save(pattern_path, "png")
-                display(Markdown(str(1000 * group_number + k + 1) +
+                display(Markdown(str(1000 * group_number + j + 1) +
                                  '_' + cmap))
                 display(Image.fromarray(
-                    (raw_image[:, :]).astype(np.uint32), 'RGBA'))
+                    (raw[:, :]).astype(np.uint32), 'RGBA'))
             else:
                 Image.fromarray(
                     (masked[:, :] * 255).astype(np.uint8)).save(pattern_path, save_fmt)
-                display(Markdown(str(1000 * group_number + k + 1) +
+                display(Markdown(str(1000 * group_number + j + 1) +
                                  '_' + cmap))
-                display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))
-                
-            if (scramble_control is True):
-                if (filter_freq):
-                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + k + 1) + '_' + \
-                        cmap + '_f0fr' + \
-                        str(filter_freq) + '.' + save_fmt
-                else:
-                    scramblePath = save_path + '/' + \
-                        time_str + '_' + str(1000 * (group_number + 17) + k + 1) + '_' + \
-                        cmap + '.' + save_fmt
-                display(Markdown(str(1000 * (group_number + 17) + k + 1) +
-                                 '_' + cmap))
-                display(Image.fromarray(
-                    (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))
-                Image.fromarray(
-                    (scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+                display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))            
+        # generating wallpapers, saving freq. representations
+    
+        # scrambled image processing steps
+    for l in range(len(orig_wallpapers)):
+        group = orig_wallpapers_group[l]
+        # making scrambled images
+           
+        if (ps_control):
+            # replace each image's magnitude with the average
+            ps_raw = spectra(orig_wallpapers[l], False, ps_control, cmap=cmap)
+            #ps_filtered = (filter_img(ps_raw, wp_size_pix))
+            # masking the image (final step)
+            ps_masked = cm(mask_img(ps_raw, wp_size_pix))
+        if (scramble_control):
+            # replace each image's magnitude with the average
+            scrambled_raw = spectra(orig_wallpapers[l], scramble_control, False, cmap=cmap, new_mag=avg_mag)
+            #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
+            # masking the image (final step)
+            scrambled_masked = cm(mask_img(scrambled_raw, wp_size_pix))
+            #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show()
+        group_number = map_group[group]
 
-            if (ps_control is True):
-                if (filter_freq):
-                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
-                        cmap + '_f0fr' + \
-                        str(filter_freq) + '.' + save_fmt
-                else:
-                    scramblePath = save_path + '/' + \
-                        time_str + '_' + str(1000 * (group_number + 34) + k + 1) + '_' + \
-                        cmap + '.' + save_fmt
-                display(Markdown(str(1000 * (group_number + 34) + k + 1) +
-                                 '_' + cmap))
-                display(Image.fromarray(
-                    (ps_masked[:, :, :3] * 255).astype(np.uint8)))
-                Image.fromarray(
-                    (ps_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+        # saving averaged and scrambled images
+            
+        if (scramble_control is True):
+            if (filter_freq):
+                scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + l + 1) + '_' + \
+                    cmap + '_f0fr' + \
+                    str(filter_freq) + '.' + save_fmt
+            else:
+                scramblePath = save_path + '/' + \
+                    time_str + '_' + str(1000 * (group_number + 17) + l + 1) + '_' + \
+                    cmap + '.' + save_fmt
+            display(Markdown(str(1000 * (group_number + 17) + l + 1) +
+                             '_' + cmap))
+            display(Image.fromarray(
+                (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))
+            Image.fromarray(
+                (scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+
+        if (ps_control is True):
+            if (filter_freq):
+                scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + l + 1) + '_' + \
+                    cmap + '_f0fr' + \
+                    str(filter_freq) + '.' + save_fmt
+            else:
+                scramblePath = save_path + '/' + \
+                    time_str + '_' + str(1000 * (group_number + 34) + l + 1) + '_' + \
+                    cmap + '.' + save_fmt
+            display(Markdown(str(1000 * (group_number + 34) + l + 1) +
+                             '_' + cmap))
+            display(Image.fromarray(
+                (ps_masked[:, :, :3] * 255).astype(np.uint8)))
+            Image.fromarray(
+                (ps_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
 
             
             
@@ -3022,11 +3033,13 @@ def size_tile(ratio, n, cell_struct):
 # returns average mag of the group
 
 
-def mean_mag(freqGroup):
-    n_images = 1
-    mag = np.empty((freqGroup.shape[0], freqGroup.shape[1], n_images))
+def mean_mag(freq_group, n_images):
+    #n_images = 1
+    mag = np.empty((freq_group[0].shape[0], freq_group[0].shape[1], n_images))
     for n in range(n_images):
-        mag[:, :, n] = np.abs(freqGroup)
+        freq_group[n] = np.fft.fft2(freq_group[n], (freq_group[n].shape[0], freq_group[n].shape[1]))
+    for m in range(n_images):
+        mag[:, :, m] = np.abs(freq_group)
     out = np.median(mag, 2)
     return out
 
