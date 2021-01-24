@@ -48,7 +48,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
-             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, scramble: str = 'False', same_magnitude: bool = False,
+             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', same_magnitude: bool = False,
              cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", debug: bool = False):
 
     # save parameters
@@ -136,14 +136,16 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             
     avg_mag = np.array([])
     if same_magnitude:
-        avg_mag = mean_mag(orig_wallpapers, num_exemplars * len(Groups))
+        mags = [ np.fft.fftshift( np.abs( np.fft.fft2(x) ) ) for x in orig_wallpapers ]
+        avg_mag = np.median(np.array(mags), 0)
+
     # image processing steps
     for j in range(len(orig_wallpapers)):
         group = orig_wallpapers_group[j]
         group_number = map_group[group]
         if not is_dots:
             # replace each image's magnitude with the average
-            avg_raw = (replace_spectra(orig_wallpapers[j], same_magnitude=avg_mag))
+            avg_raw = (replace_spectra(orig_wallpapers[j], use_magnitude=avg_mag))
             #orig_wallpapers[j] = avg_raw
             # masking the image (final step)
             masked = (mask_img(avg_raw, wp_size_pix))
@@ -182,15 +184,15 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         else:
             filter_str = ''
            
-        if (scramble == 'ps'):
+        if (ctrl_images == 'ps'):
             # replace each image's magnitude with the average
-            ps_raw = replace_spectra(orig_wallpapers[l], scramble, cmap=cmap)
+            ps_raw = replace_spectra(orig_wallpapers[l], ctrl_images, cmap=cmap)
             #ps_filtered = (filter_img(ps_raw, wp_size_pix))
             # masking the image (final step)
             ps_masked = cm(mask_img(ps_raw, wp_size_pix))
-        if (scramble == 'phase'):
+        if (ctrl_images == 'phase'):
             # replace each image's magnitude with the average
-            scrambled_raw = replace_spectra(orig_wallpapers[l], scramble, cmap=cmap, same_magnitude=avg_mag)
+            scrambled_raw = replace_spectra(orig_wallpapers[l], ctrl_images, cmap=cmap, use_magnitude=avg_mag)
             #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
             # masking the image (final step)
             scrambled_masked = cm(mask_img(scrambled_raw, wp_size_pix))
@@ -199,7 +201,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
 
         # saving averaged and scrambled images
             
-        if (scramble == 'phase'):
+        if (ctrl_images == 'phase'):
             if (filter_freq):
                 scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + l + 1) + '_' + \
                     cmap + '_f0fr' + filter_str + '.' + save_fmt
@@ -214,7 +216,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             Image.fromarray(
                 (scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
 
-        if (scramble == 'ps'):
+        if (ctrl_images == 'ps'):
             if (filter_freq):
                 scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + l + 1) + '_' + \
                     cmap + '_f0fr' + \
@@ -2894,31 +2896,50 @@ def mask_img(inImg, N):
 # replace spectra
 
 
-def replace_spectra(in_image, scramble='False', same_magnitude=np.array([]), cmap="gray"):
-    in_spectrum = np.fft.fft2(in_image, (in_image.shape[0], in_image.shape[1]))
-    phase = np.angle(in_spectrum)
-    mag = np.abs(in_spectrum)
-    # phase scrambling
-    if scramble == 'phase':
-        rand_phase = np.fft.fft2(np.random.rand(
-            in_image.shape[0], in_image.shape[1]), (in_image.shape[0], in_image.shape[1]))
-        phase = np.angle(rand_phase)
-        rng = np.random.default_rng()
-        [rng.shuffle(x) for x in phase]
-    # Portilla-Simoncelli scrambling
-    elif scramble == 'ps':
+def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), cmap="gray"):
+
+    in_image = (in_image / np.max(in_image)) * 2.0 - 1.0
+
+    if ctrl_images == 'ps':
+        # Portilla-Simoncelli scrambling
         out_image = psScramble(in_image, cmap)
-        return out_image
-    # use new magnitude instead
-    if(same_magnitude.size != 0):
-        mag = same_magnitude
-    cmplx_im = mag * np.exp(1j * phase)
-    # get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
-    out_image = np.abs(np.real(np.fft.ifft2(cmplx_im)))
+    else:
+        in_spectrum = np.fft.fft2( in_image )
+    
+        phase = np.fft.fftshift(np.angle(in_spectrum))
+        mag = np.fft.fftshift(np.abs(in_spectrum))
+    
+        # phase scrambling
+        if ctrl_images == 'phase':
+            rand_img = np.random.rand(in_image.shape[0], in_image.shape[1])
+            rand_img = (rand_img / np.max(rand_img)) * 2.0 - 1.0
+            rand_phase = np.fft.fft2(rand_img)
+            phase = np.fft.fftshift(np.angle(rand_phase))
+            # NO NEED TO RANDOMIZE THE PHASE IF YOU ARE USING RANDOM PHASE
+            #rng = np.random.default_rng()
+            #[rng.shuffle(x) for x in phase]
+
+        # use new magnitude instead
+        if(use_magnitude.size != 0):
+            mag = use_magnitude
+
+        cmplx_im = mag * np.exp(1j * phase)
+
+        # get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
+        # out_image = np.abs(np.real(np.fft.ifft2(cmplx_im)))
+        # the above does not seem to work, instead use code below
+        # cribbed from https://www.djmannion.net/psych_programming/vision/sf_filt/sf_filt.html
+        out_image = np.real(np.fft.ifft2(np.fft.ifftshift(cmplx_im)))
+
+    # standardize image
+    out_image = out_image - np.mean(out_image)
+    out_image = out_image / np.std(out_image)
+    out_image = out_image * 0.5 ## TO DO: MAKE THIS AN ADJUSTABLE INPUT VARIABLE
+    out_image = np.clip(out_image, a_min=-1.0, a_max=1.0)
+
+    out_image = (out_image + 1) / 2 
+
     return out_image
-
-# perform Portilla-Simoncelli scrambling
-
 
 def psScramble(in_image, cmap):
     image_tmp = Image.fromarray(in_image)
@@ -3078,7 +3099,7 @@ if __name__ == "__main__":
                         help='Center frequency (in cycle per degree) for dyadic bandpass filtering the fundamental region. [] does not invoke filtering. Might be extended for a multichannel filterbanks later.')
     parser.add_argument('--save_raw', '-r', default=False, type=str2bool,
                         help='save raw')
-    parser.add_argument('--scramble', '-p', default='False', type=str,
+    parser.add_argument('--ctrl_images', '-cimg', default='False', type=str,
                         help='ps, phase, or no scrambling')
     parser.add_argument('--same_magnitude', '-m', default=False, type=str2bool,
                         help='New magnitude')
