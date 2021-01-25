@@ -80,7 +80,6 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     Groups = groups
     raw_path = ''
     if (not filter_freq):
-        filter_freq = False;
         filter_freq_str = "No filtering applied"
     else:
         filter_freq_str = ','.join(str(x) for x in filter_freq)
@@ -137,10 +136,15 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 orig_wallpapers_group.append(Groups[i])
                 orig_wallpapers.append(filtered)
         if same_magnitude:
-            for p in range(len(filter_freq)):
-                for q in range(num_exemplars):
-                    mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq))]))))
-                avg_mag.append(np.median(np.array(mags), 0))
+            if filter_freq:
+                for p in range(len(filter_freq)):
+                    for q in range(num_exemplars):
+                        mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq))]))))
+                    avg_mag.append(np.median(np.array(mags), 0))
+            else:
+                    for q in range(num_exemplars):
+                        mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[q * len(filter_freq)]))))
+                    avg_mag.append(np.median(np.array(mags), 0))
 
     # image processing steps
     exemplar_index_increment = 0
@@ -154,10 +158,14 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
                 exemplar_index_increment = 0
                 freq_index_increment = freq_index_increment + 1
+                if filter_freq:
+                    mag_index = mag_index + 1
+            if not filter_freq and j % num_exemplars == 0 and j !=0:
                 mag_index = mag_index + 1
-            if (j % (len(filter_freq) * num_exemplars) == 0 and j != 0):
-                freq_index_increment = j
-            wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+            if filter_freq:
+                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+            else:
+                wallpaper_index = j
             avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index], use_magnitude=np.array(avg_mag[mag_index])))
             exemplar_index_increment = exemplar_index_increment + 1
             #orig_wallpapers[j] = avg_raw
@@ -214,10 +222,14 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
                 exemplar_index_increment = 0
                 freq_index_increment = freq_index_increment + 1
+                if filter_freq:
+                    mag_index = mag_index + 1
+            if not filter_freq and l % num_exemplars == 0 and l !=0:
                 mag_index = mag_index + 1
-            if (l % (len(filter_freq) * num_exemplars) == 0 and l != 0):
-                freq_index_increment = l
-            wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+            if filter_freq:
+                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+            else:
+                wallpaper_index = l
             scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index])
             exemplar_index_increment = exemplar_index_increment + 1
             #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
@@ -3141,4 +3153,4 @@ if __name__ == "__main__":
 
     # need to investigate error in eval function
     make_set(args.groups, args.num_exemplars, args.wp_size_dva, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.filter_freq, args.save_fmt, args.save_raw,
-                 args.scramble, args.same_magnitude, args.cmap, args.diagnostic, args.debug)
+                 args.ctrl_images, args.same_magnitude, args.cmap, args.diagnostic, args.debug)
