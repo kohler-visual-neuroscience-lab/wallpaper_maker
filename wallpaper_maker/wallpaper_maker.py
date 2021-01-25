@@ -99,6 +99,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     # Generating WPs and scrambling
     orig_wallpapers = []
     orig_wallpapers_group = []
+    avg_mag = []
+    mags = []
     cm = plt.get_cmap(cmap)
     for i in range(len(Groups)):
         # making regular images
@@ -124,6 +126,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                     (raw[:, :] * 255).astype(np.uint8)))
                 Image.fromarray(
                     (raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
+            
             # low-pass filtering + histeq
             if filter_freq:
                 num_each_wallpaper = len(filter_freq)
@@ -133,19 +136,30 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 filtered = (filter_img(raw[o], wp_size_pix))   
                 orig_wallpapers_group.append(Groups[i])
                 orig_wallpapers.append(filtered)
-            
-    avg_mag = np.array([])
-    if same_magnitude:
-        mags = [ np.fft.fftshift( np.abs( np.fft.fft2(x) ) ) for x in orig_wallpapers ]
-        avg_mag = np.median(np.array(mags), 0)
+        if same_magnitude:
+            for p in range(len(filter_freq)):
+                for q in range(num_exemplars):
+                    mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq))]))))
+                avg_mag.append(np.median(np.array(mags), 0))
 
     # image processing steps
+    exemplar_index_increment = 0
+    freq_index_increment = 0
+    mag_index = 0
     for j in range(len(orig_wallpapers)):
         group = orig_wallpapers_group[j]
         group_number = map_group[group]
         if not is_dots:
-            # replace each image's magnitude with the average
-            avg_raw = (replace_spectra(orig_wallpapers[j], use_magnitude=avg_mag))
+            # replace each image's magnitude with the average   
+            if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
+                exemplar_index_increment = 0
+                freq_index_increment = freq_index_increment + 1
+                mag_index = mag_index + 1
+            if (j % (len(filter_freq) * num_exemplars) == 0 and j != 0):
+                freq_index_increment = j
+            wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+            avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index], use_magnitude=np.array(avg_mag[mag_index])))
+            exemplar_index_increment = exemplar_index_increment + 1
             #orig_wallpapers[j] = avg_raw
             # masking the image (final step)
             masked = (mask_img(avg_raw, wp_size_pix))
@@ -172,10 +186,15 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                     (masked[:, :] * 255).astype(np.uint8)).save(pattern_path, save_fmt)
                 display(Markdown(str(1000 * group_number + j + 1) +
                                  '_' + cmap + filter_str))
-                display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))            
-        # generating wallpapers, saving freq. representations
+                display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))    
+                
+    # generating wallpapers, saving freq. representations
     
-        # scrambled image processing steps
+    # scrambled image processing steps
+    exemplar_index_increment = 0
+    freq_index_increment = 0
+    mag_index = 0
+    
     for l in range(len(orig_wallpapers)):
         group = orig_wallpapers_group[l]
         # making scrambled images
@@ -192,7 +211,15 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             ps_masked = cm(mask_img(ps_raw, wp_size_pix))
         if (ctrl_images == 'phase'):
             # replace each image's magnitude with the average
-            scrambled_raw = replace_spectra(orig_wallpapers[l], ctrl_images, cmap=cmap, use_magnitude=avg_mag)
+            if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
+                exemplar_index_increment = 0
+                freq_index_increment = freq_index_increment + 1
+                mag_index = mag_index + 1
+            if (l % (len(filter_freq) * num_exemplars) == 0 and l != 0):
+                freq_index_increment = l
+            wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+            scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index])
+            exemplar_index_increment = exemplar_index_increment + 1
             #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
             # masking the image (final step)
             scrambled_masked = cm(mask_img(scrambled_raw, wp_size_pix))
