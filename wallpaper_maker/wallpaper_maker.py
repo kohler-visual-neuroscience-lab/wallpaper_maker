@@ -121,10 +121,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                     '_' + cmap + '.' + save_fmt
                 display(Markdown(str(1000 * group_number + k + 1) +
                                  '_' + cmap + '_raw'))
-                display(Image.fromarray(
-                    (raw[:, :] * 255).astype(np.uint8)))
-                Image.fromarray(
-                    (raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
+                for s in range(len(raw)):
+                    display(Image.fromarray(
+                        (np.array(raw[s])[:, :] * 255).astype(np.uint8)))
+                    Image.fromarray(
+                        (np.array(raw[s])[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
             
             # low-pass filtering + histeq
             if filter_freq:
@@ -166,7 +167,10 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
             else:
                 wallpaper_index = j
-            avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index], use_magnitude=np.array(avg_mag[mag_index])))
+            if (same_magnitude):  
+                avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index], use_magnitude=np.array(avg_mag[mag_index])))
+            else:
+                avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index]))
             exemplar_index_increment = exemplar_index_increment + 1
             #orig_wallpapers[j] = avg_raw
             # masking the image (final step)
@@ -230,7 +234,10 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
             else:
                 wallpaper_index = l
-            scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index])
+            if (same_magnitude): 
+                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index])
+            else:
+                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap)
             exemplar_index_increment = exemplar_index_increment + 1
             #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
             # masking the image (final step)
@@ -251,9 +258,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             display(Markdown(str(1000 * (group_number + 17) + l + 1) +
                              '_' + cmap + filter_str))
             display(Image.fromarray(
-                (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))
+                (scrambled_raw[:, :] * 255).astype(np.uint8)))
             Image.fromarray(
-                (scrambled_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+                (scrambled_raw[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
 
         if (ctrl_images == 'ps'):
             if (filter_freq):
@@ -267,9 +274,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             display(Markdown(str(1000 * (group_number + 34) + l + 1) +
                              '_' + cmap + filter_str))
             display(Image.fromarray(
-                (ps_masked[:, :, :3] * 255).astype(np.uint8)))
+                (ps_masked[:, :] * 255).astype(np.uint8)))
             Image.fromarray(
-                (ps_masked[:, :, :3] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+                (ps_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
 
             
             
