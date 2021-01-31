@@ -241,7 +241,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             exemplar_index_increment = exemplar_index_increment + 1
             #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
             # masking the image (final step)
-            #scrambled_masked = (mask_img(scrambled_raw, wp_size_pix))
+            scrambled_masked = (mask_img(scrambled_raw, wp_size_pix))
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show()
         group_number = map_group[group]
 
@@ -258,9 +258,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             display(Markdown(str(1000 * (group_number + 17) + l + 1) +
                              '_' + cmap + filter_str))
             display(Image.fromarray(
-                (scrambled_raw[:, :] * 255).astype(np.uint8)))
+                (scrambled_masked[:, :] * 255).astype(np.uint8)))
             Image.fromarray(
-                (scrambled_raw[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+                (scrambled_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
 
         if (ctrl_images == 'ps'):
             if (filter_freq):
