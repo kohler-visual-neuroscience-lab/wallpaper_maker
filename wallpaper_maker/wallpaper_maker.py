@@ -241,7 +241,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             exemplar_index_increment = exemplar_index_increment + 1
             #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
             # masking the image (final step)
-            scrambled_masked = cm(mask_img(scrambled_raw, wp_size_pix))
+            #scrambled_masked = (mask_img(scrambled_raw, wp_size_pix))
             #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show()
         group_number = map_group[group]
 
@@ -2903,13 +2903,13 @@ def matlab_style_gauss2D(shape, sigma):
 
 def filter_img(inImg, N):
     # make filter intensity adaptive (600 is empirical number)
-    sigma = N / 600
-    low_pass = matlab_style_gauss2D((9, 9), sigma)
+    #sigma = N / 600
+    #low_pass = matlab_style_gauss2D((9, 9), sigma)
 
     # filter
-    image = scipy.ndimage.correlate(
-        inImg, low_pass, mode='constant').transpose()
-
+    #image = scipy.ndimage.correlate(
+    #    inImg, low_pass, mode='constant').transpose()
+    image = inImg
     # histeq
     # changed to inImg from image to stop low pass
     image = np.array(image * 255, dtype=np.uint8)
@@ -2943,7 +2943,7 @@ def mask_img(inImg, N):
 
 
 def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), cmap="gray"):
-
+    in_image = in_image.astype(np.complex128)
     in_image = (in_image / np.max(in_image)) * 2.0 - 1.0
 
     if ctrl_images == 'ps':
@@ -2958,9 +2958,9 @@ def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), c
         # phase scrambling
         if ctrl_images == 'phase':
             rand_img = np.random.rand(in_image.shape[0], in_image.shape[1])
-            rand_img = (rand_img / np.max(rand_img)) * 2.0 - 1.0
-            rand_phase = np.fft.fft2(rand_img)
-            phase = np.fft.fftshift(np.angle(rand_phase))
+            #rand_img = (rand_img / np.max(rand_img)) * 2.0 - 1.0
+            phase = np.angle(np.fft.fft2(rand_img.astype(np.complex128))).astype(np.complex128)
+            #phase = np.fft.fftshift(np.angle(rand_phase).astype(np.complex128))
             # NO NEED TO RANDOMIZE THE PHASE IF YOU ARE USING RANDOM PHASE
             #rng = np.random.default_rng()
             #[rng.shuffle(x) for x in phase]
