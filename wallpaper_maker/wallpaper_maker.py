@@ -36,6 +36,10 @@ import scipy.ndimage
 
 from IPython.display import display, Markdown
 
+import scipy.io
+
+from skimage import transform as tf
+
 np.set_printoptions(threshold=sys.maxsize)
 
 
@@ -537,20 +541,7 @@ def new_p3(tile, is_dots):
         #Image.fromarray((whole[:, :]).astype(np.uint32), 'RGBA').save(pattern_path, "png")
         return p3
     else:
-
-        #cm = plt.get_cmap("gray")
-        #saveStr = os.getcwd() + '\\WPSet\\'
-        #today = datetime.today()
-        #timeStr = today.strftime("%Y%m%d_%H%M%S")
-        #save_path = saveStr + timeStr;
-
-        tile_im = Image.fromarray(tile)
-
-        # (tuple(i * mag_factor for i in reversed(tile.shape)) to calculate the (width, height) of the image
-
-        tile1 = np.array(tile_im.resize(
-            (tuple(i * mag_factor for i in reversed(tile.shape))), Image.BICUBIC))
-
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
         height = np.size(tile1, 0)
 
         # fundamental region is equlateral rhombus with side length = s
@@ -581,11 +572,8 @@ def new_p3(tile, is_dots):
         # texture preserves the size, so 'crop' option can be used to
         # tile size.
 
-        tile0Im = Image.fromarray(tile0)
-        tile0Im_rot120 = tile0Im.rotate(120, Image.BILINEAR, expand=False)
-        tile120 = np.array(tile0Im_rot120)
-        tile0Im_rot240 = tile0Im.rotate(240, Image.BILINEAR, expand=True)
-        tile240 = np.array(tile0Im_rot240)
+        tile120 = tf.rotate(tile0, 120, resize=False, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
 
         # manually trim the tiles:
 
@@ -638,13 +626,7 @@ def new_p3(tile, is_dots):
 
         # size(whole) = [3xheight 2xwidth]
         whole = np.maximum(two_thirds, one_third)
-
-        whole_im = Image.fromarray(whole)
-        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-        whole_im_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
-                                  for i in reversed(whole.shape))
-
-        p3 = np.array(whole_im.resize(whole_im_new_size, Image.BICUBIC))
+        p3 = tf.rescale(whole, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
         return p3
 
 
@@ -746,10 +728,7 @@ def new_p3m1(tile, is_dots):
         return p3m1
 
     else:
-        tile_im = Image.fromarray(tile)
-        # (tuple(i * mag_factor for i in reversed(tile.shape)) to calculate the (width, height) of the image
-        tile1 = np.array(tile_im.resize(
-            (tuple(i * mag_factor for i in reversed(tile.shape))), Image.BICUBIC))
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
         height = np.shape(tile1)[0]
 
         # fundamental region is equlateral triangle with side length = height
@@ -773,9 +752,7 @@ def new_p3m1(tile, is_dots):
 
         # reflect and rotate
         tile1_mirror = np.fliplr(tile0)
-        tile1_mirrorIm = Image.fromarray(tile1_mirror)
-        tile240_Im = tile1_mirrorIm.rotate(240, Image.BILINEAR, expand=True)
-        tile240 = np.array(tile240_Im)
+        tile240 = tf.rotate(tile1_mirror, 240, resize=True, order=1)
         # AY: I directly cut the tiles, because trim will
         # return slightly different size
 
@@ -785,9 +762,7 @@ def new_p3m1(tile, is_dots):
 
         # AY: rotating mirrored tile(as opposed to tileR1) will cause less
         # border effects when we'll add it to two other tiles.
-        tile120_Im = tile1_mirrorIm.rotate(120, Image.BILINEAR, expand=True)
-        tile120 = np.array(tile120_Im)
-
+        tile120 = tf.rotate(tile1_mirror, 120, resize=True, order=1)
         tile120 = tile120[:height, :width]
         # Assembling the tiles
 
@@ -828,11 +803,7 @@ def new_p3m1(tile, is_dots):
         # size(big_tile)  = [6*y1 2*x1]
         cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1)
         big_tile = np.concatenate((whole, cat_mid_flip))
-        big_tile_im = Image.fromarray(big_tile)
-        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-        big_tile_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
-                                  for i in reversed(big_tile.shape))
-        p3m1 = np.array(big_tile_im.resize(big_tile_new_size, Image.BICUBIC))
+        p3m1 = tf.rescale(big_tile, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
         return p3m1
 
 
@@ -923,13 +894,7 @@ def new_p31m(tile, is_dots):
             tile3_new_size, Image.NEAREST)).astype(np.uint32)
 
     else:
-        tile = tile.astype('float32')
-
-        tile_im = Image.fromarray(tile)
-        # (tuple(i * mag_factor for i in reversed(tile.shape)) to calculate the (width, height) of the image
-        tile0 = np.array(tile_im.resize(
-            (tuple(i * mag_factor for i in reversed(tile.shape))), Image.BILINEAR))
-
+        tile0 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
         height = np.shape(tile0)[0]
         width = round(0.5 * height / math.sqrt(3))
         y1 = round(height / 2)
@@ -949,12 +914,8 @@ def new_p31m(tile, is_dots):
         tile0 = mask * tile0[:, :width]
 
         # rotate the tile
-        tile0_Im = Image.fromarray(tile0)
-        tile120_Im = tile0_Im.rotate(120, Image.BILINEAR, expand=True)
-        tile120 = np.array(tile120_Im)
-
-        tile240_Im = tile0_Im.rotate(240, Image.BILINEAR, expand=True)
-        tile240 = np.array(tile240_Im)
+        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
 
         # trim the tiles manually, using trigonometric laws
         # NOTE: floor and round give us values that differ by 1 pix.
@@ -995,11 +956,7 @@ def new_p31m(tile, is_dots):
 
         # size(tile3) = [height 6width]
         tile3 = np.concatenate((tile2, np.fliplr(tile2)), axis=1)
-        tile3_Im = Image.fromarray(tile3)
-        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-        tile3_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
-                               for i in reversed(tile3.shape))
-        p31m = np.array(tile3_Im.resize(tile3_new_size, Image.BILINEAR))
+        p31m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p31m
 
 
@@ -1096,10 +1053,7 @@ def new_p6(tile, is_dots):
                                       Image.NEAREST)).astype(np.uint32)
 
     else:
-        tile_im = Image.fromarray(tile)
-        # (tuple(i * mag_factor for i in reversed(tile.shape)) to calculate the (width, height) of the image
-        tile1 = np.array(tile_im.resize(
-            (tuple(i * mag_factor for i in reversed(tile.shape))), Image.BICUBIC))
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
 
         height = np.shape(tile1)[0]
         width = int(round(0.5 * height * np.tan(np.pi / 6)))
@@ -1120,12 +1074,8 @@ def new_p6(tile, is_dots):
         tile0 = mask * tile1[:, :width]
 
         # rotate tile1
-        tile0Im = Image.fromarray(tile0)
-        tile0Im_rot120 = tile0Im.rotate(120, Image.BILINEAR, expand=True)
-        tile120 = np.array(tile0Im_rot120)
-        tile0Im_rot240 = tile0Im.rotate(240, Image.BILINEAR, expand=True)
-        tile240 = np.array(tile0Im_rot240)
-
+        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
         # trim the tiles manually, using trigonometric laws
         # NOTE: floor and round give us values that differ by 1 pix.
         # to trim right, we'll have to derive the trim value from
@@ -1153,9 +1103,7 @@ def new_p6(tile, is_dots):
         tri = np.maximum(np.maximum(tile0, tile120), tile240)
 
         # mirror_tri = fliplr(tri); --wrong! should be (fliplr(flipud(tri)))
-        triIm = Image.fromarray(tri)
-        triIm_rot180 = triIm.rotate(180, expand=True)
-        mirror_tri = np.array(triIm_rot180)
+        mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
 
         # shifw w.slight overlap,
         delta_pix = 3
@@ -1172,11 +1120,7 @@ def new_p6(tile, is_dots):
 
         # size(tile3) = [2y1 x 6x1]
         tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
-        tile3_Im = Image.fromarray(tile3)
-        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-        tile3_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
-                               for i in reversed(tile3.shape))
-        p6 = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC))
+        p6 = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p6
 
 
@@ -1271,13 +1215,10 @@ def new_p6m(tile, is_dots):
         p6m = np.array(tile3_Im.resize(
             tile3_new_size, Image.NEAREST)).astype(np.uint32)
     else:
-        tile_im = Image.fromarray(tile)
-        # (tuple(i * mag_factor for i in reversed(tile.shape)) to calculate the (width, height) of the image
-        tile1 = np.array(tile_im.resize(
-            (tuple(i * mag_factor for i in reversed(tile.shape))), Image.BICUBIC))
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
 
         height = np.shape(tile1)[0]
-
+        
         width = round(height / math.sqrt(3))
 
         # fundamental region is right triangle with angles (30, 60)
@@ -1296,11 +1237,8 @@ def new_p6m(tile, is_dots):
         tile0 = np.concatenate((tile0, np.flipud(tile0)))
 
         # rotate tile1
-        tile0Im = Image.fromarray(tile0)
-        tile0Im_rot120 = tile0Im.rotate(120, Image.BILINEAR, expand=True)
-        tile120 = np.array(tile0Im_rot120)
-        tile0Im_rot240 = tile0Im.rotate(240, Image.BILINEAR, expand=True)
-        tile240 = np.array(tile0Im_rot240)
+        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
 
         # trim the tiles manually, using trigonometric laws
         # NOTE: floor and round give us values that differ by 1 pix.
@@ -1328,9 +1266,10 @@ def new_p6m(tile, is_dots):
 
         # size(tri) = [2y1 x 3x1]
         tri = np.maximum(np.maximum(tile0, tile120), tile240)
-        triIm = Image.fromarray(tri)
-        triIm_rot180 = triIm.rotate(180, expand=True)
-        mirror_tri = np.array(triIm_rot180)
+        #triIm = Image.fromarray(tri)
+        mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
+        #triIm_rot180 = triIm.rotate(180, expand=True)
+        #mirror_tri = np.array(triIm_rot180)
 
         # shifw w.slight overlap,
         delta_pix = 3
@@ -1346,12 +1285,8 @@ def new_p6m(tile, is_dots):
         tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
         # size(tile3) = [2y1 x 6x1]
         tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
-        tile3_Im = Image.fromarray(tile3)
-        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
 
-        tile3_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
-                               for i in reversed(tile3.shape))
-        p6m = np.array(tile3_Im.resize(tile3_new_size, Image.BICUBIC))
+        p6m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p6m
 
 
