@@ -53,7 +53,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
              fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', same_magnitude: bool = False,
-             cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", debug: bool = False):
+             cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", mask: bool = True, debug: bool = False):
 
     # save parameters
     if not save_path:
@@ -126,10 +126,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 display(Markdown(str(1000 * group_number + k + 1) +
                                  '_' + cmap + '_raw'))
                 for s in range(len(raw)):
+                    clipped_raw = clip_wallpaper(np.array(raw[s]), wp_size_pix)
                     display(Image.fromarray(
-                        (np.array(raw[s])[:, :] * 255).astype(np.uint8)))
+                        (clipped_raw[:, :] * 255).astype(np.uint8)))
                     Image.fromarray(
-                        (np.array(raw[s])[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
+                        (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
             
             # low-pass filtering + histeq
             if filter_freq:
@@ -137,9 +138,10 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             else:
                 num_each_wallpaper = 1
             for o in range(num_each_wallpaper):
-                filtered = (filter_img(raw[o], wp_size_pix))   
+                filtered = (filter_img(raw[o], wp_size_pix))
                 orig_wallpapers_group.append(Groups[i])
                 orig_wallpapers.append(filtered)
+        #scipy.io.savemat('arrdata.mat', mdict={'arr': orig_wallpapers[0]})
         if same_magnitude:
             if filter_freq:
                 for p in range(len(filter_freq)):
@@ -176,9 +178,12 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             else:
                 avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index]))
             exemplar_index_increment = exemplar_index_increment + 1
-            #orig_wallpapers[j] = avg_raw
             # masking the image (final step)
-            masked = (mask_img(avg_raw, wp_size_pix))
+            clipped_avg_raw = clip_wallpaper(avg_raw, wp_size_pix)
+            if mask:
+                masked = (mask_img(clipped_avg_raw, wp_size_pix))
+            else:
+                masked = clipped_avg_raw
             if filter_freq:
                 filter_str = '_f0fr' + str(filter_freq[j % len(filter_freq)])
             else:
@@ -238,15 +243,17 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
             else:
                 wallpaper_index = l
-            if (same_magnitude): 
+            if (same_magnitude):
                 scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index])
             else:
                 scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap)
             exemplar_index_increment = exemplar_index_increment + 1
-            #scrambled_filtered = (filter_img(scrambled_raw, wp_size_pix))
             # masking the image (final step)
-            scrambled_masked = (mask_img(scrambled_raw, wp_size_pix))
-            #Image.fromarray(np.hstack(((masked[:, :, :3] * 255).astype(np.uint8), (scrambled_masked[:, :, :3] * 255).astype(np.uint8)))).show()
+            clipped_scrambled_raw = clip_wallpaper(scrambled_raw, wp_size_pix)
+            if mask:
+                scrambled_masked = (mask_img(clipped_scrambled_raw, wp_size_pix))
+            else:
+                scrambled_masked = clipped_scrambled_raw
         group_number = map_group[group]
 
         # saving averaged and scrambled images
@@ -1289,6 +1296,37 @@ def new_p6m(tile, is_dots):
         p6m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p6m
 
+def filter_tile(in_tile, filter_intensity):
+    # generate random noise tile
+
+    mu = 0.5;
+    nx = np.size(in_tile, 0);
+    ny = np.size(in_tile, 1);
+    
+    # make adaptive filtering
+    
+    sigma_x = 10*filter_intensity/nx;
+    sigma_y = 10*filter_intensity/ny;
+    
+    x = np.linspace(0, 1, nx);
+    y = np.linspace(0, 1, ny);
+    
+    gx = np.exp(-1 * (np.power((x - mu), 2)) / (2*(sigma_x**2))) / (sigma_x * math.sqrt(2 * math.pi));
+    gy = np.exp(-1 * (np.power((y - mu), 2)) / (2*(sigma_y**2))) / (sigma_y * math.sqrt(2 * math.pi));
+
+    gauss2 = np.matmul(gx.reshape(gx.shape[0], 1),gy.reshape(1, gy.shape[0]));
+    gauss2 = gauss2 - gauss2.min();
+    gauss2 = gauss2 / gauss2.max();
+    gauss2 = gauss2 * 5;
+    
+    filtered = np.abs(np.fft.ifft2(np.fft.fft2(in_tile) * gauss2));
+    
+    # normalize tile
+
+    outTile = filtered - filtered.min();
+    outTile = outTile / outTile.max();
+    return outTile;
+
 
 def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, filter_freq,
                 fundamental_region_source_type, is_dots, cmap, save_path, k, opt_texture=None):
@@ -1309,7 +1347,8 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
 
     if fundamental_region_source_type == 'uniform_noise' and is_dots is False:
         print('uniform noise')
-        texture = np.random.rand(n, n)
+        grain = 1;
+        texture = filter_tile(np.random.rand(n, n), grain);
     elif is_dots:
         print('random dots')
         texture = dot_texture(n, 0.05, 0.05, 5, wp_type)
@@ -1665,42 +1704,14 @@ def cat_tiles(tile, N, wp_type):
     if(dN[1] == 1):
         col = col + 1
 
-    # repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
-    img = numpy.matlib.repmat(tile, row - 1, col - 1)
-
-    row = math.floor(img.shape[0] + tile.shape[0] *
-                     ((1 + (N / tile.shape[0])) - dN[0]))
-    col = math.floor(img.shape[1] + tile.shape[1] *
-                     ((1 + (N / tile.shape[1])) - dN[1]))
-    if (math.floor(img.shape[0] + tile.shape[0] * ((1 + (N / tile.shape[0])) - dN[0])) % 2 != 0):
-        row = row + 1
-
-    if (math.floor(img.shape[1] + tile.shape[1] * ((1 + (N / tile.shape[1])) - dN[1])) % 2 != 0):
-        col = col + 1
-
-    img_final = np.zeros((row, col))
-
-    # centers the evenly created tile and then even distributes the rest of the tile around the border s.t. the total size of the wallpaper = the desired input size of the wallpaper
-    img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2): img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2),
-              math.ceil((img_final.shape[1] - img.shape[1]) / 2): img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[:, :]
-    img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2): img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2),
-              : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[:, img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):]
-    img_final[math.ceil((img_final.shape[0] - img.shape[0]) / 2): img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2),
-              img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):] = img[:, : math.ceil((img_final.shape[1] - img.shape[1]) / 2)]
-    img_final[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), math.ceil((img_final.shape[1] - img.shape[1]) / 2): img_final.shape[1] -
-              math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, :]
-    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, math.ceil((img_final.shape[1] - img.shape[1]) / 2)
-                                             : img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), :]
-    img_final[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), : math.ceil((img_final.shape[1] - img.shape[1]) / 2)] = img[img.shape[0] -
-                                                                                                                                math.ceil((img_final.shape[0] - img.shape[0]) / 2):, img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):]
-    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, : math.ceil((img_final.shape[1] - img.shape[1]) / 2)
-              ] = img[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), img.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2):]
-    img_final[img_final.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, img_final.shape[1] - math.ceil(
-        (img_final.shape[1] - img.shape[1]) / 2):] = img[: math.ceil((img_final.shape[0] - img.shape[0]) / 2), :math.ceil((img_final.shape[1] - img.shape[1]) / 2)]
-    img_final[:math.ceil((img_final.shape[0] - img.shape[0]) / 2),  img_final.shape[1] - math.ceil((img_final.shape[1] - img.shape[1]) / 2)              :] = img[img.shape[0] - math.ceil((img_final.shape[0] - img.shape[0]) / 2):, :math.ceil((img_final.shape[1] - img.shape[1]) / 2)]
-
+    # repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to a bigger size
+    img_final = numpy.matlib.repmat(tile, row, col)
     return img_final
 
+def clip_wallpaper(wallpaper, wp_size_pix):
+    left_right_clip = round((wallpaper.shape[0] - wp_size_pix) / 2)
+    up_down_clip = round((wallpaper.shape[1] - wp_size_pix) / 2)
+    return wallpaper[left_right_clip : wallpaper.shape[0] - left_right_clip, up_down_clip : wallpaper.shape[1] - up_down_clip]
 
 def diagcat_tiles(tile, N, diag_tile, wp_type):
     # Create diagnostic wallpaper
@@ -2838,13 +2849,13 @@ def matlab_style_gauss2D(shape, sigma):
 
 def filter_img(inImg, N):
     # make filter intensity adaptive (600 is empirical number)
-    #sigma = N / 600
-    #low_pass = matlab_style_gauss2D((9, 9), sigma)
+    sigma = N / 600
+    low_pass = matlab_style_gauss2D((9, 9), sigma)
 
     # filter
-    #image = scipy.ndimage.correlate(
-    #    inImg, low_pass, mode='constant').transpose()
-    image = inImg
+    image = scipy.ndimage.correlate(
+        inImg, low_pass, mode='constant').transpose()
+    #image = inImg
     # histeq
     # changed to inImg from image to stop low pass
     image = np.array(image * 255, dtype=np.uint8)
@@ -2878,7 +2889,6 @@ def mask_img(inImg, N):
 
 
 def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), cmap="gray"):
-    in_image = in_image.astype(np.complex128)
     in_image = (in_image / np.max(in_image)) * 2.0 - 1.0
 
     if ctrl_images == 'ps':
@@ -2894,7 +2904,7 @@ def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), c
         if ctrl_images == 'phase':
             rand_img = np.random.rand(in_image.shape[0], in_image.shape[1])
             #rand_img = (rand_img / np.max(rand_img)) * 2.0 - 1.0
-            phase = np.angle(np.fft.fft2(rand_img.astype(np.complex128))).astype(np.complex128)
+            phase = np.angle(np.fft.fft2(rand_img))
             #phase = np.fft.fftshift(np.angle(rand_phase).astype(np.complex128))
             # NO NEED TO RANDOMIZE THE PHASE IF YOU ARE USING RANDOM PHASE
             #rng = np.random.default_rng()
@@ -3088,6 +3098,8 @@ if __name__ == "__main__":
                         help='Color or greyscale map (hsv or gray)')
     parser.add_argument('--diagnostic', '-diag', default=True, type=str2bool,
                         help='Produce diagnostics for wallpapers')
+    parser.add_argument('--mask', '-msk', default=True, type=str2bool,
+                        help='Mask output wallpaper with circular aperture')
     parser.add_argument('--debug', '-b', default=False, type=str2bool,
                         help='Debugging default parameters on')
 
@@ -3095,4 +3107,4 @@ if __name__ == "__main__":
 
     # need to investigate error in eval function
     make_set(args.groups, args.num_exemplars, args.wp_size_dva, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.filter_freq, args.save_fmt, args.save_raw,
-                 args.ctrl_images, args.same_magnitude, args.cmap, args.diagnostic, args.debug)
+                 args.ctrl_images, args.same_magnitude, args.cmap, args.diagnostic, args.mask, args.debug)
