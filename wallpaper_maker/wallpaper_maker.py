@@ -142,16 +142,19 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 orig_wallpapers_group.append(Groups[i])
                 orig_wallpapers.append(filtered)
         #scipy.io.savemat('arrdata.mat', mdict={'arr': orig_wallpapers[0]})
-        if same_magnitude:
-            if filter_freq:
-                for p in range(len(filter_freq)):
-                    for q in range(num_exemplars):
-                        mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq))]))))
-                    avg_mag.append(np.median(np.array(mags), 0))
-            else:
-                    for q in range(num_exemplars):
-                        mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[q * len(filter_freq)]))))
-                    avg_mag.append(np.median(np.array(mags), 0))
+    if same_magnitude:
+        if filter_freq:
+            for p in range(len(filter_freq)):
+                mags = []
+                for q in range(num_exemplars):
+                    mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq))]))))
+                avg_mag.append(np.median(np.array(mags), 0))
+        else:
+            for w in range(len(Groups)):
+                mags = []
+                for q in range(num_exemplars):
+                    mags.append(np.fft.fftshift(np.abs(np.fft.fft2(orig_wallpapers[q + num_exemplars * w]))))
+                avg_mag.append(np.median(np.array(mags), 0))
 
     # image processing steps
     exemplar_index_increment = 0
@@ -2913,7 +2916,6 @@ def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), c
         # use new magnitude instead
         if(use_magnitude.size != 0):
             mag = use_magnitude
-
         cmplx_im = mag * np.exp(1j * phase)
 
         # get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
@@ -3045,21 +3047,6 @@ def size_tile(ratio, n, cell_struct):
         return round(np.sqrt(2) * np.sqrt((n**2 * ratio) / 2))
     else:
         return round(n * ratio * 2)
-
-# returns average mag of the group
-
-
-def mean_mag(freq_group, n_images):
-    #n_images = 1
-    mag = np.empty((freq_group[0].shape[0], freq_group[0].shape[1], n_images))
-    for n in range(n_images):
-        freq_group[n] = np.fft.fft2(freq_group[n], (freq_group[n].shape[0], freq_group[n].shape[1]))
-    print(freq_group[0].shape)
-    for n in range(n_images):
-        mag[:, :, n] = np.abs(freq_group[n])
-    out = np.median(mag, 2)
-    print(out)
-    return out
 
 
 # for commandline input
