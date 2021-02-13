@@ -144,21 +144,25 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         #scipy.io.savemat('arrdata.mat', mdict={'arr': orig_wallpapers[0]})
     if same_magnitude:
         if filter_freq:
-            for p in range(len(filter_freq)):
-                mags = []
-                for q in range(num_exemplars):
-                    mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq))]))))
-                avg_mag.append(np.median(np.array(mags), 0))
+            for w in range(len(Groups)):
+                for p in range(len(filter_freq)):
+                    mags = []
+                    for q in range(num_exemplars):
+                        mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq)) + w * (len(filter_freq) * num_exemplars)]))))
+                    avg_mag.append(np.median(np.array(mags), 0))
         else:
             for w in range(len(Groups)):
                 mags = []
                 for q in range(num_exemplars):
                     mags.append(np.fft.fftshift(np.abs(np.fft.fft2(orig_wallpapers[q + num_exemplars * w]))))
                 avg_mag.append(np.median(np.array(mags), 0))
-
+    for n in range(len(avg_mag)):
+        print(len(avg_mag[n]))
     # image processing steps
     exemplar_index_increment = 0
     freq_index_increment = 0
+    group_index_increment = 0
+    wallpaper_index = 0
     mag_index = 0
     for j in range(len(orig_wallpapers)):
         group = orig_wallpapers_group[j]
@@ -173,7 +177,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             if not filter_freq and j % num_exemplars == 0 and j !=0:
                 mag_index = mag_index + 1
             if filter_freq:
-                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+                if((wallpaper_index + 1) % (len(filter_freq) * num_exemplars) == 0 and wallpaper_index != 0):
+                    group_index_increment =  group_index_increment + 1
+                    freq_index_increment = 0
+                    exemplar_index_increment = 0
+                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq) + group_index_increment * (len(filter_freq) * num_exemplars)
             else:
                 wallpaper_index = j
             if (same_magnitude):  
@@ -218,7 +226,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     exemplar_index_increment = 0
     freq_index_increment = 0
     mag_index = 0
-    
+    wallpaper_index = 0    
+    group_index_increment = 0
     for l in range(len(orig_wallpapers)):
         group = orig_wallpapers_group[l]
         # making scrambled images
@@ -243,7 +252,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             if not filter_freq and l % num_exemplars == 0 and l !=0:
                 mag_index = mag_index + 1
             if filter_freq:
-                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq)
+                if((wallpaper_index + 1) % (len(filter_freq) * num_exemplars) == 0 and wallpaper_index != 0):
+                    group_index_increment =  group_index_increment + 1
+                    freq_index_increment = 0
+                    exemplar_index_increment = 0
+                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq) + group_index_increment * (len(filter_freq) * num_exemplars)
             else:
                 wallpaper_index = l
             if (same_magnitude):
