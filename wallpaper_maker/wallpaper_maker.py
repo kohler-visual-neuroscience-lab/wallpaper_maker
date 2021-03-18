@@ -40,6 +40,8 @@ import scipy.io
 
 from skimage import transform as tf
 
+from scipy.interpolate import interpn
+
 np.set_printoptions(threshold=sys.maxsize)
 
 
@@ -52,7 +54,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
-             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', same_magnitude: bool = False,
+             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', phases: int = 1, same_magnitude: bool = False,
              cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", mask: bool = True, debug: bool = False):
 
     # save parameters
@@ -260,34 +262,36 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             else:
                 wallpaper_index = l
             if (same_magnitude):
-                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index])
+                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index], n=phases)[:,:,:]
             else:
-                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap)
+                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, n=phases)[:,:,:]
             exemplar_index_increment = exemplar_index_increment + 1
-            # masking the image (final step)
-            clipped_scrambled_raw = clip_wallpaper(scrambled_raw, wp_size_pix)
-            if mask:
-                scrambled_masked = (mask_img(clipped_scrambled_raw, wp_size_pix))
-            else:
-                scrambled_masked = clipped_scrambled_raw
+
         group_number = map_group[group]
 
         # saving averaged and scrambled images
             
         if (ctrl_images == 'phase'):
-            if (filter_freq):
-                scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + l + 1) + '_' + \
-                    cmap + '_f0fr' + filter_str + '.' + save_fmt
-            else:
-                scramblePath = save_path + '/' + \
-                    time_str + '_' + str(1000 * (group_number + 17) + l + 1) + '_' + \
-                    cmap + '.' + save_fmt
-            display(Markdown(str(1000 * (group_number + 17) + l + 1) +
-                             '_' + cmap + filter_str))
-            display(Image.fromarray(
-                (scrambled_masked[:, :] * 255).astype(np.uint8)))
-            Image.fromarray(
-                (scrambled_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+            for e in range (scrambled_raw.shape[2]):
+                if (filter_freq):
+                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + l + 1) + str(e + 1) + '_' + \
+                        cmap + '_f0fr' + filter_str + '.' + save_fmt
+                else:
+                    scramblePath = save_path + '/' + \
+                        time_str + '_' + str(1000 * (group_number + 17) + l + 1) + str(e + 1) + '_' + \
+                        cmap + '.' + save_fmt
+                display(Markdown(str(1000 * (group_number + 17) + l + 1) +
+                                 '_' + cmap + filter_str))
+                # masking the image (final step)
+                clipped_scrambled_raw = clip_wallpaper(scrambled_raw[:,:,e], wp_size_pix)
+                if mask:
+                    scrambled_masked = (mask_img(clipped_scrambled_raw, wp_size_pix))
+                else:
+                    scrambled_masked = clipped_scrambled_raw
+                display(Image.fromarray(
+                    (scrambled_masked[:, :] * 255).astype(np.uint8)))
+                Image.fromarray(
+                    (scrambled_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
 
         if (ctrl_images == 'ps'):
             if (filter_freq):
@@ -2817,20 +2821,6 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         plt.show()
         fig.savefig(pattern_path)
 
-# old cat function
-# def cat_tiles(tile, N, wp_type):
-#     #disp tile square
-#     sq = np.shape(tile)[0] * np.shape(tile)[1]
-#     print(wp_type + ' area of tile = ', sq);
-
-#     #write tile
-#     #tile_im = Image.fromarray(tile)
-#     #tile_im.save('~/Documents/PYTHON/tiles/' + wp_type + '_tile.jpeg', 'JPEG')
-#     dN = tuple((1 + math.floor(N / ti)) for ti in np.shape(tile))
-#     #dN = 1 + math.floor(N / np.shape(tile))
-#     img = numpy.matlib.repmat(tile, dN[0], dN[1])
-#     return img
-
 # array of coefficients(DO NOT CHANGE):
 # tile sizes by groups:     tile_in     tile_out         square ratio       width ratio
 # P1:                        (n, n)      (n, n)              1                  1
@@ -2848,8 +2838,11 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
 
 def matlab_style_gauss2D(shape, sigma):
     """
+    This code was taken from https://stackoverflow.com/questions/17190649/how-to-obtain-a-gaussian-filter-in-python
+    
     2D gaussian mask - should give the same result as MATLAB's
     fspecial('gaussian',[shape],[sigma])
+    
     """
     m, n = [(ss - 1.) / 2. for ss in shape]
     y, x = np.ogrid[-m:m + 1, -n:n + 1]
@@ -2904,27 +2897,21 @@ def mask_img(inImg, N):
 # replace spectra
 
 
-def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), cmap="gray"):
+def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), cmap="gray", n = 1):
     in_image = (in_image / np.max(in_image)) * 2.0 - 1.0
-
+    
+    # phase scrambling
+    if ctrl_images == 'phase':
+        return minPhaseInterp(in_image, n)
+    
+    # Portilla-Simoncelli scrambling
     if ctrl_images == 'ps':
-        # Portilla-Simoncelli scrambling
         out_image = psScramble(in_image, cmap)
     else:
         in_spectrum = np.fft.fft2( in_image )
     
         phase = np.fft.fftshift(np.angle(in_spectrum))
         mag = np.fft.fftshift(np.abs(in_spectrum))
-    
-        # phase scrambling
-        if ctrl_images == 'phase':
-            rand_img = np.random.rand(in_image.shape[0], in_image.shape[1])
-            #rand_img = (rand_img / np.max(rand_img)) * 2.0 - 1.0
-            phase = np.angle(np.fft.fft2(rand_img))
-            #phase = np.fft.fftshift(np.angle(rand_phase).astype(np.complex128))
-            # NO NEED TO RANDOMIZE THE PHASE IF YOU ARE USING RANDOM PHASE
-            #rng = np.random.default_rng()
-            #[rng.shuffle(x) for x in phase]
 
         # use new magnitude instead
         if(use_magnitude.size != 0):
@@ -2947,6 +2934,83 @@ def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), c
 
     return out_image
 
+def minPhaseInterp(in_image, n):
+    """
+    This code comes from Justin Ales' work on minimum phase image interpolation. 
+    This python implementation comes from the original matlab implementation done by Justin Ales.
+    All notes and comments are from Justin Ales unless otherwise stated.
+    More information on the original implementation can be found at https://www.st-andrews.ac.uk/~jma23/code.html
+    """
+    
+    image_start = np.random.rand(in_image.shape[0], in_image.shape[1])
+    interp_vals = np.linspace(0, 1, n)
+    
+    image_start_size = image_start.shape
+    in_image_size =   in_image.shape
+    
+    
+    # Setup interpolation function
+    x = []
+    y = []
+    z = []
+    x = [a for a in range(image_start_size[0])]
+    y = [b for b in range(image_start_size[1])]
+    z = [0, 1]
+    
+    
+    # Take fourier transform of input images and decompopse complex values
+    # to phase and amplitude
+    # Use amplitude spectrum for the end image on the first image.
+    # This keeps the amplitude spectrum constant.
+    
+    start_fourier = np.fft.fft2(image_start)
+    end_fourier   = np.fft.fft2(in_image)
+    
+    start_phase   = np.fft.fftshift(np.angle(start_fourier))
+    # startAmp     = abs(startFourier);
+    
+    end_phase     = np.fft.fftshift(np.angle(end_fourier))
+    end_amp       = np.fft.fftshift(np.abs(end_fourier))
+    
+    start_amp = end_amp;
+    
+    initial_sequence = np.stack((start_phase,end_phase), 2)
+       
+    # This is where I figure out the minimum phase direction.
+    # I do this by chaining some trigonometry operations together.
+    # D is the angle between the starting and ending phase
+    # We know we want to change phase by this amount
+    # We then redefine the starting phase so the interpolation always goes in
+    # the correct direction
+    
+    D = np.squeeze(initial_sequence[:,:,0] - initial_sequence[:,:,1])
+    delta = np.arctan2(np.sin(D),np.cos(D));
+    initial_sequence[:,:,0] = initial_sequence[:,:,1] + delta
+    
+    # This is slow, but it's easy and I'm lazy.
+    
+    xi,yi,zi = numpy.meshgrid(x, y, interp_vals, indexing='ij')
+    
+    phase_sequence = interpn((x,y,z),(initial_sequence),(xi,yi,zi))
+    
+    phase_sequence = np.mod(phase_sequence + np.pi, 2 * np.pi) - np.pi
+     
+    amp_Sequence = np.tile(end_amp,[interp_vals.shape[0], 1, 1])
+     
+    amp_Sequence = np.transpose(amp_Sequence, (1,2,0))
+   
+    complex_sequence = amp_Sequence * np.exp(1j * phase_sequence)
+    sequence = np.real(np.fft.ifft2(np.fft.ifftshift(complex_sequence, axes=(0,1)),axes=(0,1)))
+    
+    # Added specifically for the wallpaper_maker code to standardize all the images in the sequence
+    for i in range(sequence.shape[2]):
+            sequence[:, :, i] = sequence[:, :, i] - np.mean(sequence[:, :, i])
+            sequence[:, :, i] = sequence[:, :, i] / np.std(sequence[:, :, i])
+            sequence[:, :, i] = sequence[:, :, i] * 0.5 ## TO DO: MAKE THIS AN ADJUSTABLE INPUT VARIABLE
+            sequence[:, :, i] = np.clip(sequence[:, :, i], a_min=-1.0, a_max=1.0)
+            sequence[:, :, i] = (sequence[:, :, i] + 1) / 2 
+    return sequence
+
 def psScramble(in_image, cmap):
     image_tmp = Image.fromarray(in_image)
     # resize image to nearest power of 2 to make use of the steerable pyramid for PS
@@ -2957,7 +3021,6 @@ def psScramble(in_image, cmap):
         in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
     #out_image = None
     return out_image
-
 
 def next_power_2(x):
     x = x - 1
