@@ -54,7 +54,8 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
-             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', phases: int = 1, same_magnitude: bool = False,
+             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freqs: list = [],
+             save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', same_magnitude: bool = False,
              cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", mask: bool = True, debug: bool = False):
 
     # save parameters
@@ -85,10 +86,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         map_group[key_set[i]] = value_set[i]
     Groups = groups
     raw_path = ''
-    if (not filter_freq):
-        filter_freq_str = "No filtering applied"
-    else:
-        filter_freq_str = ','.join(str(x) for x in filter_freq)
+    filters = []
+    if filter_freqs == None:
+        filters.append(None)
+    for filter_freq in filter_freqs:
+        filters.append(filter.Cosine_filter(filter_freq, wp_size_pix, wp_size_dva))
     try:
         if(save_raw):
             raw_path = os.path.join(save_path, "raw")
@@ -96,8 +98,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     except:
         print('Save Path: ', save_path, "\nGroups to Generate: ", groups,
               "\nNumber of Wallpapers per Group: ", num_exemplars, "\nFiltering Level: ", filter_freq_str)
-    print('Save Path: ', save_path, '\nGroups to Generate: ', groups,
-          '\nNumber of Wallpapers per Group: ', num_exemplars, '\nFiltering Level: ', filter_freq_str, '\n')
+#    print('Save Path: ', save_path, '\nGroups to Generate: ', groups,
+#          '\nNumber of Wallpapers per Group: ', num_exemplars, '\nFiltering Level: ', filter_freq_str, '\n')
 
     # TODO: add configuration to argument parser
     fundamental_region_source_type = 'uniform_noise'
@@ -107,210 +109,103 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     avg_mag = []
     mags = []
     cm = plt.get_cmap(cmap)
-    for i in range(len(Groups)):
+    for i, group in enumerate(Groups):
         # making regular images
-        print('generating ', Groups[i])
-        group = Groups[i]
+        print('generating ', group)
         if lattice_sizing:
             n = size_lattice(ratio, wp_size_pix, group)
         elif fr_sizing:
             n = size_fundamental_region(ratio, wp_size_pix, group)
         else:
             n = size_tile(ratio, wp_size_pix, group)
+
+        #this_groups_wallpapers = [[] for i in range(len(filters))]
+        if filters:
+            this_groups_wallpapers = np.zeros((len(filters),num_exemplars, wp_size_pix, wp_size_pix))
+        else:
+            this_groups_wallpapers = np.zeros((num_exemplars, wp_size_pix, wp_size_pix))
+
         raw = []             
         for k in range(num_exemplars):
             raw = make_single(group, wp_size_pix, int(n), fr_sizing, lattice_sizing, ratio, wp_size_dva, is_diagnostic,
-                                  filter_freq, fundamental_region_source_type, is_dots, cmap, save_path, k)
+                              fundamental_region_source_type, is_dots, cmap, save_path, k) # generates a single unfiltered wallpaper
+            raw = np.array(raw).squeeze()
             group_number = map_group[group]
             if(save_raw):
                 raw_path_tmp = raw_path + '/' + time_str + '_' + str(1000 * group_number + k + 1) + \
                     '_' + cmap + '.' + save_fmt
-                display(Markdown(str(1000 * group_number + k + 1) +
-                                 '_' + cmap + '_raw'))
+                display(Markdown(str(1000 * group_number + k + 1) + '_' + cmap + '_raw'))
                 for s in range(len(raw)):
                     clipped_raw = clip_wallpaper(np.array(raw[s]), wp_size_pix)
                     display(Image.fromarray(
                         (clipped_raw[:, :] * 255).astype(np.uint8)))
                     Image.fromarray(
                         (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
-            
-            # low-pass filtering + histeq
-            if filter_freq:
-                num_each_wallpaper = len(filter_freq)
-            else:
-                num_each_wallpaper = 1
-            for o in range(num_each_wallpaper):
-                filtered = (filter_img(raw[o], wp_size_pix))
-                orig_wallpapers_group.append(Groups[i])
-                orig_wallpapers.append(filtered)
-        #scipy.io.savemat('arrdata.mat', mdict={'arr': orig_wallpapers[0]})
-    if same_magnitude:
-        if filter_freq:
-            for w in range(len(Groups)):
-                for p in range(len(filter_freq)):
-                    mags = []
-                    for q in range(num_exemplars):
-                        mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq)) + w * (len(filter_freq) * num_exemplars)]))))
-                    avg_mag.append(np.median(np.array(mags), 0))
+
+            for filter_idx, this_filter in enumerate(filters):
+               if this_filter:
+                   this_groups_wallpapers[filter_idx,k] = this_filter.filter_image(raw)
+               else:
+                   this_groups_wallpapers[filter_idx,k] = raw
+
+        if same_magnitude:
+            # normalize psd across exemplars per group and filter
+            this_groups_wallpapers_spec = np.fft.rfft2(this_groups_wallpapers)
+            this_groups_wallpapers_mag_mean = np.abs(this_groups_wallpapers_spec).mean(-3)
+            this_groups_wallpapers_spec_phase = np.angle(this_groups_wallpapers_spec)
+            this_groups_wallpapers_spec = np.expand_dims(this_groups_wallpapers_mag_mean,-3) * np.exp(1j * this_groups_wallpapers_spec_phase)
+            this_groups_wallpapers = np.fft.irfft2(this_groups_wallpapers_spec)
+
+        # generate scrambled controls
+        if ctrl_images:
+            this_groups_controls = np.zeros(this_groups_wallpapers.shape)
+            for i in range(this_groups_wallpapers.shape[0]):
+                for j in range(this_groups_wallpapers.shape[1]):
+                    # don't believe we need the option use_magnitude here, since the magnitude of the wallpaper is unchanged in the case of ctrl_images=='phase'
+                    this_groups_controls[i,j] = replace_spectra(this_groups_wallpapers[i,j], ctrl_images, cmap=cmap)
         else:
-            for w in range(len(Groups)):
-                mags = []
-                for q in range(num_exemplars):
-                    mags.append(np.fft.fftshift(np.abs(np.fft.fft2(orig_wallpapers[q + num_exemplars * w]))))
-                avg_mag.append(np.median(np.array(mags), 0))
-    for n in range(len(avg_mag)):
-        print(len(avg_mag[n]))
-    # image processing steps
-    exemplar_index_increment = 0
-    freq_index_increment = 0
-    group_index_increment = 0
-    wallpaper_index = 0
-    mag_index = 0
-    for j in range(len(orig_wallpapers)):
-        group = orig_wallpapers_group[j]
-        group_number = map_group[group]
-        if not is_dots:
-            # replace each image's magnitude with the average   
-            if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
-                exemplar_index_increment = 0
-                freq_index_increment = freq_index_increment + 1
-                if filter_freq:
-                    mag_index = mag_index + 1
-            if not filter_freq and j % num_exemplars == 0 and j !=0:
-                mag_index = mag_index + 1
-            if filter_freq:
-                if((wallpaper_index + 1) % (len(filter_freq) * num_exemplars) == 0 and wallpaper_index != 0):
-                    group_index_increment =  group_index_increment + 1
-                    freq_index_increment = 0
-                    exemplar_index_increment = 0
-                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq) + group_index_increment * (len(filter_freq) * num_exemplars)
-            else:
-                wallpaper_index = j
-            if (same_magnitude):  
-                avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index], use_magnitude=np.array(avg_mag[mag_index])))
-            else:
-                avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index]))
-            exemplar_index_increment = exemplar_index_increment + 1
-            # masking the image (final step)
-            clipped_avg_raw = clip_wallpaper(avg_raw, wp_size_pix)
-            if mask:
-                masked = (mask_img(clipped_avg_raw, wp_size_pix))
-            else:
-                masked = clipped_avg_raw
-            if filter_freq:
-                filter_str = '_f0fr' + str(filter_freq[j % len(filter_freq)])
-            else:
-                filter_str = ''
+            this_groups_controls = []
 
-            main_str = str(1000 * group_number + j + 1) + '_' + \
-                cmap + filter_str
+        # normalize range of pixel values
+        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.mean((-1,-2)),-1),-1)
 
-            pattern_path = "{0}/{1}_{2}.{3}".format(
-                save_path, time_str, main_str, save_fmt)
+        print('before this groups mean {}'.format(this_groups_wallpapers.mean((2,3))))
+        print('before this groups min {}'.format(this_groups_wallpapers.min((2,3))))
+        print('before this groups max {}'.format(this_groups_wallpapers.max((2,3))))
+        this_groups_wallpapers = this_groups_wallpapers / (np.expand_dims(np.expand_dims(this_groups_wallpapers.max((-1,-2)),-1),-1)-np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1))
+        #this_groups_wallpapers = this_groups_wallpapers / np.expand_dims(np.expand_dims(this_groups_wallpapers.std((-1,-2)),-1),-1)
+        this_groups_wallpapers = this_groups_wallpapers + 0.5
 
-            if (is_dots):
-                Image.fromarray((raw[:, :]).astype(
-                    np.uint32), 'RGBA').save(pattern_path, "png")
-                display(Markdown(str(1000 * group_number + j + 1) +
-                                 '_' + cmap))
-                display(Image.fromarray(
-                    (raw[:, :]).astype(np.uint32), 'RGBA'))
-            else:
-                Image.fromarray(
-                    (masked[:, :] * 255).astype(np.uint8)).save(pattern_path, save_fmt)
-                display(Markdown(str(1000 * group_number + j + 1) +
-                                 '_' + cmap + filter_str))
-                display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))    
-                
-    # generating wallpapers, saving freq. representations
-    
-    # scrambled image processing steps
-    exemplar_index_increment = 0
-    freq_index_increment = 0
-    mag_index = 0
-    wallpaper_index = 0    
-    group_index_increment = 0
-    for l in range(len(orig_wallpapers)):
-        group = orig_wallpapers_group[l]
-        # making scrambled images
-        if filter_freq:
-            filter_str = '_f0fr' + str(filter_freq[l % len(filter_freq)])
-        else:
-            filter_str = ''
-           
-        if (ctrl_images == 'ps'):
-            # replace each image's magnitude with the average
-            ps_raw = replace_spectra(orig_wallpapers[l], ctrl_images, cmap=cmap)
-            #ps_filtered = (filter_img(ps_raw, wp_size_pix))
-            # masking the image (final step)
-            ps_masked = cm(mask_img(ps_raw, wp_size_pix))
-        if (ctrl_images == 'phase'):
-            # replace each image's magnitude with the average
-            if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
-                exemplar_index_increment = 0
-                freq_index_increment = freq_index_increment + 1
-                if filter_freq:
-                    mag_index = mag_index + 1
-            if not filter_freq and l % num_exemplars == 0 and l !=0:
-                mag_index = mag_index + 1
-            if filter_freq:
-                if((wallpaper_index + 1) % (len(filter_freq) * num_exemplars) == 0 and wallpaper_index != 0):
-                    group_index_increment =  group_index_increment + 1
-                    freq_index_increment = 0
-                    exemplar_index_increment = 0
-                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq) + group_index_increment * (len(filter_freq) * num_exemplars)
-            else:
-                wallpaper_index = l
-            if (same_magnitude):
-                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index], n=phases)[:,:,:]
-            else:
-                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, n=phases)[:,:,:]
-            exemplar_index_increment = exemplar_index_increment + 1
+        print('this groups mean {}'.format(this_groups_wallpapers.mean((2,3))))
+        print('this groups min {}'.format(this_groups_wallpapers.min((2,3))))
+        print('this groups max {}'.format(this_groups_wallpapers.max((2,3))))
+        # mask images
+        this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
 
-        group_number = map_group[group]
+        if  this_groups_controls is not None: # same for controls
+            # normalize range of pixel values to 0...1
+            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.mean((-1, -2)), -1), -1)
+            this_groups_controls = this_groups_controls / (np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)), -1), -1) - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1))
+            #this_groups_controls = this_groups_controls / np.expand_dims(np.expand_dims(this_groups_controls.std((-1, -2)), -1), -1)
+            this_groups_controls = this_groups_controls + 0.5
 
-        # saving averaged and scrambled images
-            
-        if (ctrl_images == 'phase'):
-            for e in range (scrambled_raw.shape[2]):
-                if (filter_freq):
-                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + l + 1) + str(e + 1) + '_' + \
-                        cmap + '_f0fr' + filter_str + '.' + save_fmt
-                else:
-                    scramblePath = save_path + '/' + \
-                        time_str + '_' + str(1000 * (group_number + 17) + l + 1) + str(e + 1) + '_' + \
-                        cmap + '.' + save_fmt
-                display(Markdown(str(1000 * (group_number + 17) + l + 1) +
-                                 '_' + cmap + filter_str))
-                # masking the image (final step)
-                clipped_scrambled_raw = clip_wallpaper(scrambled_raw[:,:,e], wp_size_pix)
-                if mask:
-                    scrambled_masked = (mask_img(clipped_scrambled_raw, wp_size_pix))
-                else:
-                    scrambled_masked = clipped_scrambled_raw
-                display(Image.fromarray(
-                    (scrambled_masked[:, :] * 255).astype(np.uint8)))
-                Image.fromarray(
-                    (scrambled_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+            # mask images
+            this_groups_controls = mask_imgs(this_groups_controls)
 
-        if (ctrl_images == 'ps'):
-            if (filter_freq):
-                scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + l + 1) + '_' + \
-                    cmap + '_f0fr' + \
-                    filter_str + '.' + save_fmt
-            else:
-                scramblePath = save_path + '/' + \
-                    time_str + '_' + str(1000 * (group_number + 34) + l + 1) + '_' + \
-                    cmap + '.' + save_fmt
-            display(Markdown(str(1000 * (group_number + 34) + l + 1) +
-                             '_' + cmap + filter_str))
-            display(Image.fromarray(
-                (ps_masked[:, :] * 255).astype(np.uint8)))
-            Image.fromarray(
-                (ps_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
-
-            
-            
+        # save images
+        for exemplar_idx in range(this_groups_wallpapers.shape[1]):
+            for filter_idx, filter_freq in enumerate(filter_freqs):
+                print('saving group {}, f0 {}, exemplar {}'.format(group,filter_freq,j))
+                filename =  '{save_path}/WP_{group}_{cmap}_f0_{f0}cpd_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
+                                                                                         group=group,cmap=cmap,
+                                                                                         f0=filter_freq, exemplar_idx=exemplar_idx, save_fmt=save_fmt)
+                Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(filename, save_fmt)
+                if this_groups_controls is not None:  # same for controls
+                    filename = '{save_path}/CRTL_{group}_{cmap}_f0_{f0}cpd_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
+                                                                                group=group, cmap=cmap, f0=filter_freq,
+                                                                                exemplar_idx=exemplar_idx,
+                                                                                save_fmt=save_fmt)
+                    Image.fromarray((this_groups_controls[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(filename, save_fmt)
 
         # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size_pix,1:wp_size_pix),y(1:wp_size_pix,1:wp_size_pix),z(1:wp_size_pix,1:wp_size_pix)),raw,avg_raw,filtered,'uni',false)
 
@@ -1348,7 +1243,7 @@ def filter_tile(in_tile, filter_intensity):
     return outTile;
 
 
-def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, filter_freq,
+def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic,
                 fundamental_region_source_type, is_dots, cmap, save_path, k, opt_texture=None):
     #  make_single(type,N,n,opt_texture)
     # generates single wallaper group image
@@ -1359,7 +1254,6 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
     # is_diagnostic whether to generate diagnostic images (outlining fundamental region and lattice)
     # isSpatFreqFilt generate a spatial frequency filtered wallpaper
     # fwhm full width at half maximum of spatial frequency filter
-    # whether spatialfrequency filter is lowpass or highpass
     # is_dots generate wallpaper using dots rather than random noise
 
     # default
@@ -1387,170 +1281,191 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             type(fundamental_region_source_type)))
     # do filtering
     image = []
-    if filter_freq:
-        num_wallpapers = len(filter_freq)
-    else:
-        num_wallpapers = 1
-    for i in range(num_wallpapers):
-        if filter_freq:
-            fundamental_region_filter = filter.Cosine_filter(filter_freq[i], n, angle / N * n)
-        else:
-            fundamental_region_filter = None
-        if fundamental_region_filter:
-            if isinstance(fundamental_region_filter, filter.Cosine_filter):
-                texture = fundamental_region_filter.filter_image(texture)
-                # scale texture into range 0...1
-                texture = (texture - texture.min()) / (texture.max() - texture.min())
+    try:
+        # generate the wallpapers
+        if wp_type == 'P0':
+            p0 = np.array(Image.resize(
+                reversed((texture.shape * round(N / n))), Image.NEAREST))
+            image.append(p0)
+        elif wp_type == 'P1':
+            width = n
+            height = width
+            p1 = texture[:height, :width]
+            p1_image = cat_tiles(p1, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p1_image, wp_type, p1, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p1_image)
+        elif wp_type == 'P2':
+            height = round(n / 2)
+            width = 2 * height
+            start_tile = texture[:height, :width]
+            tileR180 = np.rot90(start_tile, 2)
+            p2 = np.concatenate((start_tile, tileR180))
+            p2_image = cat_tiles(p2, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p2_image, wp_type, p2, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p2_image)
+        elif wp_type == 'PM':
+            height = round(n / 2)
+            width = 2 * height
+            start_tile = texture[:height, :width]
+            mirror = np.flipud(start_tile)
+            pm = np.concatenate((start_tile, mirror))
+            pm_image = cat_tiles(pm, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(pm_image, wp_type, pm, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(pm_image)
+        elif wp_type == 'PG':
+            height = round(n / 2)
+            width = 2 * height
+            start_tile = texture[:height, :width]
+            tile = np.rot90(start_tile, 3)
+            glide = np.flipud(tile)
+            pg = np.concatenate((tile, glide), axis=1)
+            pg_image = cat_tiles(pg.T, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(pg_image, wp_type, pg, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(pg_image)
+        elif wp_type == 'CM':
+            height = round(n / 2)
+            width = height
+            start_tile = texture[:height, :width]
+            mirror = np.fliplr(start_tile)
+            tile1 = np.concatenate((start_tile, mirror), axis=1)
+            tile2 = np.concatenate((mirror, start_tile), axis=1)
+            cm = np.concatenate((tile1, tile2))
+            cm_image = cat_tiles(cm, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(cm_image, wp_type, cm, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(cm_image)
+        elif wp_type == 'PMM':
+            height = round(n / 2)
+            width = height
+            start_tile = texture[:height, :width]
+            mirror = np.fliplr(start_tile)
+            concat_tmp1 = np.concatenate((start_tile, mirror), axis=1)
+            concat_tmp2 = np.concatenate(
+                (np.flipud(start_tile), np.flipud(mirror)), axis=1)
+            pmm = np.concatenate((concat_tmp1, concat_tmp2))
+            pmm_image = cat_tiles(pmm, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(pmm_image, wp_type, pmm, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(pmm_image)
+        elif wp_type == 'PMG':
+            height = round(n / 2)
+            width = height
+            start_tile = texture[:height, :width]
+            start_tile_rot180 = np.rot90(start_tile, 2)
+            concat_tmp1 = np.concatenate(
+                (start_tile, start_tile_rot180), axis=1)
+            concat_tmp2 = np.concatenate(
+                (np.flipud(start_tile), np.fliplr(start_tile)), axis=1)
+            pmg = np.concatenate((concat_tmp1, concat_tmp2))
+            pmg_image = cat_tiles(pmg, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(pmg_image, wp_type, pmg, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(pmg_image)
+        elif wp_type == 'PGG':
+            height = round(n / 2)
+            width = height
+            start_tile = texture[:height, :width]
+            start_tile_rot180 = np.rot90(start_tile, 2)
+            concat_tmp1 = np.concatenate(
+                (start_tile, np.flipud(start_tile)), axis=1)
+            concat_tmp2 = np.concatenate(
+                (np.fliplr(start_tile), start_tile_rot180), axis=1)
+            pgg = np.concatenate((concat_tmp1, concat_tmp2))
+            pgg_image = cat_tiles(pgg, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(pgg_image, wp_type, pgg, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(pgg_image)
+        elif wp_type == 'CMM':
+            height = round(n / 4)
+            width = 2 * height
+            start_tile = texture[:height, :width]
+            start_tile_rot180 = np.rot90(start_tile, 2)
+            tile1 = np.concatenate((start_tile, start_tile_rot180))
+            tile2 = np.flipud(tile1)
+            concat_tmp1 = np.concatenate((tile1, tile2), axis=1)
+            concat_tmp2 = np.concatenate((tile2, tile1), axis=1)
+            cmm = np.concatenate((concat_tmp1, concat_tmp2))
+            cmm_image = cat_tiles(cmm, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(cmm_image, wp_type, cmm, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(cmm_image)
+        elif wp_type == 'P4':
+            height = round(n / 2)
+            width = height
+            start_tile = texture[:height, :width]
+            start_tile_rot90 = np.rot90(start_tile, 1)
+            start_tile_rot180 = np.rot90(start_tile, 2)
+            start_tile_rot270 = np.rot90(start_tile, 3)
+            concat_tmp1 = np.concatenate(
+                (start_tile, start_tile_rot270), axis=1)
+            concat_tmp2 = np.concatenate(
+                (start_tile_rot90, start_tile_rot180), axis=1)
+            p4 = np.concatenate((concat_tmp1, concat_tmp2))
+            p4_image = cat_tiles(p4, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p4_image, wp_type, p4, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p4_image)
+        elif wp_type == 'P4M':
+            height = round(n / 2)
+            width = height
+            start_tile = texture[:height, :width]
+            xy = np.array([[0, 0], [width, height], [0, height], [0, 0]])
+            mask = skd.polygon2mask((height, width), xy)
+            tile1 = mask * start_tile
+            tile2 = np.fliplr(tile1)
+            tile2 = np.rot90(tile2, 1)
+            tile = np.maximum(tile1, tile2)
+            tile_rot90 = np.rot90(tile, 1)
+            tile_rot180 = np.rot90(tile, 2)
+            tile_rot270 = np.rot90(tile, 3)
+            concat_tmp1 = np.concatenate((tile, tile_rot270), axis=1)
+            concat_tmp2 = np.concatenate((tile_rot90, tile_rot180), axis=1)
+            p4m = np.concatenate((concat_tmp1, concat_tmp2))
+            p4m_image = cat_tiles(p4m, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p4m_image, wp_type, p4m, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p4m_image)
+        elif wp_type == 'P4G':
+            height = round(n / 2)
+            width = height
+            if (is_dots):
+                start_tile = texture[:height, :width].astype(np.uint32)
+                xy = np.array(
+                    [[0, 0], [width, 0], [width, height], [0, 0]]).astype(np.uint32)
+                mask = skd.polygon2mask((height, width), xy).astype(np.uint32)
+                tile1 = (mask.astype(np.uint32) *
+                         start_tile.astype(np.uint32)).astype(np.uint32)
+                tile1 = start_tile - tile1
+                tile2 = np.fliplr(tile1).astype(np.uint32)
+                tile2 = np.rot90(tile2, 1).astype(np.uint32)
+                tile = np.maximum(tile1, tile2).astype(np.uint32)
+                tile_rot90 = np.rot90(tile, 1).astype(np.uint32)
+                tile_rot180 = np.rot90(tile, 2).astype(np.uint32)
+                tile_rot270 = np.rot90(tile, 3).astype(np.uint32)
+                concat_tmp1 = np.concatenate(
+                    (tile_rot270, tile_rot180), axis=1).astype(np.uint32)
+                concat_tmp2 = np.concatenate(
+                    (tile, tile_rot90), axis=1).astype(np.uint32)
+                p4g = np.concatenate(
+                    (concat_tmp1, concat_tmp2)).astype(np.uint32)
             else:
-                raise Exception('this filter type ({}) is not implemented'.format(
-                    type(fundamental_region_filter)))
-        # else:
-           # TODO: not exactly sure, what this lowpass filter is supposed to do. in any case:
-           #       it should be adapted to this structure that separates the noise generation from the filtering
-        
-        try:
-            # generate the wallpapers
-            if wp_type == 'P0':
-                p0 = np.array(Image.resize(
-                    reversed((texture.shape * round(N / n))), Image.NEAREST))
-                image.append(p0)
-            elif wp_type == 'P1':
-                width = n
-                height = width
-                p1 = texture[:height, :width]
-                p1_image = cat_tiles(p1, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p1_image, wp_type, p1, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p1_image)
-            elif wp_type == 'P2':
-                height = round(n / 2)
-                width = 2 * height
                 start_tile = texture[:height, :width]
-                tileR180 = np.rot90(start_tile, 2)
-                p2 = np.concatenate((start_tile, tileR180))
-                p2_image = cat_tiles(p2, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p2_image, wp_type, p2, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p2_image)
-            elif wp_type == 'PM':
-                height = round(n / 2)
-                width = 2 * height
-                start_tile = texture[:height, :width]
-                mirror = np.flipud(start_tile)
-                pm = np.concatenate((start_tile, mirror))
-                pm_image = cat_tiles(pm, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(pm_image, wp_type, pm, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(pm_image)
-            elif wp_type == 'PG':
-                height = round(n / 2)
-                width = 2 * height
-                start_tile = texture[:height, :width]
-                tile = np.rot90(start_tile, 3)
-                glide = np.flipud(tile)
-                pg = np.concatenate((tile, glide), axis=1)
-                pg_image = cat_tiles(pg.T, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(pg_image, wp_type, pg, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(pg_image)
-            elif wp_type == 'CM':
-                height = round(n / 2)
-                width = height
-                start_tile = texture[:height, :width]
-                mirror = np.fliplr(start_tile)
-                tile1 = np.concatenate((start_tile, mirror), axis=1)
-                tile2 = np.concatenate((mirror, start_tile), axis=1)
-                cm = np.concatenate((tile1, tile2))
-                cm_image = cat_tiles(cm, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(cm_image, wp_type, cm, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(cm_image)
-            elif wp_type == 'PMM':
-                height = round(n / 2)
-                width = height
-                start_tile = texture[:height, :width]
-                mirror = np.fliplr(start_tile)
-                concat_tmp1 = np.concatenate((start_tile, mirror), axis=1)
-                concat_tmp2 = np.concatenate(
-                    (np.flipud(start_tile), np.flipud(mirror)), axis=1)
-                pmm = np.concatenate((concat_tmp1, concat_tmp2))
-                pmm_image = cat_tiles(pmm, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(pmm_image, wp_type, pmm, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(pmm_image)
-            elif wp_type == 'PMG':
-                height = round(n / 2)
-                width = height
-                start_tile = texture[:height, :width]
-                start_tile_rot180 = np.rot90(start_tile, 2)
-                concat_tmp1 = np.concatenate(
-                    (start_tile, start_tile_rot180), axis=1)
-                concat_tmp2 = np.concatenate(
-                    (np.flipud(start_tile), np.fliplr(start_tile)), axis=1)
-                pmg = np.concatenate((concat_tmp1, concat_tmp2))
-                pmg_image = cat_tiles(pmg, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(pmg_image, wp_type, pmg, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(pmg_image)
-            elif wp_type == 'PGG':
-                height = round(n / 2)
-                width = height
-                start_tile = texture[:height, :width]
-                start_tile_rot180 = np.rot90(start_tile, 2)
-                concat_tmp1 = np.concatenate(
-                    (start_tile, np.flipud(start_tile)), axis=1)
-                concat_tmp2 = np.concatenate(
-                    (np.fliplr(start_tile), start_tile_rot180), axis=1)
-                pgg = np.concatenate((concat_tmp1, concat_tmp2))
-                pgg_image = cat_tiles(pgg, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(pgg_image, wp_type, pgg, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(pgg_image)
-            elif wp_type == 'CMM':
-                height = round(n / 4)
-                width = 2 * height
-                start_tile = texture[:height, :width]
-                start_tile_rot180 = np.rot90(start_tile, 2)
-                tile1 = np.concatenate((start_tile, start_tile_rot180))
-                tile2 = np.flipud(tile1)
-                concat_tmp1 = np.concatenate((tile1, tile2), axis=1)
-                concat_tmp2 = np.concatenate((tile2, tile1), axis=1)
-                cmm = np.concatenate((concat_tmp1, concat_tmp2))
-                cmm_image = cat_tiles(cmm, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(cmm_image, wp_type, cmm, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(cmm_image)
-            elif wp_type == 'P4':
-                height = round(n / 2)
-                width = height
-                start_tile = texture[:height, :width]
-                start_tile_rot90 = np.rot90(start_tile, 1)
-                start_tile_rot180 = np.rot90(start_tile, 2)
-                start_tile_rot270 = np.rot90(start_tile, 3)
-                concat_tmp1 = np.concatenate(
-                    (start_tile, start_tile_rot270), axis=1)
-                concat_tmp2 = np.concatenate(
-                    (start_tile_rot90, start_tile_rot180), axis=1)
-                p4 = np.concatenate((concat_tmp1, concat_tmp2))
-                p4_image = cat_tiles(p4, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p4_image, wp_type, p4, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p4_image)
-            elif wp_type == 'P4M':
-                height = round(n / 2)
-                width = height
-                start_tile = texture[:height, :width]
-                xy = np.array([[0, 0], [width, height], [0, height], [0, 0]])
+                xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
                 mask = skd.polygon2mask((height, width), xy)
                 tile1 = mask * start_tile
                 tile2 = np.fliplr(tile1)
@@ -1559,137 +1474,97 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                 tile_rot90 = np.rot90(tile, 1)
                 tile_rot180 = np.rot90(tile, 2)
                 tile_rot270 = np.rot90(tile, 3)
-                concat_tmp1 = np.concatenate((tile, tile_rot270), axis=1)
-                concat_tmp2 = np.concatenate((tile_rot90, tile_rot180), axis=1)
-                p4m = np.concatenate((concat_tmp1, concat_tmp2))
-                p4m_image = cat_tiles(p4m, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p4m_image, wp_type, p4m, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p4m_image)
-            elif wp_type == 'P4G':
-                height = round(n / 2)
-                width = height
-                if (is_dots):
-                    start_tile = texture[:height, :width].astype(np.uint32)
-                    xy = np.array(
-                        [[0, 0], [width, 0], [width, height], [0, 0]]).astype(np.uint32)
-                    mask = skd.polygon2mask((height, width), xy).astype(np.uint32)
-                    tile1 = (mask.astype(np.uint32) *
-                             start_tile.astype(np.uint32)).astype(np.uint32)
-                    tile1 = start_tile - tile1
-                    tile2 = np.fliplr(tile1).astype(np.uint32)
-                    tile2 = np.rot90(tile2, 1).astype(np.uint32)
-                    tile = np.maximum(tile1, tile2).astype(np.uint32)
-                    tile_rot90 = np.rot90(tile, 1).astype(np.uint32)
-                    tile_rot180 = np.rot90(tile, 2).astype(np.uint32)
-                    tile_rot270 = np.rot90(tile, 3).astype(np.uint32)
-                    concat_tmp1 = np.concatenate(
-                        (tile_rot270, tile_rot180), axis=1).astype(np.uint32)
-                    concat_tmp2 = np.concatenate(
-                        (tile, tile_rot90), axis=1).astype(np.uint32)
-                    p4g = np.concatenate(
-                        (concat_tmp1, concat_tmp2)).astype(np.uint32)
-                else:
-                    start_tile = texture[:height, :width]
-                    xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
-                    mask = skd.polygon2mask((height, width), xy)
-                    tile1 = mask * start_tile
-                    tile2 = np.fliplr(tile1)
-                    tile2 = np.rot90(tile2, 1)
-                    tile = np.maximum(tile1, tile2)
-                    tile_rot90 = np.rot90(tile, 1)
-                    tile_rot180 = np.rot90(tile, 2)
-                    tile_rot270 = np.rot90(tile, 3)
-                    concat_tmp1 = np.concatenate(
-                        (tile_rot270, tile_rot180), axis=1)
-                    concat_tmp2 = np.concatenate((tile, tile_rot90), axis=1)
-                    p4g = np.concatenate((concat_tmp1, concat_tmp2))
-                p4g_image = cat_tiles(p4g, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p4g_image, wp_type, p4g, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p4g_image)
-            elif wp_type == 'P3':
-                alpha = np.pi / 3
-                s = n / math.sqrt(3 * np.tan(alpha))
-                height = math.floor(s * 1.5)
+                concat_tmp1 = np.concatenate(
+                    (tile_rot270, tile_rot180), axis=1)
+                concat_tmp2 = np.concatenate((tile, tile_rot90), axis=1)
+                p4g = np.concatenate((concat_tmp1, concat_tmp2))
+            p4g_image = cat_tiles(p4g, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p4g_image, wp_type, p4g, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p4g_image)
+        elif wp_type == 'P3':
+            alpha = np.pi / 3
+            s = n / math.sqrt(3 * np.tan(alpha))
+            height = math.floor(s * 1.5)
     
-                start_tile = texture[:height, :]
-                if (is_dots):
-                    p3 = new_p3(texture, is_dots)
-                else:
-                    p3 = new_p3(start_tile, is_dots)
-                p3_image = cat_tiles(p3, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p3_image, wp_type, p3, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p3_image)
-            elif wp_type == 'P3M1':
-                alpha = np.pi / 3
-                s = n / math.sqrt(3 * np.tan(alpha))
-                height = round(s)
-                start_tile = texture[:height, :]
-                if (is_dots):
-                    p3m1 = new_p3m1(texture, is_dots)
-                else:
-                    p3m1 = new_p3m1(start_tile, is_dots)
-                p3m1_image = cat_tiles(p3m1, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p3m1_image, wp_type, p3m1, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p3m1_image)
-            elif wp_type == 'P31M':
-                s = n / math.sqrt(math.sqrt(3))
-                height = round(s)
-                start_tile = texture[:height, :]
-                if (is_dots):
-                    p31m = new_p31m(texture, is_dots)
-                else:
-                    p31m = new_p31m(start_tile, is_dots)
-    
-                # ugly trick
-                p31m_1 = np.fliplr(np.transpose(p31m))
-                p31m_image = cat_tiles(p31m_1, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p31m_image, wp_type, p31m_1, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p31m_image)
-            elif wp_type == 'P6':
-                s = n / math.sqrt(math.sqrt(3))
-                height = round(s)
-                start_tile = texture[:height, :]
-                if (is_dots):
-                    p6 = new_p6(texture, is_dots)
-                else:
-                    p6 = new_p6(start_tile, is_dots)
-                p6_image = cat_tiles(p6, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p6_image, wp_type, p6, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p6_image)
-            elif wp_type == 'P6M':
-                s = n / math.sqrt(math.sqrt(3))
-                height = round(s / 2)
-                start_tile = texture[:height, :]
-                if (is_dots):
-                    p6m = new_p6m(texture, is_dots)
-                else:
-                    p6m = new_p6m(start_tile, is_dots)
-                p6m_image = cat_tiles(p6m, N, wp_type)
-                if (is_diagnostic):
-                    diagnostic(p6m_image, wp_type, p6m, is_fr, is_lattice,
-                               N, ratio, cmap, is_dots, save_path, k)
-                image.append(p6m_image)
+            start_tile = texture[:height, :]
+            if (is_dots):
+                p3 = new_p3(texture, is_dots)
             else:
-                warnings.warn(
-                    'Unexpected Wallpaper Group type. Returning random noise.', UserWarning)
-                image = np.matlib.repmat(texture, [np.ceil(N / n),  np.ceil(N / n)])
-                return image
-        except Exception as err:
-            print('new_SymmetricNoise:Error making ' + wp_type)
-            print(err.args)
-    return image
+                p3 = new_p3(start_tile, is_dots)
+            p3_image = cat_tiles(p3, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p3_image, wp_type, p3, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p3_image)
+        elif wp_type == 'P3M1':
+            alpha = np.pi / 3
+            s = n / math.sqrt(3 * np.tan(alpha))
+            height = round(s)
+            start_tile = texture[:height, :]
+            if (is_dots):
+                p3m1 = new_p3m1(texture, is_dots)
+            else:
+                p3m1 = new_p3m1(start_tile, is_dots)
+            p3m1_image = cat_tiles(p3m1, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p3m1_image, wp_type, p3m1, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p3m1_image)
+        elif wp_type == 'P31M':
+            s = n / math.sqrt(math.sqrt(3))
+            height = round(s)
+            start_tile = texture[:height, :]
+            if (is_dots):
+                p31m = new_p31m(texture, is_dots)
+            else:
+                p31m = new_p31m(start_tile, is_dots)
+    
+            # ugly trick
+            p31m_1 = np.fliplr(np.transpose(p31m))
+            p31m_image = cat_tiles(p31m_1, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p31m_image, wp_type, p31m_1, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p31m_image)
+        elif wp_type == 'P6':
+            s = n / math.sqrt(math.sqrt(3))
+            height = round(s)
+            start_tile = texture[:height, :]
+            if (is_dots):
+                p6 = new_p6(texture, is_dots)
+            else:
+                p6 = new_p6(start_tile, is_dots)
+            p6_image = cat_tiles(p6, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p6_image, wp_type, p6, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p6_image)
+        elif wp_type == 'P6M':
+            s = n / math.sqrt(math.sqrt(3))
+            height = round(s / 2)
+            start_tile = texture[:height, :]
+            if (is_dots):
+                p6m = new_p6m(texture, is_dots)
+            else:
+                p6m = new_p6m(start_tile, is_dots)
+            p6m_image = cat_tiles(p6m, N, wp_type)
+            if (is_diagnostic):
+                diagnostic(p6m_image, wp_type, p6m, is_fr, is_lattice,
+                           N, ratio, cmap, is_dots, save_path, k)
+            image.append(p6m_image)
+        else:
+            warnings.warn(
+                'Unexpected Wallpaper Group type. Returning random noise.', UserWarning)
+            image = np.matlib.repmat(texture, [np.ceil(N / n),  np.ceil(N / n)])
+            return image
+    except Exception as err:
+        print('new_SymmetricNoise:Error making ' + wp_type)
+        print(err.args)
+
+    clipped_image = clip_wallpaper(np.array(image).squeeze(), N)
+    return clipped_image
 
 
 def cat_tiles(tile, N, wp_type):
@@ -2894,37 +2769,54 @@ def mask_img(inImg, N):
     out_img[mask == 0] = 0.5
     return out_img
 
+def mask_imgs(imgs, radius=None):
+    w = imgs.shape[-2]
+    h = imgs.shape[-1]
+    center = (int(w/2), int(h/2))
+    if radius is None:
+        radius = min(center[0], center[1], w-center[0], h-center[1])
+    assert 2*radius <= w , '{} > {}'.format(2*radius, w)
+    assert 2*radius <= h , '{} > {}'.format(2*radius, h)
+    x,y = np.ogrid[:w,:h]
+    dists = np.sqrt((x-center[0])**2 + (y-center[1])**2)
+    mask = dists>radius
+    imgs[np.broadcast_to(mask,imgs.shape)] = 0.5
+    return imgs
+
+
 # replace spectra
+
 
 
 def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), cmap="gray", n = 1):
     in_image = (in_image / np.max(in_image)) * 2.0 - 1.0
     
     # phase scrambling
-    if ctrl_images == 'phase':
+    if ctrl_images == 'phase': # should be renamed to avoid confusion with 'hard' phase scrambling
         return minPhaseInterp(in_image, n)
     
     # Portilla-Simoncelli scrambling
     if ctrl_images == 'ps':
         out_image = psScramble(in_image, cmap)
     else:
-        in_spectrum = np.fft.fft2( in_image )
+        in_spectrum = np.fft.rfft2( in_image )
     
-        phase = np.fft.fftshift(np.angle(in_spectrum))
-        mag = np.fft.fftshift(np.abs(in_spectrum))
-
+        mag = np.abs(in_spectrum)
+        rand_phase = np.random.uniform(-np.pi, np.pi, mag.shape)
+        # don't think this ins necessary if the incoming image has the correct spectrum already
         # use new magnitude instead
         if(use_magnitude.size != 0):
             mag = use_magnitude
-        cmplx_im = mag * np.exp(1j * phase)
+        cmplx_im = mag * np.exp(1j * rand_phase)
 
         # get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
         # out_image = np.abs(np.real(np.fft.ifft2(cmplx_im)))
         # the above does not seem to work, instead use code below
         # cribbed from https://www.djmannion.net/psych_programming/vision/sf_filt/sf_filt.html
-        out_image = np.real(np.fft.ifft2(np.fft.ifftshift(cmplx_im)))
+        out_image = np.real(np.fft.irfft2(cmplx_im))
 
     # standardize image
+    # not sure if this shoud be done here
     out_image = out_image - np.mean(out_image)
     out_image = out_image / np.std(out_image)
     out_image = out_image * 0.5 ## TO DO: MAKE THIS AN ADJUSTABLE INPUT VARIABLE
@@ -3150,7 +3042,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_fmt', '-f', default="png", type=str,
                         help='Image save format')
     parser.add_argument('--filter_freq', '-f0fr', nargs='+',  default=[], type=str2list,
-                        help='Center frequency (in cycle per degree) for dyadic bandpass filtering the fundamental region. [] does not invoke filtering. Might be extended for a multichannel filterbanks later.')
+                        help='Center frequency (in cycle per degree) applying a dyadic bandpass to wallpaper. [] does not invoke filtering. Might be extended for a multichannel filterbanks later. Then we will use the list structure')
     parser.add_argument('--save_raw', '-r', default=False, type=str2bool,
                         help='save raw')
     parser.add_argument('--ctrl_images', '-cimg', default='False', type=str,
@@ -3159,15 +3051,21 @@ if __name__ == "__main__":
                         help='New magnitude')
     parser.add_argument('--cmap', '-c', default="gray", type=str,
                         help='Color or greyscale map (hsv or gray)')
-    parser.add_argument('--diagnostic', '-diag', default=True, type=str2bool,
+    parser.add_argument('--diagnostic', '-diag', default=False, type=str2bool,
                         help='Produce diagnostics for wallpapers')
     parser.add_argument('--mask', '-msk', default=True, type=str2bool,
                         help='Mask output wallpaper with circular aperture')
     parser.add_argument('--debug', '-b', default=False, type=str2bool,
                         help='Debugging default parameters on')
-
+    parser.add_argument('--save_path', '-p', default="wallpapers", type=str,
+                        help='Path to save wallpapers to')
     args = parser.parse_args()
 
     # need to investigate error in eval function
-    make_set(args.groups, args.num_exemplars, args.wp_size_dva, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.filter_freq, args.save_fmt, args.save_raw,
-                 args.ctrl_images, args.same_magnitude, args.cmap, args.diagnostic, args.mask, args.debug)
+    make_set(groups=args.groups, num_exemplars=args.num_exemplars, wp_size_dva=args.wp_size_dva,
+             wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing, fr_sizing=args.fr_sizing,
+             ratio=args.ratio, is_dots=args.dots, filter_freqs=[2,5],
+              save_fmt=args.save_fmt, save_raw=args.save_raw,
+             ctrl_images=args.ctrl_images, same_magnitude=True, cmap=args.cmap,
+             is_diagnostic=args.diagnostic, save_path=args.save_path, mask=args.mask, debug=args.debug)
+
