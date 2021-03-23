@@ -1367,8 +1367,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
 
     if fundamental_region_source_type == 'uniform_noise' and is_dots is False:
         print('uniform noise')
-        grain = 1;
-        texture = filter_tile(np.random.rand(n, n), grain);
+        texture = np.random.rand(n, n);
     elif is_dots:
         print('random dots')
         texture = dot_texture(n, 0.05, 0.05, 5, wp_type)
@@ -3169,5 +3168,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # need to investigate error in eval function
-    make_set(args.groups, args.num_exemplars, args.wp_size_dva, args.wallpaperSize, args.lattice_sizing, args.fr_sizing, args.ratio, args.dots, args.filter_freq, args.save_fmt, args.save_raw,
-                 args.ctrl_images, args.same_magnitude, args.cmap, args.diagnostic, args.mask, args.debug)
+    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
+                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
+                 fr_sizing=args.fr_sizing, ratio=0.3, is_dots=args.dots, filter_freq=[4],
+                 save_fmt=args.save_fmt, save_raw=args.save_raw, ctrl_images='phase', phases = 1,
+                 same_magnitude=args.same_magnitude,
+                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
+                 debug=args.debug)
