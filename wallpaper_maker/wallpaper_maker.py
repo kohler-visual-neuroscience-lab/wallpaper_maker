@@ -10,6 +10,8 @@ tile area, image save format, save raw, print analysis, Portilla-Simoncelli scra
 Check function for expected data types for each argument.
 
 """
+from numpy.core._multiarray_umath import ndarray
+
 import pss_g
 import filter
 import os
@@ -54,7 +56,7 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
-             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freq: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', phases: int = 1, same_magnitude: bool = False,
+             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freqs: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', phases: int = 1, same_magnitude: bool = False,
              cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", mask: bool = True, debug: bool = False):
 
     # save parameters
@@ -85,10 +87,10 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         map_group[key_set[i]] = value_set[i]
     Groups = groups
     raw_path = ''
-    if (not filter_freq):
+    if (not filter_freqs):
         filter_freq_str = "No filtering applied"
     else:
-        filter_freq_str = ','.join(str(x) for x in filter_freq)
+        filter_freq_str = ','.join(str(x) for x in filter_freqs)
     try:
         if(save_raw):
             raw_path = os.path.join(save_path, "raw")
@@ -107,218 +109,128 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     avg_mag = []
     mags = []
     cm = plt.get_cmap(cmap)
-    for i in range(len(Groups)):
+
+    for group_idx, group in enumerate(Groups):
         # making regular images
-        print('generating ', Groups[i])
-        group = Groups[i]
+        print('generating ', group)
         if lattice_sizing:
             n = size_lattice(ratio, wp_size_pix, group)
         elif fr_sizing:
             n = size_fundamental_region(ratio, wp_size_pix, group)
         else:
             n = size_tile(ratio, wp_size_pix, group)
-        raw = []             
+
+        if filter_freqs:
+            this_groups_wallpapers = [[] for i in filter_freqs]
+        else:
+            this_groups_wallpapers = [[]]
+
         for k in range(num_exemplars):
+            print('filter_freqs {}'.format(filter_freqs))
             raw = make_single(group, wp_size_pix, int(n), fr_sizing, lattice_sizing, ratio, wp_size_dva, is_diagnostic,
-                                  filter_freq, fundamental_region_source_type, is_dots, cmap, save_path, k)
+                              filter_freqs, fundamental_region_source_type, is_dots, cmap, save_path, k)
+            raw = np.array(raw).squeeze()
+            if raw.ndim==2:
+                raw = np.expand_dims(raw,0)
+
             group_number = map_group[group]
             if(save_raw):
                 raw_path_tmp = raw_path + '/' + time_str + '_' + str(1000 * group_number + k + 1) + \
                     '_' + cmap + '.' + save_fmt
-                display(Markdown(str(1000 * group_number + k + 1) +
-                                 '_' + cmap + '_raw'))
+                display(Markdown(str(1000 * group_number + k + 1) + '_' + cmap + '_raw'))
                 for s in range(len(raw)):
                     clipped_raw = clip_wallpaper(np.array(raw[s]), wp_size_pix)
                     display(Image.fromarray(
                         (clipped_raw[:, :] * 255).astype(np.uint8)))
                     Image.fromarray(
                         (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
-            
+
             # low-pass filtering + histeq
-            if filter_freq:
-                num_each_wallpaper = len(filter_freq)
-            else:
-                num_each_wallpaper = 1
-            for o in range(num_each_wallpaper):
-                filtered = (filter_img(raw[o], wp_size_pix))
-                orig_wallpapers_group.append(Groups[i])
-                orig_wallpapers.append(filtered)
+#            if filter_freqs:
+#                for i in range(len(filter_freqs)):
+#                       #this_groups_wallpapers[i,k]= filter_img(raw[i], wp_size_pix)
+#                       this_groups_wallpapers[i].append( filter_img(raw[i], wp_size_pix))
+#            else:
+#                this_groups_wallpapers.append( filter_img(raw, wp_size_pix))
+
+            for i, this_raw in enumerate(raw):
+                this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
+
+        this_groups_wallpapers = np.array(this_groups_wallpapers)
         #scipy.io.savemat('arrdata.mat', mdict={'arr': orig_wallpapers[0]})
-    if same_magnitude:
-        if filter_freq:
-            for w in range(len(Groups)):
-                for p in range(len(filter_freq)):
-                    mags = []
-                    for q in range(num_exemplars):
-                        mags.append(np.fft.fftshift(np.abs( np.fft.fft2(orig_wallpapers[p + (q * len(filter_freq)) + w * (len(filter_freq) * num_exemplars)]))))
-                    avg_mag.append(np.median(np.array(mags), 0))
+        if same_magnitude:
+            # normalize psd across exemplars per group and filter
+            this_groups_wallpapers_spec = np.fft.rfft2(this_groups_wallpapers)
+            this_groups_wallpapers_mag_mean = np.abs(this_groups_wallpapers_spec).mean(-3)
+            this_groups_wallpapers_spec_phase = np.angle(this_groups_wallpapers_spec)
+            this_groups_wallpapers_spec = np.expand_dims(this_groups_wallpapers_mag_mean,-3) * np.exp(1j * this_groups_wallpapers_spec_phase)
+            this_groups_wallpapers = np.fft.irfft2(this_groups_wallpapers_spec)
+
+        # generate scrambled controls
+        if ctrl_images:
+            this_groups_controls: ndarray = np.zeros(this_groups_wallpapers.shape)
+            for i in range(this_groups_wallpapers.shape[0]):
+                for j in range(this_groups_wallpapers.shape[1]):
+                    # don't believe we need the option use_magnitude here, since the magnitude of the wallpaper is unchanged in the case of ctrl_images=='phase'
+                    this_groups_controls[i,j] = replace_spectra(this_groups_wallpapers[i,j], ctrl_images, cmap=cmap)
         else:
-            for w in range(len(Groups)):
-                mags = []
-                for q in range(num_exemplars):
-                    mags.append(np.fft.fftshift(np.abs(np.fft.fft2(orig_wallpapers[q + num_exemplars * w]))))
-                avg_mag.append(np.median(np.array(mags), 0))
-    for n in range(len(avg_mag)):
-        print(len(avg_mag[n]))
-    # image processing steps
-    exemplar_index_increment = 0
-    freq_index_increment = 0
-    group_index_increment = 0
-    wallpaper_index = 0
-    mag_index = 0
-    for j in range(len(orig_wallpapers)):
-        group = orig_wallpapers_group[j]
-        group_number = map_group[group]
-        if not is_dots:
-            # replace each image's magnitude with the average   
-            if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
-                exemplar_index_increment = 0
-                freq_index_increment = freq_index_increment + 1
-                if filter_freq:
-                    mag_index = mag_index + 1
-            if not filter_freq and j % num_exemplars == 0 and j !=0:
-                mag_index = mag_index + 1
-            if filter_freq:
-                if((wallpaper_index + 1) % (len(filter_freq) * num_exemplars) == 0 and wallpaper_index != 0):
-                    group_index_increment =  group_index_increment + 1
-                    freq_index_increment = 0
-                    exemplar_index_increment = 0
-                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq) + group_index_increment * (len(filter_freq) * num_exemplars)
-            else:
-                wallpaper_index = j
-            if (same_magnitude):  
-                avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index], use_magnitude=np.array(avg_mag[mag_index])))
-            else:
-                avg_raw = (replace_spectra(orig_wallpapers[wallpaper_index]))
-            exemplar_index_increment = exemplar_index_increment + 1
-            # masking the image (final step)
-            clipped_avg_raw = clip_wallpaper(avg_raw, wp_size_pix)
-            if mask:
-                masked = (mask_img(clipped_avg_raw, wp_size_pix))
-            else:
-                masked = clipped_avg_raw
-            if filter_freq:
-                filter_str = '_f0fr' + str(filter_freq[j % len(filter_freq)])
-            else:
-                filter_str = ''
+            this_groups_controls = []
 
-            main_str = str(1000 * group_number + j + 1) + '_' + \
-                cmap + filter_str
+        #crop wallpapers and controls
+        print('ratio {}'.format(ratio))
+        w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
+        h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
+        this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
+        if ctrl_images:
+            this_groups_controls = this_groups_controls[..., w_idxs, :][..., h_idxs]
 
-            pattern_path = "{0}/{1}_{2}.{3}".format(
-                save_path, time_str, main_str, save_fmt)
+        # normalize range of pixel values
+        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1)
+        this_groups_wallpapers = this_groups_wallpapers / (np.expand_dims(np.expand_dims(this_groups_wallpapers.max((-1,-2)),-1),-1)-np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1))
 
-            if (is_dots):
-                Image.fromarray((raw[:, :]).astype(
-                    np.uint32), 'RGBA').save(pattern_path, "png")
-                display(Markdown(str(1000 * group_number + j + 1) +
-                                 '_' + cmap))
-                display(Image.fromarray(
-                    (raw[:, :]).astype(np.uint32), 'RGBA'))
-            else:
-                Image.fromarray(
-                    (masked[:, :] * 255).astype(np.uint8)).save(pattern_path, save_fmt)
-                display(Markdown(str(1000 * group_number + j + 1) +
-                                 '_' + cmap + filter_str))
-                display(Image.fromarray((masked[:, :] * 255).astype(np.uint8)))    
-                
-    # generating wallpapers, saving freq. representations
-    
-    # scrambled image processing steps
-    exemplar_index_increment = 0
-    freq_index_increment = 0
-    mag_index = 0
-    wallpaper_index = 0    
-    group_index_increment = 0
-    for l in range(len(orig_wallpapers)):
-        group = orig_wallpapers_group[l]
-        # making scrambled images
-        if filter_freq:
-            filter_str = '_f0fr' + str(filter_freq[l % len(filter_freq)])
-        else:
-            filter_str = ''
-           
-        if (ctrl_images == 'ps'):
-            # replace each image's magnitude with the average
-            ps_raw = replace_spectra(orig_wallpapers[l], ctrl_images, cmap=cmap)
-            #ps_filtered = (filter_img(ps_raw, wp_size_pix))
-            # masking the image (final step)
-            ps_masked = cm(mask_img(ps_raw, wp_size_pix))
-        if (ctrl_images == 'phase'):
-            # replace each image's magnitude with the average
-            if freq_index_increment + exemplar_index_increment * len(filter_freq) == len(filter_freq) * num_exemplars + freq_index_increment:
-                exemplar_index_increment = 0
-                freq_index_increment = freq_index_increment + 1
-                if filter_freq:
-                    mag_index = mag_index + 1
-            if not filter_freq and l % num_exemplars == 0 and l !=0:
-                mag_index = mag_index + 1
-            if filter_freq:
-                if((wallpaper_index + 1) % (len(filter_freq) * num_exemplars) == 0 and wallpaper_index != 0):
-                    group_index_increment =  group_index_increment + 1
-                    freq_index_increment = 0
-                    exemplar_index_increment = 0
-                wallpaper_index = freq_index_increment + exemplar_index_increment * len(filter_freq) + group_index_increment * (len(filter_freq) * num_exemplars)
-            else:
-                wallpaper_index = l
-            if (same_magnitude):
-                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, use_magnitude=avg_mag[mag_index], n=phases)[:,:,:]
-            else:
-                scrambled_raw = replace_spectra(orig_wallpapers[wallpaper_index], ctrl_images, cmap=cmap, n=phases)[:,:,:]
-            exemplar_index_increment = exemplar_index_increment + 1
+        # mask images
+        this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
 
-        group_number = map_group[group]
+        if  this_groups_controls is not None: # same for controls
+            # normalize range of pixel values to 0...1
+            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1)
+            this_groups_controls = this_groups_controls / (np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)), -1), -1) - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1))
 
-        # saving averaged and scrambled images
-            
-        if (ctrl_images == 'phase'):
-            for e in range (scrambled_raw.shape[2]):
-                if (filter_freq):
-                    scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 17) + l + 1) + str(e + 1) + '_' + \
-                        cmap + '_f0fr' + filter_str + '.' + save_fmt
+            # mask images
+            this_groups_controls = mask_imgs(this_groups_controls)
+
+        # save images
+        for exemplar_idx in range(this_groups_wallpapers.shape[1]):
+            for filter_idx in range(this_groups_wallpapers.shape[0]):
+                if filter_freqs:
+                    filter_freq = filter_freqs[filter_idx]
+                    wp_filename =  '{save_path}/WP_{group}_{cmap}_f0fr_{f0}cpd_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
+                                                                                         group=group,cmap=cmap,
+                                                                                         f0=filter_freq, ratio=ratio,exemplar_idx=exemplar_idx, save_fmt=save_fmt)
+                    ctrl_filename = '{save_path}/CRTL_{group}_{cmap}_f0fr_{f0}cpd_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
+                                                                                                                             group=group, cmap=cmap, f0=filter_freq,ratio=ratio,
+                                                                                                                             exemplar_idx=exemplar_idx,
+                                                                                                                             save_fmt=save_fmt)
                 else:
-                    scramblePath = save_path + '/' + \
-                        time_str + '_' + str(1000 * (group_number + 17) + l + 1) + str(e + 1) + '_' + \
-                        cmap + '.' + save_fmt
-                display(Markdown(str(1000 * (group_number + 17) + l + 1) +
-                                 '_' + cmap + filter_str))
-                # masking the image (final step)
-                clipped_scrambled_raw = clip_wallpaper(scrambled_raw[:,:,e], wp_size_pix)
-                if mask:
-                    scrambled_masked = (mask_img(clipped_scrambled_raw, wp_size_pix))
-                else:
-                    scrambled_masked = clipped_scrambled_raw
-                display(Image.fromarray(
-                    (scrambled_masked[:, :] * 255).astype(np.uint8)))
-                Image.fromarray(
-                    (scrambled_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+                    wp_filename =  '{save_path}/WP_{group}_{cmap}_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
+                                                                                                                               group=group,cmap=cmap,
+                                                                                                                                ratio=ratio,exemplar_idx=exemplar_idx, save_fmt=save_fmt)
+                    ctrl_filename = '{save_path}/CRTL_{group}_{cmap}_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
+                                                                                                                                  group=group, cmap=cmap, ratio=ratio,
+                                                                                                                                  exemplar_idx=exemplar_idx,
+                                                                                                                                  save_fmt=save_fmt)
 
-        if (ctrl_images == 'ps'):
-            if (filter_freq):
-                scramblePath = save_path + '/' + time_str + '_' + str(1000 * (group_number + 34) + l + 1) + '_' + \
-                    cmap + '_f0fr' + \
-                    filter_str + '.' + save_fmt
-            else:
-                scramblePath = save_path + '/' + \
-                    time_str + '_' + str(1000 * (group_number + 34) + l + 1) + '_' + \
-                    cmap + '.' + save_fmt
-            display(Markdown(str(1000 * (group_number + 34) + l + 1) +
-                             '_' + cmap + filter_str))
-            display(Image.fromarray(
-                (ps_masked[:, :] * 255).astype(np.uint8)))
-            Image.fromarray(
-                (ps_masked[:, :] * 255).astype(np.uint8)).save(scramblePath, save_fmt)
+                Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
+                if this_groups_controls is not None:  # same for controls
+                    Image.fromarray((this_groups_controls[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
 
-            
-            
+            # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size_pix,1:wp_size_pix),y(1:wp_size_pix,1:wp_size_pix),z(1:wp_size_pix,1:wp_size_pix)),raw,avg_raw,filtered,'uni',false)
 
-        # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size_pix,1:wp_size_pix),y(1:wp_size_pix,1:wp_size_pix),z(1:wp_size_pix,1:wp_size_pix)),raw,avg_raw,filtered,'uni',false)
-
-        # variables for saving in a mat file
-        #symAveraged[:,i]= np.concatenate((avg_raw, scrambled_raw))
-        #symFiltered[:,i]= np.concatenate((filtered, scrambled_filtered))
-        #symMasked[:,i]= np.concatenate((masked, scrambled_masked))
-    # save([save_path,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups');
+            # variables for saving in a mat file
+            #symAveraged[:,i]= np.concatenate((avg_raw, scrambled_raw))
+            #symFiltered[:,i]= np.concatenate((filtered, scrambled_filtered))
+            #symMasked[:,i]= np.concatenate((masked, scrambled_masked))
+        # save([save_path,timeStr,'.mat'],'symAveraged','symFiltered','symMasked','Groups');
 
 
 def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
@@ -1367,10 +1279,12 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
 
     if fundamental_region_source_type == 'uniform_noise' and is_dots is False:
         print('uniform noise')
-        texture = np.random.rand(n, n);
+        if n>N:
+            print('size of repeating pattern larger than size of wallpaper')
+        raw_texture = np.random.rand(max(n,N), max(n,N));
     elif is_dots:
         print('random dots')
-        texture = dot_texture(n, 0.05, 0.05, 5, wp_type)
+        raw_texture = dot_texture(n, 0.05, 0.05, 5, wp_type)
     elif isinstance(fundamental_region_source_type, np.ndarray):
         print('texture was passed explicitly')
         opt_texture = fundamental_region_source_type
@@ -1380,7 +1294,7 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
             ratio_texture = round(n / min_dim)
             opt_texture = np.array(Image.resize(
                 reversed((opt_texture.shape * ratio_texture)), Image.NEAREST))
-        texture = opt_texture
+        raw_texture = opt_texture
     else:
         raise Exception('this source type ({})is not implemented'.format(
             type(fundamental_region_source_type)))
@@ -1390,23 +1304,31 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
         num_wallpapers = len(filter_freq)
     else:
         num_wallpapers = 1
+
     for i in range(num_wallpapers):
         if filter_freq:
-            fundamental_region_filter = filter.Cosine_filter(filter_freq[i], n, angle / N * n)
+            if n>N:
+                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], n, angle / N * n)
+            else:
+                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], N, angle )
         else:
             fundamental_region_filter = None
         if fundamental_region_filter:
             if isinstance(fundamental_region_filter, filter.Cosine_filter):
-                texture = fundamental_region_filter.filter_image(texture)
+                texture = fundamental_region_filter.filter_image(raw_texture)
                 # scale texture into range 0...1
                 texture = (texture - texture.min()) / (texture.max() - texture.min())
             else:
                 raise Exception('this filter type ({}) is not implemented'.format(
                     type(fundamental_region_filter)))
+        else:
+            texture = raw_texture
+            texture = (texture-texture.min())/(texture.max() - texture.min())
         # else:
            # TODO: not exactly sure, what this lowpass filter is supposed to do. in any case:
            #       it should be adapted to this structure that separates the noise generation from the filtering
-        
+        if N>n: # we ne to crop from the WP-sized texture
+          texture = texture[int(n//2):int(n//2)+n,int(n//2):int(n//2)+n]
         try:
             # generate the wallpapers
             if wp_type == 'P0':
@@ -1684,11 +1606,13 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                 warnings.warn(
                     'Unexpected Wallpaper Group type. Returning random noise.', UserWarning)
                 image = np.matlib.repmat(texture, [np.ceil(N / n),  np.ceil(N / n)])
-                return image
+                return clip_wallpaper(image, N)
         except Exception as err:
             print('new_SymmetricNoise:Error making ' + wp_type)
             print(err.args)
-    return image
+
+    clipped_images = [clip_wallpaper(img,N) for img in image]
+    return image #clipped_images
 
 
 def cat_tiles(tile, N, wp_type):
@@ -2893,6 +2817,21 @@ def mask_img(inImg, N):
     out_img[mask == 0] = 0.5
     return out_img
 
+def mask_imgs(imgs, radius=None):
+    w = imgs.shape[-2]
+    h = imgs.shape[-1]
+    center = (int(w/2), int(h/2))
+    if radius is None:
+        radius = min(center[0], center[1], w-center[0], h-center[1])
+    assert 2*radius <= w , '{} > {}'.format(2*radius, w)
+    assert 2*radius <= h , '{} > {}'.format(2*radius, h)
+    x,y = np.ogrid[:w,:h]
+    dists = np.sqrt((x-center[0])**2 + (y-center[1])**2)
+    mask = dists>radius
+    imgs[np.broadcast_to(mask,imgs.shape)] = 0.5
+    return imgs
+
+
 # replace spectra
 
 
@@ -2900,28 +2839,28 @@ def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), c
     in_image = (in_image / np.max(in_image)) * 2.0 - 1.0
     
     # phase scrambling
-    if ctrl_images == 'phase':
+    if ctrl_images == 'phase': # should be renamed to avoid confusion with 'hard' phase scrambling
         return minPhaseInterp(in_image, n)
     
     # Portilla-Simoncelli scrambling
     if ctrl_images == 'ps':
         out_image = psScramble(in_image, cmap)
     else:
-        in_spectrum = np.fft.fft2( in_image )
+        in_spectrum = np.fft.rfft2( in_image )
     
-        phase = np.fft.fftshift(np.angle(in_spectrum))
-        mag = np.fft.fftshift(np.abs(in_spectrum))
-
+        mag = np.abs(in_spectrum)
+        rand_phase = np.random.uniform(-np.pi, np.pi, mag.shape)
+        # don't think this ins necessary if the incoming image has the correct spectrum already
         # use new magnitude instead
         if(use_magnitude.size != 0):
             mag = use_magnitude
-        cmplx_im = mag * np.exp(1j * phase)
+        cmplx_im = mag * np.exp(1j * rand_phase)
 
         # get the real parts and then take the absolute value of the real parts as this is the closest solution to be found to emulate matlab's ifft2 "symmetric" parameter
         # out_image = np.abs(np.real(np.fft.ifft2(cmplx_im)))
         # the above does not seem to work, instead use code below
         # cribbed from https://www.djmannion.net/psych_programming/vision/sf_filt/sf_filt.html
-        out_image = np.real(np.fft.ifft2(np.fft.ifftshift(cmplx_im)))
+        out_image = np.real(np.fft.irfft2(cmplx_im))
 
     # standardize image
     out_image = out_image - np.mean(out_image)
@@ -3168,10 +3107,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # need to investigate error in eval function
-    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
+    for ratio in [0.01, 0.05, 0.1]:
+        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
                  wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
-                 fr_sizing=args.fr_sizing, ratio=0.3, is_dots=args.dots, filter_freq=[4],
-                 save_fmt=args.save_fmt, save_raw=args.save_raw, ctrl_images='phase', phases = 1,
-                 same_magnitude=args.same_magnitude,
+                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[1,2,4,6],
+                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase_scrambling', phases = 1,
+                 same_magnitude=True,
+                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
+                 debug=args.debug)
+        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
+                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
+                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[],
+                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase_scrambling', phases = 1,
+                 same_magnitude=True,
                  cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
                  debug=args.debug)
