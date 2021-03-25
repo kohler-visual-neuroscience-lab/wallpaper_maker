@@ -1752,8 +1752,8 @@ def diagcat_tiles(tile, N, diag_tile, wp_type):
         col = col + 1
     # repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
     if (wp_type == 'P31M' or wp_type == 'P3M1' or wp_type == 'P6' or wp_type == 'P6M'):
-            img = np.tile(tile, (1 + (math.floor(row / 20)),
-                         1 + (math.floor(col / 20)), 1))
+            img = np.tile(tile, (1 + (math.floor(row / 2)),
+                         1 + (math.floor(col / 2)), 1))
     else:
         img = np.tile(tile, (1 + (math.floor(row / 2)),
                              1 + (math.floor(col / 2)), 1))
@@ -1763,7 +1763,7 @@ def diagcat_tiles(tile, N, diag_tile, wp_type):
         diag_tile = diag_tile[:, :diag_tile.shape[1] - 1]
     img = np.rot90(img, 1)
     diag_tile = np.rot90(diag_tile, 1)
-    img[:diag_tile.shape[0], :diag_tile.shape[1], :] = diag_tile[:, :, :]
+    img[diag_tile.shape[0]: 2 * diag_tile.shape[0], diag_tile.shape[1]: 2 * diag_tile.shape[1], :] = diag_tile[:, :, :]
     return img
 
 
