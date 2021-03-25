@@ -5,3 +5,5 @@ _build/
 auto_examples/
 gen_api/
 *.m~
+Untitled.ipynb
+.ipynb_checkpoints/Untitled-checkpoint.ipynb
