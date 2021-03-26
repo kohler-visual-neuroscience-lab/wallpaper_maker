@@ -159,8 +159,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
 
         # generate scrambled controls
         if ctrl_images:
-            #this_groups_controls = np.zeros((phases,)+this_groups_wallpapers.shape)
-            this_groups_controls = np.zeros(this_groups_wallpapers.shape)
+            this_groups_controls = np.zeros((phases,)+this_groups_wallpapers.shape)
             for i in range(this_groups_wallpapers.shape[0]):
                 for j in range(this_groups_wallpapers.shape[1]):
                     # don't believe we need the option use_magnitude here, since the magnitude of the wallpaper is unchanged in the case of ctrl_images=='phase'
@@ -168,7 +167,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                         this_control = replace_spectra(this_groups_wallpapers[i,j], ctrl_images, this_groups_wallpapers_mag_mean[i],  cmap=cmap, n=phases)
                     else:
                         this_control = replace_spectra(this_groups_wallpapers[i, j], ctrl_images, cmap=cmap, n=phases)
-                    this_groups_controls[i,j] = this_control[:,:,0].squeeze() # this needs to be addapted for phases!=1
+                    this_groups_controls[:,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for phases!=1
         else:
             this_groups_controls = []
 
@@ -186,11 +185,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
 
         # mask images
         this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
-
+        # TODO: normalization not consistent with e.g. in minPhaseInterp
         if  this_groups_controls is not None: # same for controls
             # normalize range of pixel values to 0...1
             this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1)
-            this_groups_controls = this_groups_controls / (np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)), -1), -1) - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1))
+            this_groups_controls = this_groups_controls / np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)) - this_groups_controls.min((-1, -2)), -1), -1)
 
             # mask images
             this_groups_controls = mask_imgs(this_groups_controls)
@@ -198,27 +197,27 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         # save images
         for exemplar_idx in range(this_groups_wallpapers.shape[1]):
             for filter_idx in range(this_groups_wallpapers.shape[0]):
-                if filter_freqs:
-                    filter_freq = filter_freqs[filter_idx]
-                    wp_filename =  '{save_path}/WP_{group}_{cmap}_f0fr_{f0}cpd_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
-                                                                                         group=group,cmap=cmap,
-                                                                                         f0=filter_freq, ratio=ratio,exemplar_idx=exemplar_idx, save_fmt=save_fmt)
-                    ctrl_filename = '{save_path}/CRTL_{group}_{cmap}_f0fr_{f0}cpd_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
-                                                                                                                             group=group, cmap=cmap, f0=filter_freq,ratio=ratio,
-                                                                                                                             exemplar_idx=exemplar_idx,
-                                                                                                                             save_fmt=save_fmt)
-                else:
-                    wp_filename =  '{save_path}/WP_{group}_{cmap}_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
-                                                                                                                               group=group,cmap=cmap,
-                                                                                                                                ratio=ratio,exemplar_idx=exemplar_idx, save_fmt=save_fmt)
-                    ctrl_filename = '{save_path}/CRTL_{group}_{cmap}_ratio_{ratio}_{exemplar_idx}.{save_fmt}'.format(save_path=save_path,
-                                                                                                                                  group=group, cmap=cmap, ratio=ratio,
-                                                                                                                                  exemplar_idx=exemplar_idx,
-                                                                                                                                  save_fmt=save_fmt)
-
+                wp_filename =  '{save_path}/WP_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}.{save_fmt}'.format( save_path=save_path,
+                                                                                                                      group=group,
+                                                                                                                      cmap=cmap,
+                                                                                                                      filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
+                                                                                                                      ratio=ratio,
+                                                                                                                      exemplar_idx=exemplar_idx,
+                                                                                                                      save_fmt=save_fmt)
                 Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
+
                 if this_groups_controls is not None:  # same for controls
-                    Image.fromarray((this_groups_controls[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
+                    for this_phase_step in range(phases):
+                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_{this_phase_step}of{phases}.{save_fmt}'.format( save_path=save_path,
+                                                                                                                      group=group,
+                                                                                                                      cmap=cmap,
+                                                                                                                      filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
+                                                                                                                      ratio=ratio,
+                                                                                                                      this_phase_step = this_phase_step,
+                                                                                                                      phases = phases-1,
+                                                                                                                      exemplar_idx=exemplar_idx,
+                                                                                                                      save_fmt=save_fmt)
+                        Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
 
             # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size_pix,1:wp_size_pix),y(1:wp_size_pix,1:wp_size_pix),z(1:wp_size_pix,1:wp_size_pix)),raw,avg_raw,filtered,'uni',false)
 
@@ -3106,10 +3105,17 @@ if __name__ == "__main__":
                  same_magnitude=True,
                  cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
                  debug=args.debug)
-#        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
-#                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
-#                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[],
-#                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase_scrambling', phases = 1,
-#                 same_magnitude=True,
-#                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
-#                 debug=args.debug)
+        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
+                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
+                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[1,2,4,6],
+                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 13,
+                 same_magnitude=True,
+                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
+                 debug=args.debug)
+        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
+                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
+                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[],
+                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 1,
+                 same_magnitude=True,
+                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
+                 debug=args.debug)
