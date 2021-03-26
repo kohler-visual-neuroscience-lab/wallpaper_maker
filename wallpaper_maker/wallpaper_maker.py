@@ -167,6 +167,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                         this_control = replace_spectra(this_groups_wallpapers[i,j], ctrl_images, this_groups_wallpapers_mag_mean[i],  cmap=cmap, n=phases)
                     else:
                         this_control = replace_spectra(this_groups_wallpapers[i, j], ctrl_images, cmap=cmap, n=phases)
+                        this_control = this_control[:,:,np.newaxis]
                     this_groups_controls[:,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for phases!=1
         else:
             this_groups_controls = []
@@ -3097,25 +3098,28 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # need to investigate error in eval function
-    for ratio in [0.01, 0.015, 0.02]:
-        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
-                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
-                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[1,2,4,6],
-                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 1,
-                 same_magnitude=True,
-                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
-                 debug=args.debug)
-        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
-                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
-                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[1,2,4,6],
-                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 13,
-                 same_magnitude=True,
-                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
-                 debug=args.debug)
-        make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
-                 wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
-                 fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[],
-                 save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 1,
-                 same_magnitude=True,
-                 cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
-                 debug=args.debug)
+#    for ratio in [0.03, 0.015, 0.02]:
+#    for ratio in [0.03, 0.015, 0.02]:
+#        make_set(groups=['P31M'], num_exemplars=5, wp_size_dva=args.wp_size_dva,
+#             wp_size_pix=args.wallpaperSize, lattice_sizing=True,
+#             fr_sizing=False, ratio=ratio, is_dots=args.dots, filter_freqs=[1],
+#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 5,
+#             same_magnitude=False,
+#             cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
+#             debug=args.debug)
+#    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
+#             wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
+#             fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[1,2,4,6],
+#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 13,
+#             same_magnitude=True,
+#             cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
+#             debug=args.debug)
+#    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
+#             wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
+#             fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[],
+#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 1,
+#             same_magnitude=True,
+#             cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
+#             debug=args.debug)
+    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+             fr_sizing=False, ratio=0.030, filter_freqs=[1], is_diagnostic=False, same_magnitude=False, phases=5)
