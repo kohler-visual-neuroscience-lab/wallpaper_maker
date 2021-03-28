@@ -1812,6 +1812,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -1849,6 +1851,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -1917,6 +1921,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -1952,6 +1958,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -1978,6 +1986,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                 (tile[:, :]).astype(np.uint32), 'RGBA')
             draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_lat_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
             draw = ImageDraw.Draw(dia_lat_im)
@@ -2026,6 +2036,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2098,6 +2110,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2166,6 +2180,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2227,6 +2243,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                 (tile[:, :]).astype(np.uint32), 'RGBA')
             draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_lat_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
             draw = ImageDraw.Draw(dia_lat_im)
@@ -2255,9 +2273,9 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((6, tile.shape[1] / 2), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 6, tile.shape[1] / 2), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1] / 2), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] - 6), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
+            ((tile.shape[0] / 2, tile.shape[1]), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, 6), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
 
@@ -2290,6 +2308,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2309,17 +2329,17 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((4, tile.shape[1] - 5), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1]), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, 4), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0], 4), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((4, tile.shape[1] / 2), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 4, tile.shape[1] / 2), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1] / 2), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] - 4), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0] / 2, tile.shape[1]), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, 4), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
 
@@ -2352,6 +2372,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2373,19 +2395,19 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((4, 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] - 5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((4, tile.shape[1]), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1]), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((tile.shape[0], 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((4, tile.shape[1] / 2), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 4, tile.shape[1] / 2), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1] / 2), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] - 4), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            ((tile.shape[0] / 2, tile.shape[1]), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, 4), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
 
@@ -2419,6 +2441,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2438,17 +2462,17 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((4, 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] - 5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            ((4, tile.shape[1]), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1]), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            ((tile.shape[0], 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((6, tile.shape[1] / 2), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 6, tile.shape[1] / 2), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1] / 2), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0] / 2, tile.shape[1] - 6), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
@@ -2484,6 +2508,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 1, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2499,13 +2525,13 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            (((tile.shape[1]), tile.shape[0] / 3), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             (((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 60, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] - 5, 3), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1], 3), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
 
@@ -2539,6 +2565,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 1, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2556,13 +2584,13 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            (((tile.shape[1]), tile.shape[0] / 3), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             (((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 60, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] - 5, 3), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1], 3), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
 
@@ -2596,6 +2624,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 1, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2617,13 +2647,13 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1] - 3), tile.shape[0] / 3), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            (((tile.shape[1]), tile.shape[0] / 3), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 30, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             (((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 30, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] - 5, 3), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1], 3), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
 
@@ -2657,6 +2687,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -2684,13 +2716,13 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
             tile.shape[0] / 2), 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (
             tile.shape[0] / 1.25), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0], 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
         display(Markdown('Fundamental Region for ' + wp_type))
@@ -2712,6 +2744,7 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                 (tile[:, :]).astype(np.uint32), 'RGBA')
             draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
         else:
+            
             dia_lat_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
             draw = ImageDraw.Draw(dia_lat_im)
@@ -2722,8 +2755,11 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         if(is_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
+
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (
@@ -2755,13 +2791,13 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
             tile.shape[0] / 2), 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - 5, tile.shape[0] - 5, 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+            (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 5, 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+            (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (
             tile.shape[0] / 1.25), 5), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 3, 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+            (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0], 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -2771,22 +2807,24 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
     alpha_mask_rec2 = Image.new('RGBA', dia_fr_im2.size, (0, 0, 0, 0))
     alpha_mask__rec2_draw = ImageDraw.Draw(alpha_mask_rec2)
     dia_fr_im2 = Image.alpha_composite(dia_fr_im2, alpha_mask_rec2)
-
-    diag_wallpaper = diagcat_tiles(np.array(dia_fr_im2).astype(
-        np.uint32), N, np.array(dia_fr_im).astype(np.uint32), wp_type)
+    
+    display((dia_fr_im))
+    
+    #diag_wallpaper = diagcat_tiles(np.array(dia_fr_im2).astype(
+    #    np.uint32), N, np.array(dia_fr_im).astype(np.uint32), wp_type)
 
     if is_dots:
         pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
-        Image.fromarray((diag_wallpaper[:, :]).astype(
-            np.uint32), 'RGBA').save(pattern_path, "png")
-        display(Image.fromarray(
-            (diag_wallpaper[:, :]).astype(np.uint32), 'RGBA'))
-    else:
-        display(Image.fromarray((diag_wallpaper[:, :]).astype(np.uint8)))
+   #     Image.fromarray((diag_wallpaper[:, :]).astype(
+   #         np.uint32), 'RGBA').save(pattern_path, "png")
+   #     display(Image.fromarray(
+   #         (diag_wallpaper[:, :]).astype(np.uint32), 'RGBA'))
+    #else:
+    #    display(Image.fromarray((diag_wallpaper[:, :]).astype(np.uint8)))
     if not is_dots:
         pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
-        Image.fromarray((diag_wallpaper[:, :]).astype(
-            np.uint8)).save(pattern_path, "png")
+     #   Image.fromarray((diag_wallpaper[:, :]).astype(
+     #       np.uint8)).save(pattern_path, "png")
         # diagnostic plots
         logging.getLogger('matplotlib.font_manager').disabled = True
         pattern_path = save_path + '/' + wp_type + '_diagnostic_' + str(k + 1) + '.' + "png"
