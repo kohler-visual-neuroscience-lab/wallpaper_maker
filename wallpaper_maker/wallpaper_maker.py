@@ -24,6 +24,7 @@ from PIL import Image, ImageDraw
 from skimage import draw as skd
 import warnings
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 import sys
 import cv2 as cv
@@ -51,6 +52,8 @@ SCRIPT_NAME = os.path.basename(__file__)
 LOG_FMT = "[%(name)s] %(asctime)s %(levelname)s %(lineno)s %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
+
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
@@ -98,7 +101,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
               "\nNumber of Wallpapers per Group: ", num_exemplars, "\nFiltering Level: ", filter_freq_str)
     print('Save Path: ', save_path, '\nGroups to Generate: ', groups,
           '\nNumber of Wallpapers per Group: ', num_exemplars, '\nFiltering Level: ', filter_freq_str, '\n')
-
+    
     # TODO: add configuration to argument parser
     fundamental_region_source_type = 'uniform_noise'
     # Generating WPs and scrambling
@@ -1732,6 +1735,8 @@ def clip_wallpaper(wallpaper, wp_size_pix):
     left_right_clip = round((wallpaper.shape[0] - wp_size_pix) / 2)
     up_down_clip = round((wallpaper.shape[1] - wp_size_pix) / 2)
     return wallpaper[left_right_clip : wallpaper.shape[0] - left_right_clip, up_down_clip : wallpaper.shape[1] - up_down_clip]
+"""
+Marked for potential deletion
 
 def diagcat_tiles(tile, N, diag_tile, wp_type):
     # Create diagnostic wallpaper
@@ -1765,8 +1770,7 @@ def diagcat_tiles(tile, N, diag_tile, wp_type):
     diag_tile = np.rot90(diag_tile, 1)
     img[diag_tile.shape[0]: 2 * diag_tile.shape[0], diag_tile.shape[1]: 2 * diag_tile.shape[1], :] = diag_tile[:, :, :]
     return img
-
-
+"""
 def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, save_path, k):
     # function to take care of all diagnostic tasks related to the wallpaper generation
     # img is the full wallpaper
@@ -1793,6 +1797,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - tile.shape[0] * tile.shape[1]) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -1813,6 +1825,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -1834,6 +1850,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - (tile.shape[0] * tile.shape[1]) / 2) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -1852,6 +1876,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -1904,6 +1932,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -1922,6 +1958,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -1941,6 +1981,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -1959,6 +2007,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -1978,6 +2030,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cma = plt.get_cmap("gray")
         tile_cm = cma(tile)
@@ -1987,7 +2047,11 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            tile_cm = cm(tile_rep)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
+            tile_cm = cma(tile_rep)
             dia_lat_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
             draw = ImageDraw.Draw(dia_lat_im)
@@ -2019,6 +2083,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2037,6 +2109,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2093,6 +2169,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2111,6 +2195,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2163,6 +2251,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2181,6 +2277,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2235,6 +2335,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2244,6 +2352,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_lat_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2291,6 +2403,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 4)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2309,6 +2429,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2355,6 +2479,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2373,6 +2505,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2423,6 +2559,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 8)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1])):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2442,6 +2586,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2490,6 +2638,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 18)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 6):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2509,6 +2665,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 1, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2547,6 +2707,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2566,6 +2734,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 1, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2606,6 +2778,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2625,6 +2805,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 1, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2669,6 +2853,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+           print('Area of Lattice of ' + wp_type +
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+           print('Area of Lattice Region of ' +
+                 wp_type + ' should be = ', (N**2 * ratio))
+           print(
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2688,6 +2880,10 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            if tile_rep.shape[0] > N:
+                tile_rep = tile_rep[:N,:]
+            if tile_rep.shape[1] > N:
+                tile_rep = tile_rep[:,:N]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2736,6 +2932,14 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%')
+        else:
+            print('Area of Lattice of ' + wp_type +
+                  f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+            print('Area of Lattice Region of ' +
+                  wp_type + ' should be = ', (N**2 * ratio))
+            print(
+                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')            
+        
         diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
@@ -2756,6 +2960,7 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
             tile_rep = numpy.matlib.repmat(tile, 2, 2)
+            tile_rep = tile_rep[: round(tile_rep.shape[0] * 0.75), : round(tile_rep.shape[1] * 0.75)]
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2827,7 +3032,7 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
      #       np.uint8)).save(pattern_path, "png")
         # diagnostic plots
         logging.getLogger('matplotlib.font_manager').disabled = True
-        pattern_path = save_path + '/' + wp_type + '_diagnostic_' + str(k + 1) + '.' + "png"
+        pattern_path = save_path + '/' + wp_type + '_diagnostic_all_' + str(k + 1) + '.' + "png"
         hidx_0 = int(img.shape[0] * (1 / 3))
         hidx_1 = int(img.shape[0] / 2)
         hidx_2 = int(img.shape[0] * (2 / 3))
@@ -2843,19 +3048,36 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         ax1.imshow(I)
         ax1.set_title(wp_type + ' diagnostic image 1')
         ax1.set(adjustable='box', aspect='auto')
+        
+        bbox = ax1.get_tightbbox(fig.canvas.get_renderer())
+        ax1_path = save_path + '/' + wp_type + '_diagnostic_1_' + str(k + 1) + '.' + "png"
+        fig.savefig(ax1_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
 
         ax2.plot(img[hidx_0, :], c=[1, 0, 0])
         ax2.plot(img[hidx_1, :], c=[0, 1, 0])
         ax2.plot(img[hidx_2, :], c=[0, 0, 1])
         ax2.set_title('Sample values along the horizontal lines {} {} and {}'.format(
             hidx_0, hidx_1, hidx_2))
+        
+        bbox = ax2.get_tightbbox(fig.canvas.get_renderer())
+        ax2_path = save_path + '/' + wp_type + '_diagnostic_2_' + str(k + 1) + '.' + "png"
+        fig.savefig(ax2_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
 
         bins = np.linspace(0, 1, 100)
         ax3.hist(img[hidx_0, :], bins, color=[1, 0, 0])
         ax3.hist(img[hidx_1, :], bins, color=[0, 1, 0])
         ax3.hist(img[hidx_2, :], bins, color=[0, 0, 1])
         ax3.set_title('Frequency of sample values across the horizontal lines')
-
+        
+        bbox = ax3.get_tightbbox(fig.canvas.get_renderer())
+        ax3_path = save_path + '/' + wp_type + '_diagnostic_3_' + str(k + 1) + '.' + "png"
+        fig.savefig(ax3_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
+        
+        pdf_path = save_path + '/' + wp_type + '_diagnostic_all_' + str(k + 1) + '.' + "pdf"
+        pdf = PdfPages(pdf_path)
+        pdf.savefig(fig)
+        pdf.close()
+        
         plt.show()
         fig.savefig(pattern_path)
 
