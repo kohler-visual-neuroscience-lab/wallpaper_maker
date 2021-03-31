@@ -55,9 +55,11 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FMT)
 LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
-def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0, wp_size_pix: int = 500, lattice_sizing: bool = False,
-             fr_sizing: bool = False, ratio: float = 1.0, is_dots: bool = False, filter_freqs: list = [], save_fmt: str = "png", save_raw: bool = False, ctrl_images: str = 'False', phases: int = 1, same_magnitude: bool = False,
-             cmap: str = "gray", is_diagnostic: bool = True, save_path: str = "", mask: bool = True, debug: bool = False):
+def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 10, wp_size_dva: float = 30.0,
+             wp_size_pix: int = 500, lattice_sizing: bool = False, fr_sizing: bool = False, ratio: float = 1.0,
+             is_dots: bool = False, filter_freqs: list = [], save_fmt: str = "png", save_raw: bool = False,
+             phase_scramble: int = 1, ps_scramble: bool = False, same_magnitude: bool = False, cmap: str = "gray",
+             is_diagnostic: bool = True, save_path: str = "", mask: bool = True, debug: bool = False):
 
     # save parameters
     if not save_path:
@@ -156,38 +158,42 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             this_groups_wallpapers_spec         = np.expand_dims(this_groups_wallpapers_mag_mean,-3) \
                                                   * np.exp(1j * this_groups_wallpapers_spec_phase)
             this_groups_wallpapers              = np.fft.irfft2(this_groups_wallpapers_spec)
+        else:
+            this_groups_wallpapers_mag_mean = max(1,len(filter_freqs))*[[]]
 
         # generate scrambled controls
-        if ctrl_images:
-            this_groups_controls = np.zeros((phases,)+this_groups_wallpapers.shape)
-            for i in range(this_groups_wallpapers.shape[0]):
-                for j in range(this_groups_wallpapers.shape[1]):
+        if phase_scramble > 0 or ps_scramble :
+            this_groups_controls = np.zeros((phase_scramble+int(ps_scramble),)+this_groups_wallpapers.shape)
+            for i in range(this_groups_wallpapers.shape[0]): # over f0fr
+                for j in range(this_groups_wallpapers.shape[1]): # over exemplars
                     # don't believe we need the option use_magnitude here, since the magnitude of the wallpaper is unchanged in the case of ctrl_images=='phase'
-                    if same_magnitude:
-                        this_control = replace_spectra(this_groups_wallpapers[i,j], ctrl_images, this_groups_wallpapers_mag_mean[i],  cmap=cmap, n=phases)
-                    else:
-                        this_control = replace_spectra(this_groups_wallpapers[i, j], ctrl_images, cmap=cmap, n=phases)
-                        this_control = this_control[:,:,np.newaxis]
-                    this_groups_controls[:,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for phases!=1
+                    if phase_scramble >0:
+                        this_control = replace_spectra(this_groups_wallpapers[i,j], phase_scramble, False,
+                                                       this_groups_wallpapers_mag_mean[i],  cmap=cmap)
+                        this_groups_controls[:phase_scramble,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for ps_scramble!=1
+                    if ps_scramble:
+                        this_control = replace_spectra(this_groups_wallpapers[i,j], 0, True,
+                                                       this_groups_wallpapers_mag_mean[i],  cmap=cmap)
+                        this_groups_controls[phase_scramble-1+ps_scramble,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for ps_scramble!=1
         else:
-            this_groups_controls = []
+            this_groups_controls = None
 
         #crop wallpapers and controls
         print('ratio {}'.format(ratio))
         w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
         h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
         this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
-        if ctrl_images:
+        if phase_scramble > 0 or ps_scramble :
             this_groups_controls = this_groups_controls[..., w_idxs, :][..., h_idxs]
 
         # normalize range of pixel values
         this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1)
-        this_groups_wallpapers = this_groups_wallpapers / (np.expand_dims(np.expand_dims(this_groups_wallpapers.max((-1,-2)),-1),-1)-np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1))
+        this_groups_wallpapers = this_groups_wallpapers / np.expand_dims(np.expand_dims(this_groups_wallpapers.max((-1, -2)) - this_groups_wallpapers.min((-1, -2)), -1), -1)
 
         # mask images
         this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
         # TODO: normalization not consistent with e.g. in minPhaseInterp
-        if  this_groups_controls is not None: # same for controls
+        if this_groups_controls is not None: # same for controls
             # normalize range of pixel values to 0...1
             this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1)
             this_groups_controls = this_groups_controls / np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)) - this_groups_controls.min((-1, -2)), -1), -1)
@@ -208,17 +214,27 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
 
                 if this_groups_controls is not None:  # same for controls
-                    for this_phase_step in range(phases):
-                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_{this_phase_step}of{phases}.{save_fmt}'.format( save_path=save_path,
+                    for this_phase_step in range(phase_scramble):
+                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_{this_phase_step}of{phase_scramble}.{save_fmt}'.format( save_path=save_path,
                                                                                                                       group=group,
                                                                                                                       cmap=cmap,
                                                                                                                       filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
                                                                                                                       ratio=ratio,
-                                                                                                                      this_phase_step = this_phase_step,
-                                                                                                                      phases = phases-1,
+                                                                                                                      this_phase_step = this_phase_step+1,
+                                                                                                                      phase_scramble = phase_scramble,
                                                                                                                       exemplar_idx=exemplar_idx,
                                                                                                                       save_fmt=save_fmt)
                         Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
+                    if ps_scramble:
+                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_psscramble.{save_fmt}'.format( save_path=save_path,
+                                                                                                                                                                   group=group,
+                                                                                                                                                                   cmap=cmap,
+                                                                                                                                                                   filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
+                                                                                                                                                                   ratio=ratio,
+                                                                                                                                                                   exemplar_idx=exemplar_idx,
+                                                                                                                                                                   save_fmt=save_fmt)
+                        Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
+
 
             # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size_pix,1:wp_size_pix),y(1:wp_size_pix,1:wp_size_pix),z(1:wp_size_pix,1:wp_size_pix)),raw,avg_raw,filtered,'uni',false)
 
@@ -2826,17 +2842,21 @@ def mask_imgs(imgs, radius=None):
 # replace spectra
 
 
-def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), cmap="gray", n = 1):
+def replace_spectra(in_image,  n_phase_scrambles=1, ps_scrambling=False, use_magnitude=np.array([]), cmap="gray", ):
     in_image = (in_image / np.max(in_image)) * 2.0 - 1.0
-    
+
+    if n_phase_scrambles > 0 and ps_scrambling:
+        LOGGER.warning('n_phase_scambles is {} and ps_scrambling is True. Defaulting to phase scrambling'.format(n_phase_scrambles))
+        ps_scrambling = False
     # phase scrambling
-    if ctrl_images == 'phase':
-        return minPhaseInterp(in_image, n)
+    if n_phase_scrambles >0:
+        return minPhaseInterp(in_image, n_phase_scrambles)
     
     # Portilla-Simoncelli scrambling
-    if ctrl_images == 'ps':
+    elif ps_scrambling:
         out_image = psScramble(in_image, cmap)
-    else:
+        out_image = out_image[:,:,np.newaxis]
+    else: # TODO: What is happening here?
         in_spectrum = np.fft.rfft2( in_image )
 
         phase = np.fft.fftshift(np.angle(in_spectrum))
@@ -2854,12 +2874,12 @@ def replace_spectra(in_image, ctrl_images='False', use_magnitude=np.array([]), c
         out_image = np.real(np.fft.irfft2(np.fft.ifftshift(cmplx_im)))
 
     # standardize image
-    out_image = out_image - np.mean(out_image)
-    out_image = out_image / np.std(out_image)
-    out_image = out_image * 0.5 ## TO DO: MAKE THIS AN ADJUSTABLE INPUT VARIABLE
-    out_image = np.clip(out_image, a_min=-1.0, a_max=1.0)
-
-    out_image = (out_image + 1) / 2 
+#    out_image = out_image - np.mean(out_image)
+#    out_image = out_image / np.std(out_image)
+#    out_image = out_image * 0.5 ## TO DO: MAKE THIS AN ADJUSTABLE INPUT VARIABLE
+#    out_image = np.clip(out_image, a_min=-1.0, a_max=1.0)
+#
+#    out_image = (out_image + 1) / 2
 
     return out_image
 
@@ -2932,12 +2952,12 @@ def minPhaseInterp(in_image, n):
     sequence = np.real(np.fft.ifft2(np.fft.ifftshift(complex_sequence, axes=(0,1)),axes=(0,1)))
     
     # Added specifically for the wallpaper_maker code to standardize all the images in the sequence
-    for i in range(sequence.shape[2]):
-            sequence[:, :, i] = sequence[:, :, i] - np.mean(sequence[:, :, i])
-            sequence[:, :, i] = sequence[:, :, i] / np.std(sequence[:, :, i])
-            sequence[:, :, i] = sequence[:, :, i] * 0.5 ## TO DO: MAKE THIS AN ADJUSTABLE INPUT VARIABLE
-            sequence[:, :, i] = np.clip(sequence[:, :, i], a_min=-1.0, a_max=1.0)
-            sequence[:, :, i] = (sequence[:, :, i] + 1) / 2 
+#    for i in range(sequence.shape[2]):
+#            sequence[:, :, i] = sequence[:, :, i] - np.mean(sequence[:, :, i])
+#            sequence[:, :, i] = sequence[:, :, i] / np.std(sequence[:, :, i])
+#            sequence[:, :, i] = sequence[:, :, i] * 0.5 ## TO DO: MAKE THIS AN ADJUSTABLE INPUT VARIABLE
+#            sequence[:, :, i] = np.clip(sequence[:, :, i], a_min=-1.0, a_max=1.0)
+#            sequence[:, :, i] = (sequence[:, :, i] + 1) / 2
     return sequence
 
 def psScramble(in_image, cmap):
@@ -2947,7 +2967,7 @@ def psScramble(in_image, cmap):
     image_tmp = image_tmp.resize((new_size, new_size), Image.BICUBIC)
     in_image = np.array(image_tmp)
     out_image = pss_g.synthesis(
-        in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25)
+        in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25) #synthesis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor, iter)
     #out_image = None
     return out_image
 
@@ -3080,10 +3100,12 @@ if __name__ == "__main__":
                         help='Image save format')
     parser.add_argument('--filter_freq', '-f0fr', nargs='+',  default=[], type=str2list,
                         help='Center frequency (in cycle per degree) for dyadic bandpass filtering the fundamental region. [] does not invoke filtering. Might be extended for a multichannel filterbanks later.')
+    parser.add_argument('--phase_scramble', '-phases', default="1", type=int,
+                        help='Number of phases or minimum phase interpolated scrambling')
+    parser.add_argument('--ps_scramble', '-ps_scramble', default=False, type=str2bool,
+                        help='PS scrambling')
     parser.add_argument('--save_raw', '-r', default=False, type=str2bool,
                         help='save raw')
-    parser.add_argument('--ctrl_images', '-cimg', default='False', type=str,
-                        help='ps, phase, or no scrambling')
     parser.add_argument('--same_magnitude', '-m', default=False, type=str2bool,
                         help='New magnitude')
     parser.add_argument('--cmap', '-c', default="gray", type=str,
@@ -3103,23 +3125,31 @@ if __name__ == "__main__":
 #        make_set(groups=['P31M'], num_exemplars=5, wp_size_dva=args.wp_size_dva,
 #             wp_size_pix=args.wallpaperSize, lattice_sizing=True,
 #             fr_sizing=False, ratio=ratio, is_dots=args.dots, filter_freqs=[1],
-#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 5,
+#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', ps_scramble = 5,
 #             same_magnitude=False,
 #             cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
 #             debug=args.debug)
 #    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
 #             wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
 #             fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[1,2,4,6],
-#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 13,
+#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', ps_scramble = 13,
 #             same_magnitude=True,
 #             cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
 #             debug=args.debug)
 #    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
 #             wp_size_pix=args.wallpaperSize, lattice_sizing=args.lattice_sizing,
 #             fr_sizing=args.fr_sizing, ratio=ratio, is_dots=args.dots, filter_freqs=[],
-#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', phases = 1,
+#             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', ps_scramble = 1,
 #             same_magnitude=True,
 #             cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
 #             debug=args.debug)
     make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
-             fr_sizing=False, ratio=0.030, filter_freqs=[1], is_diagnostic=False, same_magnitude=False, phases=5)
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
+    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
+    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
+    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=False, phase_scramble=10, ps_scramble=False)
+    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[], is_diagnostic=False, same_magnitude=False, phase_scramble=10, ps_scramble=False)
