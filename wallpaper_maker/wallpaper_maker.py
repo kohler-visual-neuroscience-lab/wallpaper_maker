@@ -61,6 +61,12 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
              phase_scramble: int = 1, ps_scramble: bool = False, same_magnitude: bool = False, cmap: str = "gray",
              is_diagnostic: bool = True, save_path: str = "", mask: bool = True, debug: bool = False):
 
+    if ps_scramble and wp_size_pix % (4*2**5) != 0: # adjust size of wallpaper if size is no integer multiple of (4*2**5)
+        new_wp_size_pix = (wp_size_pix // (4*2**5) + 1) * 4*2**5
+        LOGGER.warning('wp_size_pix {} is not an integer multiple of {} and will be increase to {}'.format(wp_size_pix, 4*2**5, new_wp_size_pix))
+        wp_size_pix = new_wp_size_pix
+
+
     # save parameters
     if not save_path:
         save_path = os.path.join(os.path.expanduser('~'), 'wallpapers')
@@ -172,14 +178,15 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                        this_groups_wallpapers_mag_mean[i],  cmap=cmap)
                         this_groups_controls[:phase_scramble,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for ps_scramble!=1
                     if ps_scramble:
-                        this_control = replace_spectra(this_groups_wallpapers[i,j], 0, True,
+                        this_control = replace_spectra(clip_wallpaper(this_groups_wallpapers[i,j],wp_size_pix), 0, True,
                                                        this_groups_wallpapers_mag_mean[i],  cmap=cmap)
-                        this_groups_controls[phase_scramble-1+ps_scramble,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for ps_scramble!=1
+                        x_offset = round((this_groups_controls.shape[-2] - wp_size_pix) / 2)
+                        y_offset = round((this_groups_controls.shape[-1] - wp_size_pix) / 2)
+                        this_groups_controls[phase_scramble-1+ps_scramble,i,j,x_offset:x_offset+wp_size_pix,y_offset:y_offset+wp_size_pix] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for ps_scramble!=1
         else:
             this_groups_controls = None
 
         #crop wallpapers and controls
-        print('ratio {}'.format(ratio))
         w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
         h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
         this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
@@ -2961,14 +2968,11 @@ def minPhaseInterp(in_image, n):
     return sequence
 
 def psScramble(in_image, cmap):
-    image_tmp = Image.fromarray(in_image)
-    # resize image to nearest power of 2 to make use of the steerable pyramid for PS
-    new_size = next_power_2(in_image.shape[0])
-    image_tmp = image_tmp.resize((new_size, new_size), Image.BICUBIC)
-    in_image = np.array(image_tmp)
+    # make sure the image has a size of n*4*2**depth
+    assert in_image.shape[0] % (4*2**5) == 0, ' image width not an integer multiple of 4*2**5' # hard wired for depth == 5
+    assert in_image.shape[1] % (4*2**5) == 0, ' image height not an integer multiple of 4*2**5' # hard wired for depth == 5
     out_image = pss_g.synthesis(
         in_image, in_image.shape[0], in_image.shape[1], 5, 4, 7, 25) #synthesis(image, resol_x, resol_y, num_depth, num_ori, num_neighbor, iter)
-    #out_image = None
     return out_image
 
 def next_power_2(x):
@@ -3144,12 +3148,19 @@ if __name__ == "__main__":
 #             cmap=args.cmap,  is_diagnostic=False, save_path='./wallpapers2', mask=args.mask,
 #             debug=args.debug)
     make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
-             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
-    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
-             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
-    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
-             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
-    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
-             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=False, phase_scramble=10, ps_scramble=False)
-    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
-             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[], is_diagnostic=False, same_magnitude=False, phase_scramble=10, ps_scramble=False)
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=0, ps_scramble=True)
+    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=512, lattice_sizing=True,
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=0, ps_scramble=True)
+    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=512, lattice_sizing=True,
+             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=True)
+
+#    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+#             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
+#    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+#             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
+#    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+#             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[], is_diagnostic=False, same_magnitude=True, phase_scramble=10, ps_scramble=False)
+#    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+#             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[1,3], is_diagnostic=False, same_magnitude=False, phase_scramble=10, ps_scramble=False)
+#    make_set(groups = ['P31M'], num_exemplars=5, wp_size_dva=30, wp_size_pix=600, lattice_sizing=True,
+#             fr_sizing=False, ratio=0.030, save_path='./wallpapers2', filter_freqs=[], is_diagnostic=False, same_magnitude=False, phase_scramble=10, ps_scramble=False)
