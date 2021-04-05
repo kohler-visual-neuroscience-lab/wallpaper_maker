@@ -2894,11 +2894,13 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
         alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
             tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2,
-                                                                                                                                      tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+            tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-            tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), tile.shape[1] - (
-            tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2)
+            tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.6), (tile.shape[0] / 1.225)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+        
+        alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]), tile.shape[1] - (
+            tile.shape[1] - 1) / 5.6, (tile.shape[0] / 1.225)), fill=(255, 255, 0), width=2)
+        
         alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (
             tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
 
@@ -2915,8 +2917,8 @@ def diagnostic(img, wp_type, tile, is_fr, is_lattice, N, ratio, cmap, is_dots, s
             (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (
-            tile.shape[0] / 1.25), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1]) / 5.7, (
+            tile.shape[0] / 1.225), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0], 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
 
