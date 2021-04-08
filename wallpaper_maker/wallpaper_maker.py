@@ -145,11 +145,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             if(save_raw):
                 raw_path_tmp = raw_path + '/' + time_str + '_' + str(1000 * group_number + k + 1) + \
                     '_' + cmap + '.' + save_fmt
-                #display(Markdown(str(1000 * group_number + k + 1) + '_' + cmap + '_raw'))
+                display(Markdown(str(1000 * group_number + k + 1) + '_' + cmap + '_raw'))
                 for s in range(len(raw)):
                     clipped_raw = clip_wallpaper(np.array(raw[s]), wp_size_pix)
-#                    #display(Image.fromarray(
-#                        (clipped_raw[:, :] * 255).astype(np.uint8)))
+                    display(Image.fromarray(
+                        (clipped_raw[:, :] * 255).astype(np.uint8)))
                     Image.fromarray(
                         (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
 
@@ -222,7 +222,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                                                                                       exemplar_idx=exemplar_idx,
                                                                                                                       save_fmt=save_fmt)
                 Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
-
+                display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap))
+                display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
                 if this_groups_controls is not None:  # same for controls
                     for this_phase_step in range(phase_scramble):
                         ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_{this_phase_step}of{phase_scramble}.{save_fmt}'.format( save_path=save_path,
@@ -235,6 +236,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                                                                                       exemplar_idx=exemplar_idx,
                                                                                                                       save_fmt=save_fmt)
                         Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
+                        display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + str(this_phase_step + 1) + '_' + cmap + '_phase'))
+                        display(Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)))
                     if ps_scramble:
                         ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_psscramble.{save_fmt}'.format( save_path=save_path,
                                                                                                                                                                    group=group,
@@ -244,7 +247,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                                                                                                                                    exemplar_idx=exemplar_idx,
                                                                                                                                                                    save_fmt=save_fmt)
                         Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
-
+                        display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap + '_ps'))
+                        display(Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)))
 
             # all_in_one = cellfun(@(x,y,z) cat(2,x(1:wp_size_pix,1:wp_size_pix),y(1:wp_size_pix,1:wp_size_pix),z(1:wp_size_pix,1:wp_size_pix)),raw,avg_raw,filtered,'uni',false)
 
