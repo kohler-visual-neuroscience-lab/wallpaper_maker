@@ -197,12 +197,12 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
 #        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1)
 #        this_groups_wallpapers = this_groups_wallpapers / np.expand_dims(np.expand_dims(this_groups_wallpapers.max((-1, -2)) - this_groups_wallpapers.min((-1, -2)), -1), -1)
         this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.mean((-1,-2)),-1),-1)
-        this_groups_wallpapers = this_groups_wallpapers /(8* np.expand_dims(np.expand_dims(this_groups_wallpapers.std(axis=(-1, -2)),-1),-1))+0.5
+        this_groups_wallpapers = this_groups_wallpapers /(9* np.expand_dims(np.expand_dims(this_groups_wallpapers.std(axis=(-1, -2)),-1),-1))+0.5
 
         if this_groups_wallpapers.min()<0:
-            LOGGER.warning('need to clip. wallpapers have sample values < 0')
-        if this_groups_wallpapers.max()<1:
-            LOGGER.warning('need to clip. wallpapers have sample values > 1')
+            LOGGER.warning('need to clip. wallpapers have sample values < 0: {}'.format(this_groups_wallpapers.min()))
+        if this_groups_wallpapers.max()>1:
+            LOGGER.warning('need to clip. wallpapers have sample values > 1: {}'.format(this_groups_wallpapers.max()))
 
         # mask images
         this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
@@ -212,12 +212,12 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
 #            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1)
 #            this_groups_controls = this_groups_controls / np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)) - this_groups_controls.min((-1, -2)), -1), -1)
             this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.mean((-1, -2)), -1), -1)
-            this_groups_controls = this_groups_controls / (8*np.expand_dims(np.expand_dims(this_groups_controls.std((-1, -2)), -1), -1)) + 0.5
+            this_groups_controls = this_groups_controls / (9*np.expand_dims(np.expand_dims(this_groups_controls.std((-1, -2)), -1), -1)) + 0.5
 
-            if this_groups_wallpapers.min() < 0:
-                LOGGER.warning('need to clip. wallpapers have sample values < 0')
-            if this_groups_wallpapers.max() < 1:
-                LOGGER.warning('need to clip. wallpapers have sample values > 1')
+            if this_groups_controls.min() < 0:
+                LOGGER.warning('need to clip. wallpapers have sample values < 0: {}'.format(this_groups_controls.min()))
+            if this_groups_controls.max() > 1:
+                LOGGER.warning('need to clip. wallpapers have sample values > 1: {}'.format(this_groups_controls.max()))
 
             # mask images
             this_groups_controls = mask_imgs(this_groups_controls)
