@@ -152,12 +152,15 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                         (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
 
             for i, this_raw in enumerate(raw):
-                this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
+                if not is_dots:
+                    this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
+                else:
+                    this_groups_wallpapers[i].append(this_raw)
 
         this_groups_wallpapers = np.array(this_groups_wallpapers)
 
         #scipy.io.savemat('arrdata.mat', mdict={'arr': orig_wallpapers[0]})
-        if same_magnitude:
+        if same_magnitude and not is_dots:
             # normalize psd across exemplars per group and filter
             this_groups_wallpapers_spec         = np.fft.rfft2(this_groups_wallpapers)
             this_groups_wallpapers_mag_mean     = np.abs(this_groups_wallpapers_spec).mean(-3)
@@ -166,10 +169,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                   * np.exp(1j * this_groups_wallpapers_spec_phase)
             this_groups_wallpapers              = np.fft.irfft2(this_groups_wallpapers_spec)
         else:
-            this_groups_wallpapers_mag_mean = max(1,len(filter_freqs))*[[]]
+            if not is_dots:
+                this_groups_wallpapers_mag_mean = max(1,len(filter_freqs))*[[]]
 
         # generate scrambled controls
-        if phase_scramble > 0 or ps_scramble :
+        if (phase_scramble > 0 or ps_scramble) and not is_dots:
             this_groups_controls = np.zeros((phase_scramble+int(ps_scramble),)+this_groups_wallpapers.shape)
             for i in range(this_groups_wallpapers.shape[0]): # over f0fr
                 for j in range(this_groups_wallpapers.shape[1]): # over exemplars
@@ -191,7 +195,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
         h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
         this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
-        if phase_scramble > 0 or ps_scramble :
+        if (phase_scramble > 0 or ps_scramble) and not is_dots:
             this_groups_controls = this_groups_controls[..., w_idxs, :][..., h_idxs]
 
         # normalize range of pixel values
@@ -206,7 +210,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             LOGGER.warning('need to clip. wallpapers have sample values > 1: {}'.format(this_groups_wallpapers.max()))
 
         # mask images
-        this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
+        if not is_dots:
+            this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
         # TODO: normalization not consistent with e.g. in minPhaseInterp
         if this_groups_controls is not None: # same for controls
             # normalize range of pixel values to 0...1
@@ -1361,11 +1366,12 @@ def make_single(wp_type, N, n, is_fr, is_lattice, ratio, angle, is_diagnostic, f
                     type(fundamental_region_filter)))
         else:
             texture = raw_texture
-            texture = (texture-texture.min())/(texture.max() - texture.min())
+            if not is_dots:
+                texture = (texture-texture.min())/(texture.max() - texture.min())
         # else:
            # TODO: not exactly sure, what this lowpass filter is supposed to do. in any case:
            #       it should be adapted to this structure that separates the noise generation from the filtering
-        if N>n: # we ne to crop from the WP-sized texture
+        if N>n and not is_dots: # we ne to crop from the WP-sized texture
           texture = texture[int(n//2):int(n//2)+n,int(n//2):int(n//2)+n]
         try:
             # generate the wallpapers
