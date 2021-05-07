@@ -69,8 +69,12 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         LOGGER.warning('wp_size_pix {} is not an integer multiple of {} and will be increase to {}'.format(wp_size_pix, 4*2**5, new_wp_size_pix))
         wp_size_pix = new_wp_size_pix
     
+    
     # make sizing input lowercase
     sizing = sizing.lower()
+    
+    # check if the ratio is valid
+    isValidRatio(groups, sizing, ratio)
 
     # save parameters
     if not save_path:
@@ -1677,6 +1681,17 @@ def clip_wallpaper(wallpaper, wp_size_pix):
 def diagcat_tiles(tile, N, diag_tile, wp_type):
     # Create diagnostic wallpaper
     # resize tile to ensure it will fit wallpaper size properly
+    sq = np.shape(tile)[0] * np.shape(tile)[1]
+    
+    # resize tile to ensure it will fit wallpaper size properly
+    if (tile.shape[0] > N):
+        tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+        N = tile.shape[0]
+    if (tile.shape[1] > N):
+        tile = tile[:, round((tile.shape[1] - N) / 2)
+                             : round((N + (tile.shape[1] - N) / 2))]
+        N = tile.shape[1]
+    
     if (tile.shape[0] % 2 != 0):
         tile = tile[:tile.shape[0] - 1, :]
     if (tile.shape[1] % 2 != 0):
@@ -1692,19 +1707,16 @@ def diagcat_tiles(tile, N, diag_tile, wp_type):
     if(dN[1] == 1):
         col = col + 1
     # repeat tile to create initial wallpaper less the excess necessary to complete the wallpaper to desired size
-    if (wp_type == 'P31M' or wp_type == 'P3M1' or wp_type == 'P6' or wp_type == 'P6M'):
-            img = np.tile(tile, (1 + (math.floor(row / 20)),
-                         1 + (math.floor(col / 20)), 1))
-    else:
-        img = np.tile(tile, (1 + (math.floor(row / 2)),
-                             1 + (math.floor(col / 2)), 1))
+    img = np.tile(tile, (row, col))
     if (diag_tile.shape[0] % 2 != 0):
         diag_tile = diag_tile[:diag_tile.shape[0] - 1, :]
     if (diag_tile.shape[1] % 2 != 0):
         diag_tile = diag_tile[:, :diag_tile.shape[1] - 1]
-    img = np.rot90(img, 1)
-    diag_tile = np.rot90(diag_tile, 1)
-    img[:diag_tile.shape[0], :diag_tile.shape[1], :] = diag_tile[:, :, :]
+    #img = np.rot90(img, 1)
+    #diag_tile = np.rot90(diag_tile, 1)
+    print(img.shape)
+    print(diag_tile.shape)
+    img[:diag_tile.shape[0], :diag_tile.shape[1], :diag_tile.shape[2]] = diag_tile[:, :, :]
     return img
 
 
@@ -1737,40 +1749,46 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
            print('Area of Lattice Region of ' +
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
-               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')    
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-
-        draw.rectangle((0, 0, tile.shape[0], tile.shape[1]), outline=(
-            255, 255, 0), width=2)
-        dia_lat_im.save(diag_path1, "png")
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.rectangle((0, 0, tile.shape[0] - 1, tile.shape[1] - 1), fill=(
+        alpha_mask__rec_draw.rectangle((tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), fill=(
             47, 79, 79, 125), outline=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
+            (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0), width=2)
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P2'):
@@ -1789,67 +1807,93 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(
+        alpha_mask__rec_draw.rectangle((tile.shape[0], tile.shape[1] * 1.5, tile.shape[0] * 2, tile.shape[1] * 2), fill=(
             128, 0, 0, 125), outline=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
+            (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0), width=2)
 
         # symmetry axes symbols
-        alpha_mask__rec_draw.polygon(
-            ((2, -1), (-1, 3), (2, 8), (5, 3), (2, -1)), fill=(128, 0, 0, 125))
-        alpha_mask__rec_draw.line(
-            ((1, -2), (-1, 4), (3, 9), (6, 4), (1, -2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, -1), (tile.shape[0] + 1, 3), (
-            tile.shape[0] - 2, 8), (tile.shape[0] - 5, 3), ((tile.shape[0] - 2, -1))), fill=(128, 0, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] - 1, -2), (tile.shape[0] + 1, 4), (tile.shape[0] - 3, 9),
-                                   (tile.shape[0] - 6, 4), (tile.shape[0] - 1, -2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, tile.shape[1] + 1), (tile.shape[0] + 1, tile.shape[1] - 3), (tile.shape[0] - 2,
-                                                                                                                       tile.shape[1] - 8), (tile.shape[0] - 5, tile.shape[1] - 3), ((tile.shape[0] - 2, tile.shape[1] + 1))), fill=(128, 0, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] - 1, tile.shape[1] + 2), (tile.shape[0] + 1, tile.shape[1] - 4), (tile.shape[0] - 3,
-                                                                                                                    tile.shape[1] - 9), (tile.shape[0] - 6, tile.shape[1] - 4), (tile.shape[0] - 1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((2, tile.shape[1] + 1), (-1, tile.shape[1] - 3), (
-            2, tile.shape[1] - 8), (5, tile.shape[1] - 3), (2, tile.shape[1] + 1)), fill=(128, 0, 0, 125))
-        alpha_mask__rec_draw.line(((1, tile.shape[1] + 2), (-1, tile.shape[1] - 4), (3, tile.shape[1] - 9),
-                                   (6, tile.shape[1] - 4), (1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] / 2), (tile.shape[0] / 2,
-                                                                                                                               tile.shape[1] / 2 - 2), (tile.shape[0] / 2 + 5, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 2)), fill=(128, 0, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] / 2 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] /
-                                                                                                                            2 - 3), (tile.shape[0] / 2 + 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 3)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] / 2), 4), 4, 345, fill=(128, 0, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 4, tile.shape[1] / 2), 4), 4, 345, fill=(128, 0, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] - 4), 4), 4, 15, fill=(128, 0, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, 4), 4), 4, 15, fill=(128, 0, 0, 125), outline=(255, 255, 0))
+        
+        # top left        
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] - 9), (tile.shape[0] - 3, tile.shape[1]), (
+            tile.shape[0], tile.shape[1] + 9), (tile.shape[0] + 3, tile.shape[1]), ((tile.shape[0], tile.shape[1] - 9))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] - 10), (tile.shape[0] - 4, tile.shape[1]), (tile.shape[0], tile.shape[1] + 10),
+                                    (tile.shape[0] + 4, tile.shape[1]), (tile.shape[0] - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        # top center
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5 + 4, tile.shape[1] - 7), (tile.shape[0] * 1.5 - 2, tile.shape[1] - 2), (
+            tile.shape[0] * 1.5 - 4, tile.shape[1] + 7), (tile.shape[0] * 1.5 + 2, tile.shape[1] + 2), ((tile.shape[0] * 1.5 + 4, tile.shape[1] - 7))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5 + 5, tile.shape[1] - 8), (tile.shape[0] * 1.5 - 3, tile.shape[1] - 3), (tile.shape[0] * 1.5 - 5, tile.shape[1] + 8),
+                                    (tile.shape[0] * 1.5 + 3, tile.shape[1] + 3), (tile.shape[0] * 1.5 + 5, tile.shape[1] - 8)), fill=(255, 255, 0, 255), width=1) 
+        # top right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] - 9), (tile.shape[0] * 2 - 3, tile.shape[1]), (
+            tile.shape[0] * 2, tile.shape[1] + 9), (tile.shape[0] * 2 + 3, tile.shape[1]), ((tile.shape[0] * 2, tile.shape[1] - 9))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] - 10), (tile.shape[0] * 2 - 4, tile.shape[1]), (tile.shape[0] * 2, tile.shape[1] + 10),
+                                    (tile.shape[0] * 2 + 4, tile.shape[1]), (tile.shape[0] * 2, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        # midddle left
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 4, tile.shape[1] * 1.5 - 7), (tile.shape[0] - 2, tile.shape[1] * 1.5 + 2), (
+            tile.shape[0] + 4, tile.shape[1] * 1.5 + 7), (tile.shape[0] + 2, tile.shape[1] * 1.5 - 2), ((tile.shape[0] - 4, tile.shape[1] * 1.5 - 7))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] - 5, tile.shape[1] * 1.5 - 8), (tile.shape[0] - 3, tile.shape[1] * 1.5 + 3), (tile.shape[0] + 5, tile.shape[1] * 1.5 + 8),
+                                    (tile.shape[0] + 3, tile.shape[1] * 1.5 - 3), (tile.shape[0] - 5, tile.shape[1] * 1.5 - 8)), fill=(255, 255, 0, 255), width=1)
+        # midddle center
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 3), (tile.shape[0] * 1.5 - 9, tile.shape[1] * 1.5), (
+            tile.shape[0] * 1.5, tile.shape[1] * 1.5 + 3), (tile.shape[0] * 1.5 + 9, tile.shape[1] * 1.5), ((tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 3))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 4), (tile.shape[0] * 1.5 - 10, tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 1.5 + 4),
+                                    (tile.shape[0] * 1.5 + 10, tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 4)), fill=(255, 255, 0, 255), width=1) 
+        # midddle right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2 - 4, tile.shape[1] * 1.5 - 7), (tile.shape[0] * 2 - 2, tile.shape[1] * 1.5 + 2), (
+            tile.shape[0] * 2 + 4, tile.shape[1] * 1.5 + 7), (tile.shape[0] * 2 + 2, tile.shape[1] * 1.5 - 2), ((tile.shape[0] * 2 - 4, tile.shape[1] * 1.5 - 7))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2 - 5, tile.shape[1] * 1.5 - 8), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.5 + 3), (tile.shape[0] * 2 + 5, tile.shape[1] * 1.5 + 8),
+                                    (tile.shape[0] * 2 + 3, tile.shape[1] * 1.5 - 3), (tile.shape[0] * 2 - 5, tile.shape[1] * 1.5 - 8)), fill=(255, 255, 0, 255), width=1)
+        # bottom left        
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 2 - 9), (tile.shape[0] - 3, tile.shape[1] * 2), (
+            tile.shape[0], tile.shape[1] * 2 + 9), (tile.shape[0] + 3, tile.shape[1] * 2), ((tile.shape[0], tile.shape[1] * 2 - 9))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 2 - 10), (tile.shape[0] - 4, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 2 + 10),
+                                    (tile.shape[0] + 4, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)
+        # bottom center
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5 + 4, tile.shape[1] * 2 - 7), (tile.shape[0] * 1.5 - 2, tile.shape[1] * 2 - 2), (
+            tile.shape[0] * 1.5 - 4, tile.shape[1] * 2 + 7), (tile.shape[0] * 1.5 + 2, tile.shape[1] * 2 + 2), ((tile.shape[0] * 1.5 + 4, tile.shape[1] * 2 - 7))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5 + 5, tile.shape[1] * 2 - 8), (tile.shape[0] * 1.5 - 3, tile.shape[1] * 2 - 3), (tile.shape[0] * 1.5 - 5, tile.shape[1] * 2 + 8),
+                                    (tile.shape[0] * 1.5 + 3, tile.shape[1] * 2 + 3), (tile.shape[0] * 1.5 + 5, tile.shape[1] * 2 - 8)), fill=(255, 255, 0, 255), width=1) 
+        # bottom right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 2 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 2), (
+            tile.shape[0] * 2, tile.shape[1] * 2 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 2), ((tile.shape[0] * 2, tile.shape[1] * 2 - 9))), fill=(128, 0, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 2 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 2 + 10),
+                                    (tile.shape[0] * 2 + 4, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1) 
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -1869,34 +1913,42 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
-        diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
+        # fundamental region (horizontal mirror)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.rectangle((0, tile.shape[1] / 2, tile.shape[0], tile.shape[1]), fill=(
+        alpha_mask__rec_draw.rectangle((tile.shape[0], tile.shape[1] * 1.5, tile.shape[0] * 2, tile.shape[1] * 2), fill=(
             0, 128, 0, 125), outline=(255, 255, 0, 255), width=2)
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -1916,34 +1968,42 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
-        diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
+        # fundamental region (horizontal glide)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.rectangle((tile.shape[0] / 2, 0, tile.shape[0], tile.shape[1]), fill=(
+        alpha_mask__rec_draw.rectangle((tile.shape[0] * 1.5, tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), fill=(
             127, 0, 127, 125), outline=(255, 255, 0, 255), width=2)
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -1963,39 +2023,48 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cma = plt.get_cmap("gray")
         tile_cm = cma(tile)
         if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]),
-                   (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve")
-        diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cma(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
+        
+        # fundamental region (horizontal mirror)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(
-            ((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(143, 188, 143, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (
-            tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0)), fill=(255, 255, 0, 255), width=2, joint="curve")
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5)), fill=(143, 188, 143, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (
+            tile.shape[0] * 2, tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1])), fill=(255, 255, 0, 255), width=2, joint="curve")
         alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'PMM'):
@@ -2014,71 +2083,96 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
-            (0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 69, 0, 125))
+            (tile.shape[0], tile.shape[1] * 1.5, tile.shape[0] * 1.5, tile.shape[1] * 2), fill=(255, 69, 0, 125))
         alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0, 255), width=2)
+            (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
 
         # symmetry axes symbols
-        alpha_mask__rec_draw.polygon(
-            ((2, -1), (-1, 3), (2, 8), (5, 3), (2, -1)), fill=(255, 69, 0, 125))
-        alpha_mask__rec_draw.line(
-            ((1, -2), (-1, 4), (3, 9), (6, 4), (1, -2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, -1), (tile.shape[0] + 1, 3), (tile.shape[0] - 2, 8),
-                                      (tile.shape[0] - 5, 3), ((tile.shape[0] - 2, -1))), fill=(255, 69, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] - 1, -2), (tile.shape[0] + 1, 4), (tile.shape[0] - 3, 9),
-                                   (tile.shape[0] - 6, 4), (tile.shape[0] - 1, -2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] - 2, tile.shape[1] + 1), (tile.shape[0] + 1, tile.shape[1] - 3), (tile.shape[0] - 2,
-                                                                                                                       tile.shape[1] - 8), (tile.shape[0] - 5, tile.shape[1] - 3), ((tile.shape[0] - 2, tile.shape[1] + 1))), fill=(255, 69, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] - 1, tile.shape[1] + 2), (tile.shape[0] + 1, tile.shape[1] - 4), (tile.shape[0] - 3,
-                                                                                                                    tile.shape[1] - 9), (tile.shape[0] - 6, tile.shape[1] - 4), (tile.shape[0] - 1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((2, tile.shape[1] + 1), (-1, tile.shape[1] - 3), (
-            2, tile.shape[1] - 8), (5, tile.shape[1] - 3), (2, tile.shape[1] + 1)), fill=(255, 69, 0, 125))
-        alpha_mask__rec_draw.line(((1, tile.shape[1] + 2), (-1, tile.shape[1] - 4), (3, tile.shape[1] - 9),
-                                   (6, tile.shape[1] - 4), (1, tile.shape[1] + 2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] / 2), (tile.shape[0] / 2,
-                                                                                                                               tile.shape[1] / 2 - 2), (tile.shape[0] / 2 + 5, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 2)), fill=(255, 69, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] / 2 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] /
-                                                                                                                            2 - 3), (tile.shape[0] / 2 + 6, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2 + 3)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] / 2), 4), 4, 345, fill=(255, 69, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 4, tile.shape[1] / 2), 4), 4, 345, fill=(255, 69, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] - 4), 4), 4, 15, fill=(255, 69, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, 4), 4), 4, 15, fill=(255, 69, 0, 125), outline=(255, 255, 0))
+        # top left        
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] - 9), (tile.shape[0] - 3, tile.shape[1]), (
+            tile.shape[0], tile.shape[1] + 9), (tile.shape[0] + 3, tile.shape[1]), ((tile.shape[0], tile.shape[1] - 9))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] - 10), (tile.shape[0] - 4, tile.shape[1]), (tile.shape[0], tile.shape[1] + 10),
+                                    (tile.shape[0] + 4, tile.shape[1]), (tile.shape[0] - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        # top center
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5 + 4, tile.shape[1] - 7), (tile.shape[0] * 1.5 - 2, tile.shape[1] - 2), (
+            tile.shape[0] * 1.5 - 4, tile.shape[1] + 7), (tile.shape[0] * 1.5 + 2, tile.shape[1] + 2), ((tile.shape[0] * 1.5 + 4, tile.shape[1] - 7))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5 + 5, tile.shape[1] - 8), (tile.shape[0] * 1.5 - 3, tile.shape[1] - 3), (tile.shape[0] * 1.5 - 5, tile.shape[1] + 8),
+                                    (tile.shape[0] * 1.5 + 3, tile.shape[1] + 3), (tile.shape[0] * 1.5 + 5, tile.shape[1] - 8)), fill=(255, 255, 0, 255), width=1) 
+        # top right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] - 9), (tile.shape[0] * 2 - 3, tile.shape[1]), (
+            tile.shape[0] * 2, tile.shape[1] + 9), (tile.shape[0] * 2 + 3, tile.shape[1]), ((tile.shape[0] * 2, tile.shape[1] - 9))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] - 10), (tile.shape[0] * 2 - 4, tile.shape[1]), (tile.shape[0] * 2, tile.shape[1] + 10),
+                                    (tile.shape[0] * 2 + 4, tile.shape[1]), (tile.shape[0] * 2, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        # midddle left
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 4, tile.shape[1] * 1.5 - 7), (tile.shape[0] - 2, tile.shape[1] * 1.5 + 2), (
+            tile.shape[0] + 4, tile.shape[1] * 1.5 + 7), (tile.shape[0] + 2, tile.shape[1] * 1.5 - 2), ((tile.shape[0] - 4, tile.shape[1] * 1.5 - 7))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] - 5, tile.shape[1] * 1.5 - 8), (tile.shape[0] - 3, tile.shape[1] * 1.5 + 3), (tile.shape[0] + 5, tile.shape[1] * 1.5 + 8),
+                                    (tile.shape[0] + 3, tile.shape[1] * 1.5 - 3), (tile.shape[0] - 5, tile.shape[1] * 1.5 - 8)), fill=(255, 255, 0, 255), width=1)
+        # midddle center
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 3), (tile.shape[0] * 1.5 - 9, tile.shape[1] * 1.5), (
+            tile.shape[0] * 1.5, tile.shape[1] * 1.5 + 3), (tile.shape[0] * 1.5 + 9, tile.shape[1] * 1.5), ((tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 3))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 4), (tile.shape[0] * 1.5 - 10, tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 1.5 + 4),
+                                    (tile.shape[0] * 1.5 + 10, tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 1.5 - 4)), fill=(255, 255, 0, 255), width=1) 
+        # midddle right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2 - 4, tile.shape[1] * 1.5 - 7), (tile.shape[0] * 2 - 2, tile.shape[1] * 1.5 + 2), (
+            tile.shape[0] * 2 + 4, tile.shape[1] * 1.5 + 7), (tile.shape[0] * 2 + 2, tile.shape[1] * 1.5 - 2), ((tile.shape[0] * 2 - 4, tile.shape[1] * 1.5 - 7))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2 - 5, tile.shape[1] * 1.5 - 8), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.5 + 3), (tile.shape[0] * 2 + 5, tile.shape[1] * 1.5 + 8),
+                                    (tile.shape[0] * 2 + 3, tile.shape[1] * 1.5 - 3), (tile.shape[0] * 2 - 5, tile.shape[1] * 1.5 - 8)), fill=(255, 255, 0, 255), width=1)
+        # bottom left        
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 2 - 9), (tile.shape[0] - 3, tile.shape[1] * 2), (
+            tile.shape[0], tile.shape[1] * 2 + 9), (tile.shape[0] + 3, tile.shape[1] * 2), ((tile.shape[0], tile.shape[1] * 2 - 9))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 2 - 10), (tile.shape[0] - 4, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 2 + 10),
+                                    (tile.shape[0] + 4, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)
+        # bottom center
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5 + 4, tile.shape[1] * 2 - 7), (tile.shape[0] * 1.5 - 2, tile.shape[1] * 2 - 2), (
+            tile.shape[0] * 1.5 - 4, tile.shape[1] * 2 + 7), (tile.shape[0] * 1.5 + 2, tile.shape[1] * 2 + 2), ((tile.shape[0] * 1.5 + 4, tile.shape[1] * 2 - 7))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5 + 5, tile.shape[1] * 2 - 8), (tile.shape[0] * 1.5 - 3, tile.shape[1] * 2 - 3), (tile.shape[0] * 1.5 - 5, tile.shape[1] * 2 + 8),
+                                    (tile.shape[0] * 1.5 + 3, tile.shape[1] * 2 + 3), (tile.shape[0] * 1.5 + 5, tile.shape[1] * 2 - 8)), fill=(255, 255, 0, 255), width=1) 
+        # bottom right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 2 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 2), (
+            tile.shape[0] * 2, tile.shape[1] * 2 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 2), ((tile.shape[0] * 2, tile.shape[1] * 2 - 9))), fill=(255, 69, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 2 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 2 + 10),
+                                    (tile.shape[0] * 2 + 4, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -2098,67 +2192,84 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
-            (0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(255, 165, 0, 125))
+            (tile.shape[0], tile.shape[1] * 1.5, tile.shape[0] * 1.5, tile.shape[1] * 2), fill=(255, 165, 0, 125))
         alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0, 255), width=2)
+            (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
 
         # symmetry axes symbols
-        alpha_mask__rec_draw.polygon(((1, tile.shape[1] / 4), (3, tile.shape[1] / 4 - 5), (
-            6, tile.shape[1] / 4), (3, tile.shape[1] / 4 + 5), (1, tile.shape[1] / 4)), fill=(255, 165, 0, 125))
-        alpha_mask__rec_draw.line(((0, tile.shape[1] / 4), (4, tile.shape[1] / 4 - 6), (7, tile.shape[1] / 4),
-                                   (4, tile.shape[1] / 4 + 6), (0, tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((1, tile.shape[1] - tile.shape[1] / 4), (3, tile.shape[1] - tile.shape[1] / 4 - 5), (6, tile.shape[1] -
-                                                                                                                           tile.shape[1] / 4), (3, tile.shape[1] - tile.shape[1] / 4 + 5), (1, tile.shape[1] - tile.shape[1] / 4)), fill=(255, 165, 0, 125))
-        alpha_mask__rec_draw.line(((0, tile.shape[1] - tile.shape[1] / 4), (4, tile.shape[1] - tile.shape[1] / 4 - 6), (7, tile.shape[1] -
-                                                                                                                        tile.shape[1] / 4), (4, tile.shape[1] - tile.shape[1] / 4 + 6), (0, tile.shape[1] - tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 4 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] / 4 - 1), (tile.shape[0] / 2,
-                                                                                                                                   tile.shape[1] / 4 - 4), (tile.shape[0] / 2 + 5, tile.shape[1] / 4 - 1), (tile.shape[0] / 2, tile.shape[1] / 4 + 2)), fill=(255, 165, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] / 4 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] /
-                                                                                                                                4 - 5), (tile.shape[0] / 2 + 6, tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] / 4 + 3)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 2), (tile.shape[0] / 2 - 5, tile.shape[1] - tile.shape[1] / 4 - 1), (tile.shape[0] / 2, tile.shape[1] -
-                                                                                                                                                                   tile.shape[1] / 4 - 4), (tile.shape[0] / 2 + 5, tile.shape[1] - tile.shape[1] / 4 - 1), (tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 2)), fill=(255, 165, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 3), (tile.shape[0] / 2 - 6, tile.shape[1] - tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] -
-                                                                                                                                                                tile.shape[1] / 4 - 5), (tile.shape[0] / 2 + 6, tile.shape[1] - tile.shape[1] / 4 - 2), (tile.shape[0] / 2, tile.shape[1] - tile.shape[1] / 4 + 3)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] - 1, tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] / 4 - 5), (tile.shape[0] - 6,
-                                                                                                                           tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] / 4 + 5), (tile.shape[0] - 1, tile.shape[1] / 4)), fill=(255, 165, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] / 4 - 6), (tile.shape[0] - 7,
-                                                                                                                    tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] / 4 + 6), (tile.shape[0], tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] - 1, tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] - tile.shape[1] / 4 - 5), (tile.shape[0] - 6, tile.shape[1] -
-                                                                                                                                                           tile.shape[1] / 4), (tile.shape[0] - 3, tile.shape[1] - tile.shape[1] / 4 + 5), (tile.shape[0] - 1, tile.shape[1] - tile.shape[1] / 4)), fill=(255, 165, 0, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] - tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] - tile.shape[1] / 4 - 6), (tile.shape[0] - 7, tile.shape[1] -
-                                                                                                                                                    tile.shape[1] / 4), (tile.shape[0] - 4, tile.shape[1] - tile.shape[1] / 4 + 6), (tile.shape[0], tile.shape[1] - tile.shape[1] / 4)), fill=(255, 255, 0, 255), width=1)
+        
+        # top left
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.25 - 9), (tile.shape[0] - 3, tile.shape[1] * 1.25), (
+            tile.shape[0], tile.shape[1] * 1.25 + 9), (tile.shape[0] + 3, tile.shape[1] * 1.25), (tile.shape[0], tile.shape[1] * 1.25 - 9)), fill=(255, 165, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.25 - 10), (tile.shape[0] - 4, tile.shape[1] * 1.25), (tile.shape[0], tile.shape[1] * 1.25 + 10),
+                                   (tile.shape[0] + 4, tile.shape[1] * 1.25), (tile.shape[0], tile.shape[1] * 1.25 - 10)), fill=(255, 255, 0, 255), width=1)
+        # bottom left
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.75 - 9), (tile.shape[0] - 3, tile.shape[1] * 1.75), (
+            tile.shape[0], tile.shape[1] * 1.75 + 9), (tile.shape[0] + 3, tile.shape[1] * 1.75), (tile.shape[0], tile.shape[1] * 1.75 - 9)), fill=(255, 165, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.75 - 10), (tile.shape[0] - 4, tile.shape[1] * 1.75), (tile.shape[0], tile.shape[1] * 1.75 + 10),
+                                   (tile.shape[0] + 4, tile.shape[1] * 1.75), (tile.shape[0], tile.shape[1] * 1.75 - 10)), fill=(255, 255, 0, 255), width=1)
+        
+        # middle top
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 1.25 - 3), (tile.shape[0] * 1.5 - 9, tile.shape[1] * 1.25), (
+            tile.shape[0] * 1.5, tile.shape[1] * 1.25 + 3), (tile.shape[0] * 1.5 + 9, tile.shape[1] * 1.25), (tile.shape[0] * 1.5, tile.shape[1] * 1.25 - 3)), fill=(255, 165, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 1.25 - 4), (tile.shape[0] * 1.5 - 10, tile.shape[1] * 1.25), (tile.shape[0] * 1.5, tile.shape[1] * 1.25 + 4),
+                                   (tile.shape[0] * 1.5 + 10, tile.shape[1] * 1.25), (tile.shape[0] * 1.5, tile.shape[1] * 1.25 - 4)), fill=(255, 255, 0, 255), width=1)
+        # middle bottom
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 1.75 - 3), (tile.shape[0] * 1.5 - 9, tile.shape[1] * 1.75), (
+            tile.shape[0] * 1.5, tile.shape[1] * 1.75 + 3), (tile.shape[0] * 1.5 + 9, tile.shape[1] * 1.75), (tile.shape[0] * 1.5, tile.shape[1] * 1.75 - 3)), fill=(255, 165, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 1.75 - 4), (tile.shape[0] * 1.5 - 10, tile.shape[1] * 1.75), (tile.shape[0] * 1.5, tile.shape[1] * 1.75 + 4),
+                                   (tile.shape[0] * 1.5 + 10, tile.shape[1] * 1.75), (tile.shape[0] * 1.5, tile.shape[1] * 1.75 - 4)), fill=(255, 255, 0, 255), width=1)
+        # top right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 1.25 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.25), (
+            tile.shape[0] * 2, tile.shape[1] * 1.25 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 1.25), (tile.shape[0] * 2, tile.shape[1] * 1.25 - 9)), fill=(255, 165, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 1.25 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.25), (tile.shape[0] * 2, tile.shape[1] * 1.25 + 10),
+                                   (tile.shape[0] * 2 + 4, tile.shape[1] * 1.25), (tile.shape[0] * 2, tile.shape[1] * 1.25 - 10)), fill=(255, 255, 0, 255), width=1)
+        # bottom right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 1.75 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.75), (
+            tile.shape[0] * 2, tile.shape[1] * 1.75 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 1.75), (tile.shape[0] * 2, tile.shape[1] * 1.75 - 9)), fill=(255, 165, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 1.75 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.75), (tile.shape[0] * 2, tile.shape[1] * 1.75 + 10),
+                                   (tile.shape[0] * 2 + 4, tile.shape[1] * 1.75), (tile.shape[0] * 2, tile.shape[1] * 1.75 - 10)), fill=(255, 255, 0, 255), width=1)
+        
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -2178,70 +2289,92 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(
-            ((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0], tile.shape[1] / 2)), fill=(189, 183, 107, 125))
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(189, 183, 107, 125))
         alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0, 255), width=2)
+            (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0],
-                                                                                                tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0] * 2,
+            tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0], tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
 
         # symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, 4), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] - 5), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, tile.shape[1] - 5), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] - 5, 4), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 45, fill=(189, 183, 107, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.polygon(((0, tile.shape[1] / 2), (4, tile.shape[1] / 2 - 3), (
-            10, tile.shape[1] / 2), (4, tile.shape[1] / 2 + 3), (0, tile.shape[1] / 2)), fill=(189, 183, 107, 125))
-        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (5, tile.shape[1] / 2 - 4), (11, tile.shape[1] / 2),
-                                   (5, tile.shape[1] / 2 + 4), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, 0), (tile.shape[0] / 2 - 5, 3), (tile.shape[0] / 2, 6),
-                                      (tile.shape[0] / 2 + 5, 3), (tile.shape[0] / 2, 0)), fill=(189, 183, 107, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] / 2, 0), (tile.shape[0] / 2 - 6, 4), (tile.shape[0] / 2, 7),
-                                   (tile.shape[0] / 2 + 6, 4), (tile.shape[0] / 2, 0)), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1]), (tile.shape[0] / 2 - 5, tile.shape[1] - 3), (tile.shape[0] / 2,
-                                                                                                                       tile.shape[1] - 6), (tile.shape[0] / 2 + 5, tile.shape[1] - 3), (tile.shape[0] / 2, tile.shape[1])), fill=(189, 183, 107, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0] / 2, tile.shape[1]), (tile.shape[0] / 2 - 6, tile.shape[1] - 4), (tile.shape[0] / 2,
-                                                                                                                    tile.shape[1] - 7), (tile.shape[0] / 2 + 6, tile.shape[1] - 4), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=1)
-        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] / 2), (tile.shape[0] - 4, tile.shape[1] / 2 - 3), (tile.shape[0] - 10,
-                                                                                                                       tile.shape[1] / 2), (tile.shape[0] - 4, tile.shape[1] / 2 + 3), (tile.shape[0], tile.shape[1] / 2)), fill=(189, 183, 107, 125))
-        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] / 2), (tile.shape[0] - 5, tile.shape[1] / 2 - 4), (tile.shape[0] - 11,
-                                                                                                                    tile.shape[1] / 2), (tile.shape[0] - 5, tile.shape[1] / 2 + 4), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=1)
-
+        
+        # top left        
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] - 9), (tile.shape[0] - 3, tile.shape[1]), (
+            tile.shape[0], tile.shape[1] + 9), (tile.shape[0] + 3, tile.shape[1]), ((tile.shape[0], tile.shape[1] - 9))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] - 10), (tile.shape[0] - 4, tile.shape[1]), (tile.shape[0], tile.shape[1] + 10),
+                                    (tile.shape[0] + 4, tile.shape[1]), (tile.shape[0] - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        # top right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] - 9), (tile.shape[0] * 2 - 3, tile.shape[1]), (
+            tile.shape[0] * 2, tile.shape[1] + 9), (tile.shape[0] * 2 + 3, tile.shape[1]), ((tile.shape[0] * 2, tile.shape[1] - 9))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] - 10), (tile.shape[0] * 2 - 4, tile.shape[1]), (tile.shape[0] * 2, tile.shape[1] + 10),
+                                    (tile.shape[0] * 2 + 4, tile.shape[1]), (tile.shape[0] * 2, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        # midddle left
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.5 - 3), (tile.shape[0] - 9, tile.shape[1] * 1.5), (
+            tile.shape[0], tile.shape[1] * 1.5 + 3), (tile.shape[0] + 9, tile.shape[1] * 1.5), ((tile.shape[0], tile.shape[1] * 1.5 - 3))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5 - 4), (tile.shape[0] - 10, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5 + 4),
+                                    (tile.shape[0] + 10, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5 - 4)), fill=(255, 255, 0, 255), width=1)
+        # midddle right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 3), (tile.shape[0] * 2 - 9, tile.shape[1] * 1.5), (
+            tile.shape[0] * 2, tile.shape[1] * 1.5 + 3), (tile.shape[0] * 2 + 9, tile.shape[1] * 1.5), ((tile.shape[0] * 2, tile.shape[1] * 1.5 - 3))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 4), (tile.shape[0] * 2 - 10, tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5 + 4),
+                                    (tile.shape[0] * 2 + 10, tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5 - 4)), fill=(255, 255, 0, 255), width=1)
+        # midddle top
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] - 3), (tile.shape[0] * 1.5 - 9, tile.shape[1]), (
+            tile.shape[0] * 1.5, tile.shape[1] + 3), (tile.shape[0] * 1.5 + 9, tile.shape[1]), ((tile.shape[0] * 1.5, tile.shape[1] - 3))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] - 4), (tile.shape[0] * 1.5 - 10, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] + 4),
+                                    (tile.shape[0] * 1.5 + 10, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] - 4)), fill=(255, 255, 0, 255), width=1)
+        # midddle bottom
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 3), (tile.shape[0] * 1.5 - 9, tile.shape[1] * 2), (
+            tile.shape[0] * 1.5, tile.shape[1] * 2 + 3), (tile.shape[0] * 1.5 + 9, tile.shape[1] * 2), ((tile.shape[0] * 1.5, tile.shape[1] * 2 - 3))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 4), (tile.shape[0] * 1.5 - 10, tile.shape[1] * 2), (tile.shape[0] * 1.5, tile.shape[1] * 2 + 4),
+                                    (tile.shape[0] * 1.5 + 10, tile.shape[1] * 2), (tile.shape[0] * 1.5, tile.shape[1] * 2 - 4)), fill=(255, 255, 0, 255), width=1)
+        # bottom left        
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 2 - 9), (tile.shape[0] - 3, tile.shape[1] * 2), (
+            tile.shape[0], tile.shape[1] * 2 + 9), (tile.shape[0] + 3, tile.shape[1] * 2), ((tile.shape[0], tile.shape[1] * 2 - 9))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 2 - 10), (tile.shape[0] - 4, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 2 + 10),
+                                    (tile.shape[0] + 4, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)
+        # bottom right
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 2 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 2), (
+            tile.shape[0] * 2, tile.shape[1] * 2 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 2), ((tile.shape[0] * 2, tile.shape[1] * 2 - 9))), fill=(189, 183, 107, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 2 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 2 + 10),
+                                    (tile.shape[0] * 2 + 4, tile.shape[1] * 2), (tile.shape[0] * 2, tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)                
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'CMM'):
@@ -2260,54 +2393,75 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]),
-                   (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve")
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(
-            ((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(0, 0, 205, 125))
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(0, 0, 205, 125))
         alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((tile.shape[1] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0],
-                                                                                                tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0] * 2,
+             tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0], tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
 
         # symmetry axes symbols
+        
+        # top middle
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5 - 5, tile.shape[1] - 7), (tile.shape[0] * 1.5 - 2, tile.shape[1] + 2), (
+            tile.shape[0] * 1.5 + 5, tile.shape[1] + 7), (tile.shape[0] * 1.5 + 2, tile.shape[1] - 2), ((tile.shape[0] * 1.5 - 5, tile.shape[1] - 7))), fill=(0, 0, 205, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5 - 6, tile.shape[1] - 8), (tile.shape[0] * 1.5 - 3, tile.shape[1] + 3), (tile.shape[0] * 1.5 + 6, tile.shape[1] + 8),
+                                    (tile.shape[0] * 1.5 + 3, tile.shape[1] - 3), (tile.shape[0] * 1.5 - 6, tile.shape[1] - 8)), fill=(255, 255, 0, 255), width=1)
+        # bottom middle
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5 - 5, tile.shape[1] * 2 - 7), (tile.shape[0] * 1.5 - 2, tile.shape[1] * 2 + 2), (
+            tile.shape[0] * 1.5 + 5, tile.shape[1] * 2 + 7), (tile.shape[0] * 1.5 + 2, tile.shape[1] * 2 - 2), ((tile.shape[0] * 1.5 - 5, tile.shape[1] * 2 - 7))), fill=(0, 0, 205, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5 - 6, tile.shape[1] * 2 - 8), (tile.shape[0] * 1.5 - 3, tile.shape[1] * 2 + 3), (tile.shape[0] * 1.5 + 6, tile.shape[1] * 2 + 8),
+                                    (tile.shape[0] * 1.5 + 3, tile.shape[1] * 2 - 3), (tile.shape[0] * 1.5 - 6, tile.shape[1] * 2 - 8)), fill=(255, 255, 0, 255), width=1)
+        # left middle
+        alpha_mask__rec_draw.polygon(((tile.shape[0] - 5, tile.shape[1] * 1.5 - 7), (tile.shape[0] - 2, tile.shape[1] * 1.5 + 2), (
+            tile.shape[0] + 5, tile.shape[1] * 1.5 + 7), (tile.shape[0] + 2, tile.shape[1] * 1.5 - 2), ((tile.shape[0] - 5, tile.shape[1] * 1.5 - 7))), fill=(0, 0, 205, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] - 6, tile.shape[1] * 1.5 - 8), (tile.shape[0] - 3, tile.shape[1] * 1.5 + 3), (tile.shape[0] + 6, tile.shape[1] * 1.5 + 8),
+                                    (tile.shape[0] + 3, tile.shape[1] * 1.5 - 3), (tile.shape[0] - 6, tile.shape[1] * 1.5 - 8)), fill=(255, 255, 0, 255), width=1)
+        # right middle
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2 - 5, tile.shape[1] * 1.5 - 7), (tile.shape[0] * 2 - 2, tile.shape[1] * 1.5 + 2), (
+            tile.shape[0] * 2 + 5, tile.shape[1] * 1.5 + 7), (tile.shape[0] * 2 + 2, tile.shape[1] * 1.5 - 2), ((tile.shape[0] * 2 - 5, tile.shape[1] * 1.5 - 7))), fill=(0, 0, 205, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2 - 6, tile.shape[1] * 1.5 - 8), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.5 + 3), (tile.shape[0] * 2 + 6, tile.shape[1] * 1.5 + 8),
+                                    (tile.shape[0] * 2 + 3, tile.shape[1] * 1.5 - 3), (tile.shape[0] * 2 - 6, tile.shape[1] * 1.5 - 8)), fill=(255, 255, 0, 255), width=1)
+        # center
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 30, fill=(0, 0, 205, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((6, tile.shape[1] / 2), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], tile.shape[1] / 2), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1]), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, 6), 6), 4, 345, fill=(0, 0, 205, 125), outline=(255, 255, 0))
-
+            ((tile.shape[0] * 1.5, tile.shape[1] * 1.5), 6), 4, 15, fill=(0, 0, 205, 125), outline=(255, 255, 0))
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P4'):
@@ -2326,62 +2480,87 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
-            (0, tile.shape[1] / 2, tile.shape[0] / 2, tile.shape[1]), fill=(124, 252, 0, 125))
+            (tile.shape[0], tile.shape[1] * 1.5, tile.shape[0] * 1.5, tile.shape[1] * 2), fill=(124, 252, 0, 125))
         alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0, 255), width=2)
+            (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
         alpha_mask__rec_draw.line(
-            ((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
+            ((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
 
         # symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, 4), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] - 5), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+        
+        # top left
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[0], tile.shape[1]), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+        # bottom left
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], 4), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0], tile.shape[1] * 2), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+        # bottom right
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0] * 2, tile.shape[1] * 2), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+        # top right
         alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] / 2), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+            ((tile.shape[0] * 2, tile.shape[1]), 6), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+        # center
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], tile.shape[1] / 2), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1]), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, 4), 4), 4, 45, fill=(124, 252, 0, 125), outline=(255, 255, 0))
-
+            ((tile.shape[0] * 1.5, tile.shape[1] * 1.5), 6), 4, 0, fill=(124, 252, 0, 125), outline=(255, 255, 0))
+        # top center        
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1]), (
+            tile.shape[0] * 1.5, tile.shape[1] + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1]), ((tile.shape[0] * 1.5, tile.shape[1] - 9))), fill=(124, 252, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] + 10),
+                                    (tile.shape[0] * 1.5 + 4, tile.shape[1]), (tile.shape[0] * 1.5 - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        # bottom center        
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1] * 2), (
+            tile.shape[0] * 1.5, tile.shape[1] * 2 + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1] * 2), ((tile.shape[0] * 1.5, tile.shape[1] * 2 - 9))), fill=(124, 252, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1] * 2), (tile.shape[0] * 1.5, tile.shape[1] * 2 + 10),
+                                    (tile.shape[0] * 1.5 + 4, tile.shape[1] * 2), (tile.shape[0] * 1.5 - 4, tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)
+        # left center        
+        alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.5 - 9), (tile.shape[0] - 3, tile.shape[1] * 1.5), (
+            tile.shape[0], tile.shape[1] * 1.5 + 9), (tile.shape[0] + 3, tile.shape[1] * 1.5), ((tile.shape[0], tile.shape[1] * 1.5 - 9))), fill=(124, 252, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5 - 10), (tile.shape[0] - 4, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5 + 10),
+                                    (tile.shape[0] + 4, tile.shape[1] * 1.5), (tile.shape[0] - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)
+        # right center        
+        alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.5), (
+            tile.shape[0] * 2, tile.shape[1] * 1.5 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 1.5), ((tile.shape[0] * 2, tile.shape[1] * 1.5 - 9))), fill=(124, 252, 0, 125))
+        alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5 + 10),
+                                    (tile.shape[0] * 2 + 4, tile.shape[1] * 1.5), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)       
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P4M'):
@@ -2400,65 +2579,143 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0), width=2)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.polygon(((tile.shape[0] / 2, tile.shape[1] / 2), (
-            tile.shape[0] / 2, tile.shape[1]), (0, tile.shape[1])), fill=(0, 250, 154, 125))
-        alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(
-            ((tile.shape[0] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(
-            ((0, 0), (tile.shape[0], tile.shape[1])), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(
-            ((tile.shape[0], 0), (0, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
-
-        # symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] - 5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1]), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], tile.shape[1]), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], 4), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1] / 2), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], tile.shape[1] / 2), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1]), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, 4), 4), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+        if ratio > 0.03125:
+            alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1]), (
+                tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 0.5, tile.shape[1] * 1.5)), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.rectangle(
+                (tile.shape[0] * 0.5, tile.shape[1] * 0.5, tile.shape[0] * 1.5, tile.shape[1] * 1.5), outline=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0] * 0.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0], tile.shape[1] * 0.5), (tile.shape[0], tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0] * 0.5, tile.shape[1] * 0.5), (tile.shape[0] * 1.5, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0] * 1.5, tile.shape[1] * 0.5), (tile.shape[0] * 0.5, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+    
+            # symmetry axes symbols
+            
+            # top left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 0.5, tile.shape[1] * 0.5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # bottom left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 0.5, tile.shape[1] * 1.5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # bottom right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 1.5, tile.shape[1] * 1.5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # top right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 1.5, tile.shape[1] * 0.5), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # center
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0], tile.shape[1]), 6), 4, 0, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # top center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 0.5 - 9), (tile.shape[0] - 3, tile.shape[1] * 0.5), (
+                tile.shape[0], tile.shape[1] * 0.5 + 9), (tile.shape[0] + 3, tile.shape[1] * 0.5), ((tile.shape[0], tile.shape[1] * 0.5 - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 0.5 - 10), (tile.shape[0] - 4, tile.shape[1] * 0.5), (tile.shape[0], tile.shape[1] * 0.5 + 10),
+                                        (tile.shape[0] + 4, tile.shape[1] * 0.5), (tile.shape[0] - 4, tile.shape[1] * 0.5 - 10)), fill=(255, 255, 0, 255), width=1)
+            # bottom center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.5 - 9), (tile.shape[0] - 3, tile.shape[1] * 1.5), (
+                tile.shape[0], tile.shape[1] * 1.5 + 9), (tile.shape[0] + 3, tile.shape[1] * 1.5), ((tile.shape[0], tile.shape[1] * 1.5 - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5 - 10), (tile.shape[0] - 4, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5 + 10),
+                                        (tile.shape[0] + 4, tile.shape[1] * 1.5), (tile.shape[0] - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)
+            # left center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 0.5, tile.shape[1] - 9), (tile.shape[0] * 0.5 - 3, tile.shape[1]), (
+                tile.shape[0] * 0.5, tile.shape[1] + 9), (tile.shape[0] * 0.5 + 3, tile.shape[1]), ((tile.shape[0] * 0.5, tile.shape[1] - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 0.5, tile.shape[1] - 10), (tile.shape[0] * 0.5 - 4, tile.shape[1]), (tile.shape[0] * 0.5, tile.shape[1] + 10),
+                                        (tile.shape[0] * 0.5 + 4, tile.shape[1]), (tile.shape[0] * 0.5 - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+            # right center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1]), (
+                tile.shape[0] * 1.5, tile.shape[1] + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1]), ((tile.shape[0] * 1.5, tile.shape[1] - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] + 10),
+                                        (tile.shape[0] * 1.5 + 4, tile.shape[1]), (tile.shape[0] * 1.5 - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        else:
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 1.5), (
+                tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 2)), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.rectangle(
+                (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0], tile.shape[1]), (tile.shape[0] * 2, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0] * 2, tile.shape[1]), (tile.shape[0], tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
+    
+            # symmetry axes symbols
+            
+            # top left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0], tile.shape[1]), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # bottom left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0], tile.shape[1] * 2), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # bottom right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 2, tile.shape[1] * 2), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # top right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 2, tile.shape[1]), 6), 4, 45, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # center
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 1.5, tile.shape[1] * 1.5), 6), 4, 0, fill=(0, 250, 154, 125), outline=(255, 255, 0))
+            # top center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1]), (
+                tile.shape[0] * 1.5, tile.shape[1] + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1]), ((tile.shape[0] * 1.5, tile.shape[1] - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] + 10),
+                                        (tile.shape[0] * 1.5 + 4, tile.shape[1]), (tile.shape[0] * 1.5 - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+            # bottom center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1] * 2), (
+                tile.shape[0] * 1.5, tile.shape[1] * 2 + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1] * 2), ((tile.shape[0] * 1.5, tile.shape[1] * 2 - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1] * 2), (tile.shape[0] * 1.5, tile.shape[1] * 2 + 10),
+                                        (tile.shape[0] * 1.5 + 4, tile.shape[1] * 2), (tile.shape[0] * 1.5 - 4, tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)
+            # left center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.5 - 9), (tile.shape[0] - 3, tile.shape[1] * 1.5), (
+                tile.shape[0], tile.shape[1] * 1.5 + 9), (tile.shape[0] + 3, tile.shape[1] * 1.5), ((tile.shape[0], tile.shape[1] * 1.5 - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5 - 10), (tile.shape[0] - 4, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5 + 10),
+                                        (tile.shape[0] + 4, tile.shape[1] * 1.5), (tile.shape[0] - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)
+            # right center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.5), (
+                tile.shape[0] * 2, tile.shape[1] * 1.5 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 1.5), ((tile.shape[0] * 2, tile.shape[1] * 1.5 - 9))), fill=(0, 250, 154, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5 + 10),
+                                        (tile.shape[0] * 2 + 4, tile.shape[1] * 1.5), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -2478,65 +2735,138 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
-            tile_cm = cm(tile_rep)
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[0] / 2, 0), (0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]),
-                   (tile.shape[0], tile.shape[1] / 2), (tile.shape[0] / 2, 0)), fill=(255, 255, 0), width=2, joint="curve")
-
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.polygon(
-            ((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1])), fill=(65, 105, 225, 125))
-        alpha_mask__rec_draw.line(
-            ((0, tile.shape[1] / 2), (tile.shape[0], tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(
-            ((tile.shape[1] / 2, 0), (tile.shape[0] / 2, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.line(((0, tile.shape[1] / 2), (tile.shape[0] / 2, tile.shape[1]), (tile.shape[0],
-                                                                                                tile.shape[1] / 2), (tile.shape[0] / 2, 0), (0, tile.shape[1] / 2)), fill=(255, 255, 0, 255), width=2)
-        alpha_mask__rec_draw.rectangle(
-            (0, 0, tile.shape[0] - 1, tile.shape[1] - 1), outline=(255, 255, 0, 255), width=2)
-
-        # symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((4, tile.shape[1]), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], tile.shape[1]), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], 4), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] / 2), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((6, tile.shape[1] / 2), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0], tile.shape[1] / 2), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[0] / 2, tile.shape[1] - 6), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, 6), 6), 4, 45, fill=(65, 105, 225, 125), outline=(255, 255, 0))
-
+        if ratio > 0.03125:
+            alpha_mask__rec_draw.polygon(
+                ((tile.shape[0] * 0.5, tile.shape[1]), (tile.shape[0], tile.shape[1]), (tile.shape[0], tile.shape[1] * 1.5)), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0] * 0.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0], tile.shape[1] * 0.5), (tile.shape[0], tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[0] * 0.5, tile.shape[1]), (tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5,
+                                        tile.shape[1]), (tile.shape[0], tile.shape[1] * 0.5), (tile.shape[0] * 0.5, tile.shape[1])), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.rectangle(
+                (tile.shape[0] * 0.5, tile.shape[1] * 0.5, tile.shape[0] * 1.5, tile.shape[1] * 1.5), outline=(255, 255, 0, 255), width=2)
+    
+            # symmetry axes symbols
+            
+            # top left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 0.5, tile.shape[1] * 0.5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # bottom left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 0.5, tile.shape[1] * 1.5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # bottom right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 1.5, tile.shape[1] * 1.5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # top right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 1.5, tile.shape[1] * 0.5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # center
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0], tile.shape[1]), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # top center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 0.5 - 9), (tile.shape[0] - 3, tile.shape[1] * 0.5), (
+                tile.shape[0], tile.shape[1] * 0.5 + 9), (tile.shape[0] + 3, tile.shape[1] * 0.5), ((tile.shape[0], tile.shape[1] * 0.5 - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 0.5 - 10), (tile.shape[0] - 4, tile.shape[1] * 0.5), (tile.shape[0], tile.shape[1] * 0.5 + 10),
+                                        (tile.shape[0] + 4, tile.shape[1] * 0.5), (tile.shape[0] - 4, tile.shape[1] * 0.5 - 10)), fill=(255, 255, 0, 255), width=1)
+            # bottom center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.5 - 9), (tile.shape[0] - 3, tile.shape[1] * 1.5), (
+                tile.shape[0], tile.shape[1] * 1.5 + 9), (tile.shape[0] + 3, tile.shape[1] * 1.5), ((tile.shape[0], tile.shape[1] * 1.5 - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5 - 10), (tile.shape[0] - 4, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5 + 10),
+                                        (tile.shape[0] + 4, tile.shape[1] * 1.5), (tile.shape[0] - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)
+            # left center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 0.5, tile.shape[1] - 9), (tile.shape[0] * 0.5 - 3, tile.shape[1]), (
+                tile.shape[0] * 0.5, tile.shape[1] + 9), (tile.shape[0] * 0.5 + 3, tile.shape[1]), ((tile.shape[0] * 0.5, tile.shape[1] - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 0.5, tile.shape[1] - 10), (tile.shape[0] * 0.5 - 4, tile.shape[1]), (tile.shape[0] * 0.5, tile.shape[1] + 10),
+                                        (tile.shape[0] * 0.5 + 4, tile.shape[1]), (tile.shape[0] * 0.5 - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+            # right center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1]), (
+                tile.shape[0] * 1.5, tile.shape[1] + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1]), ((tile.shape[0] * 1.5, tile.shape[1] - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] + 10),
+                                        (tile.shape[0] * 1.5 + 4, tile.shape[1]), (tile.shape[0] * 1.5 - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+        else:
+            alpha_mask__rec_draw.polygon(
+                ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(
+                ((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0] * 1.5,
+                                        tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0], tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.rectangle(
+                (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0, 255), width=2)
+            # symmetry axes symbols
+        
+            # top left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0], tile.shape[1]), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # bottom left
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0], tile.shape[1] * 2), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # bottom right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 2, tile.shape[1] * 2), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # top right
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 2, tile.shape[1]), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # center
+            alpha_mask__rec_draw.regular_polygon(
+                ((tile.shape[0] * 1.5, tile.shape[1] * 1.5), 6), 4, 0, fill=(65, 105, 225, 125), outline=(255, 255, 0))
+            # top center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1]), (
+                tile.shape[0] * 1.5, tile.shape[1] + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1]), ((tile.shape[0] * 1.5, tile.shape[1] - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] + 10),
+                                        (tile.shape[0] * 1.5 + 4, tile.shape[1]), (tile.shape[0] * 1.5 - 4, tile.shape[1] - 10)), fill=(255, 255, 0, 255), width=1)
+            # bottom center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 9), (tile.shape[0] * 1.5 - 3, tile.shape[1] * 2), (
+                tile.shape[0] * 1.5, tile.shape[1] * 2 + 9), (tile.shape[0] * 1.5 + 3, tile.shape[1] * 2), ((tile.shape[0] * 1.5, tile.shape[1] * 2 - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 1.5, tile.shape[1] * 2 - 10), (tile.shape[0] * 1.5 - 4, tile.shape[1] * 2), (tile.shape[0] * 1.5, tile.shape[1] * 2 + 10),
+                                        (tile.shape[0] * 1.5 + 4, tile.shape[1] * 2), (tile.shape[0] * 1.5 - 4, tile.shape[1] * 2 - 10)), fill=(255, 255, 0, 255), width=1)
+            # left center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0], tile.shape[1] * 1.5 - 9), (tile.shape[0] - 3, tile.shape[1] * 1.5), (
+                tile.shape[0], tile.shape[1] * 1.5 + 9), (tile.shape[0] + 3, tile.shape[1] * 1.5), ((tile.shape[0], tile.shape[1] * 1.5 - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5 - 10), (tile.shape[0] - 4, tile.shape[1] * 1.5), (tile.shape[0], tile.shape[1] * 1.5 + 10),
+                                        (tile.shape[0] + 4, tile.shape[1] * 1.5), (tile.shape[0] - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)
+            # right center        
+            alpha_mask__rec_draw.polygon(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 9), (tile.shape[0] * 2 - 3, tile.shape[1] * 1.5), (
+                tile.shape[0] * 2, tile.shape[1] * 1.5 + 9), (tile.shape[0] * 2 + 3, tile.shape[1] * 1.5), ((tile.shape[0] * 2, tile.shape[1] * 1.5 - 9))), fill=(65, 105, 225, 125))
+            alpha_mask__rec_draw.line(((tile.shape[0] * 2, tile.shape[1] * 1.5 - 10), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5 + 10),
+                                        (tile.shape[0] * 2 + 4, tile.shape[1] * 1.5), (tile.shape[0] * 2 - 4, tile.shape[1] * 1.5 - 10)), fill=(255, 255, 0, 255), width=1)
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P3'):
@@ -2555,54 +2885,62 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2),
-                   (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2)
-
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 1, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2,
-                                                                                                    tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((
-            tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=3)
-        alpha_mask__rec_draw.polygon(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((
-            tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(233, 150, 122, 125))
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.5), (tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1],
+                                  tile.shape[0]), (tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1] * 1.5, tile.shape[0] * 0.5)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1] * 1.185, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0] * 0.666), ((
+            tile.shape[1]) * 1.325, tile.shape[0] * 0.674), ((tile.shape[1] * 1.5), tile.shape[0] * 0.833)), fill=(255, 255, 0), width=3)
+        alpha_mask__rec_draw.polygon(((tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1] * 1.185, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0] * 0.666), ((
+            tile.shape[1]) * 1.325, tile.shape[0] * 0.674), ((tile.shape[1] * 1.5), tile.shape[0] * 0.833)), fill=(233, 150, 122, 125))
+        #alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.5), (tile.shape[1], tile.shape[0])), fill=(255, 255, 0), width=3)
 
         # symmetry axes symbols
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1], tile.shape[0] * 0.666), 8), 3, 150, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1]), tile.shape[0] / 3), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 0.833), 8), 3, 150, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.185, tile.shape[0] * 0.833), 8), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 60, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            (((tile.shape[1]) * 1.325, tile.shape[0] * 0.674), 8), 3, 60, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1], 3), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 0.5), 8), 3, 150, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1], tile.shape[0]), 8), 3, 150, fill=(233, 150, 122, 125), outline=(255, 255, 0))
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -2622,56 +2960,64 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2),
-                   (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2)
-
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 1, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((
-            tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(0, 191, 255, 125))
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2,
-                                                                                                    tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] / 1.5, tile.shape[0] / 3), ((
-            tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((
-            tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=2)
-
+        
+        alpha_mask__rec_draw.polygon(((tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1] * 1.185, tile.shape[0] * 0.833), ((
+            tile.shape[1]) * 1.325, tile.shape[0] * 0.674), (tile.shape[1], tile.shape[0] * 0.666)), fill=(0, 191, 255, 125))
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.5), (tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1],
+                                  tile.shape[0]), (tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1] * 1.5, tile.shape[0] * 0.5)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1] * 1.185, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0] * 0.666), ((
+            tile.shape[1]) * 1.325, tile.shape[0] * 0.674), ((tile.shape[1] * 1.5), tile.shape[0] * 0.833)), fill=(255, 255, 0), width=3)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.185, tile.shape[0] * 0.833), (
+            tile.shape[1] * 1.325, tile.shape[0] * 0.674)), fill=(255, 255, 0), width=2)
+        
         # symmetry axes symbols
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1], tile.shape[0] * 0.666), 8), 3, 150, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1]), tile.shape[0] / 3), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 0.833), 8), 3, 150, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.185, tile.shape[0] * 0.833), 8), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 60, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            (((tile.shape[1]) * 1.325, tile.shape[0] * 0.674), 8), 3, 60, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1], 3), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 0.5), 8), 3, 150, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1], tile.shape[0]), 8), 3, 150, fill=(0, 191, 255, 125), outline=(255, 255, 0))
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
@@ -2691,61 +3037,64 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2, tile.shape[0] / 2),
-                   (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2)
-
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 1, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.polygon(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), (
-            tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(255, 0, 255, 125))
-        alpha_mask__rec_draw.line(((tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), (
-            tile.shape[1] / 2, tile.shape[0] / 2), (tile.shape[1] / 1.5, tile.shape[0] / 3)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, 0), (tile.shape[1] / 2, tile.shape[0] / 6), (tile.shape[1] / 2,
-                                                                                                    tile.shape[0] / 2), (tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] - 1, 0)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] / 3), (tile.shape[1] / 1.5, tile.shape[0] / 3), (tile.shape[1] / 2, tile.shape[0] / 6), ((
-            tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), ((tile.shape[1] - 1), tile.shape[0] / 3)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line((((tile.shape[1] / 2, tile.shape[0] / 6), ((
-            tile.shape[1] - 1), tile.shape[0] / 3))), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(
-            (((tile.shape[1] - 1, 0), ((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75))), fill=(255, 255, 0), width=2)
+        
+        alpha_mask__rec_draw.polygon(((tile.shape[1], tile.shape[0]), (tile.shape[1] * 1.185, tile.shape[0] * 0.833), (
+            tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0])), fill=(255, 0, 255, 125))
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.5), (tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1],
+                                  tile.shape[0]), (tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1] * 1.5, tile.shape[0] * 0.5)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]), (tile.shape[1] * 1.185, tile.shape[0] * 0.833), (
+            tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0])), fill=(255, 255, 0), width=2) 
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.185, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0] * 0.666)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1] * 1.5, tile.shape[0] * 0.833)), fill=(255, 255, 0), width=2)
 
         # symmetry axes symbols
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, tile.shape[0] / 6), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1], tile.shape[0] * 0.666), 8), 3, 150, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1]), tile.shape[0] / 3), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 0.833), 8), 3, 150, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 1.5, tile.shape[0] / 3), 5), 3, 30, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.185, tile.shape[0] * 0.833), 8), 3, 90, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1] - 1) / 1.25, tile.shape[0] / 5.75), 5), 3, 30, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            (((tile.shape[1]) * 1.325, tile.shape[0] * 0.674), 8), 3, 90, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1], 3), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 0.5), 8), 3, 150, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] / 2, tile.shape[0] / 2), 5), 3, 210, fill=(255, 0, 255, 125), outline=(255, 255, 0))
-
+            ((tile.shape[1], tile.shape[0]), 8), 3, 150, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P6'):
@@ -2764,34 +3113,42 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2),
-                   (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            if tile_rep.shape[0] > N:
-                tile_rep = tile_rep[:N,:]
-            if tile_rep.shape[1] > N:
-                tile_rep = tile_rep[:,:N]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
+        
         alpha_mask__rec_draw.polygon(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
             tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(221, 160, 221, 125))
         alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
@@ -2841,26 +3198,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')      
-        diag_path1 = save_path + "_DIAGNOSTIC_LATTICE_" + wp_type + '.' + "png"
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        if(use_dots):
-            dia_lat_im = Image.fromarray(
-                (tile[:, :]).astype(np.uint32), 'RGBA')
-            draw = ImageDraw.Draw(dia_lat_im, 'RGBA')
-        else:
-            dia_lat_im = Image.fromarray(
-                (tile_cm[:, :, :] * 255).astype(np.uint8))
-            draw = ImageDraw.Draw(dia_lat_im)
-        draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2, tile.shape[0] / 2),
-                   (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
         if(use_dots):
             dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
         else:
-            tile_rep = numpy.matlib.repmat(tile, 2, 2)
-            tile_rep = tile_rep[: round(tile_rep.shape[0] * 0.75), : round(tile_rep.shape[1] * 0.75)]
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
+        
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
             tile_cm = cm(tile_rep)
             dia_fr_im = Image.fromarray(
                 (tile_cm[:, :, :] * 255).astype(np.uint8))
@@ -2904,11 +3271,14 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
             (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0], 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
-
-    dia_fr_im2 = Image.fromarray((tile_cm[:, :, :] * 255).astype(np.uint8))
-    alpha_mask_rec2 = Image.new('RGBA', dia_fr_im2.size, (0, 0, 0, 0))
-    alpha_mask__rec2_draw = ImageDraw.Draw(alpha_mask_rec2)
-    dia_fr_im2 = Image.alpha_composite(dia_fr_im2, alpha_mask_rec2)
+    
+    # resize diagnostic_fr image to actual size of wallpaper
+    im_w, im_h = dia_fr_im.size
+    left = round((im_w - N) / 2)
+    right = round(N + ((im_w - N) / 2))
+    top = round((im_h - N) / 2)
+    bottom = round(N + ((im_h - N) / 2))
+    dia_fr_im = dia_fr_im.crop((left, top, right, bottom))
 
     if use_dots:
         pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
@@ -2927,9 +3297,10 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
         I[hidx_0 - 2:hidx_0 + 2, :] = np.array([1, 0, 0])
         I[hidx_1 - 2:hidx_1 + 2, :] = np.array([0, 1, 0])
         I[hidx_2 - 2:hidx_2 + 2, :] = np.array([0, 0, 1])
+        I = clip_wallpaper(I, N)
         cm = plt.get_cmap("gray")
         cm(I)
-
+        
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, figsize=(10, 40))
         ax1.imshow(dia_fr_im)
         ax1.set_title('Fundamental Region for ' + wp_type)
@@ -3262,6 +3633,27 @@ def size_lattice(ratio, n, cell_struct):
     else:
         return round(n * ratio * 2)
 
+def isValidRatio(groups, sizing, ratio):
+    if sizing == 'lattice' and ratio > 0.5:
+        raise SystemExit('Invalid ratio for lattice sizing. Ratio cannot be greater than 0.5')
+    elif sizing == 'fr':
+        for group in groups:
+            if group == 'P1' and ratio > 0.5:
+                raise SystemExit('Invalid ratio for fr sizing for P1. Ratio cannot be greater than 0.5')
+            elif (group == 'P2' or group == 'PM' or group == 'PG' or group == 'CM') and ratio > 0.25:
+                raise SystemExit('Invalid ratio for fr sizing for ' + group + '. Ratio cannot be greater than 0.25')
+            elif (group == 'PMM' or group == 'PMG' or group == 'PGG' or group == 'CMM' or group == 'P4') and ratio > 0.125:
+                raise SystemExit('Invalid ratio for fr sizing for ' + group + '. Ratio cannot be greater than 0.125')
+            elif (group == 'P4M' or group == 'P4G') and ratio > 0.0625:
+                raise SystemExit('Invalid ratio for fr sizing for ' + group + '. Ratio cannot be greater than 0.625')
+            elif group == 'P3' and ratio > (1 / 18):
+                raise SystemExit('Invalid ratio for fr sizing for ' + group + '. Ratio cannot be greater than 0.0555...')
+            elif group == 'P3M1' and ratio > (1 / 24):
+                raise SystemExit('Invalid ratio for fr sizing for ' + group + '. Ratio cannot be greater than 0.0416...')
+            elif (group == 'P31M' or group == 'P6') and ratio > (1 / 36):
+                raise SystemExit('Invalid ratio for fr sizing for ' + group + '. Ratio cannot be greater than 0.0277...')
+            elif group == 'P6M' and ratio > (1 / 72):
+                raise SystemExit('Invalid ratio for fr sizing for ' + group + '. Ratio cannot be greater than 0.0138...')
 
 # for commandline input
 if __name__ == "__main__":
