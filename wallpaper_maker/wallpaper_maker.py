@@ -69,6 +69,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         LOGGER.warning('wp_size_pix {} is not an integer multiple of {} and will be increase to {}'.format(wp_size_pix, 4*2**5, new_wp_size_pix))
         wp_size_pix = new_wp_size_pix
     
+    # make groups all uppercase
+    groups = [group.upper() for group in groups] 
     
     # make sizing input lowercase
     sizing = sizing.lower()
@@ -123,10 +125,14 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         # making regular images
         print('generating ', group)
         if sizing == 'lattice' or sizing == 'fr':
-            fr_size = np.round(wp_size_pix**2 * ratio) 
+            area = np.round(wp_size_pix**2 * ratio)
+            if sizing == 'fr':
+                print("Area of fundamnetal region: " + str(area))
+            else:
+                print("Area of lattice region: " + str(area))
         else:
             raise SystemExit('Invalid sizing option. Must be either FR or lattice')
-        print("Area of fundamnetal region: " + str(fr_size))
+        
         if filter_freqs:
             this_groups_wallpapers = [[] for i in filter_freqs]
         else:
@@ -135,7 +141,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         for k in range(num_exemplars):
             print('filter_freqs {}'.format(filter_freqs))
             
-            raw = make_single(group, wp_size_pix, int(fr_size), sizing, ratio, wp_size_dva, is_diagnostic,
+            raw = make_single(group, wp_size_pix, int(area), sizing, ratio, wp_size_dva, is_diagnostic,
                               filter_freqs, fundamental_region_source_type, use_dots, cmap, save_path, k, pdf)
             raw = np.array(raw).squeeze()
 
@@ -1289,7 +1295,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
     # wp_type defines the wallpaper group
     # N is the size of the output image. For complex groups
     #   returned image will have size at least NxN.
-    # n is the area of repeating pattern for all groups in pixels.
+    # n is the area of repeating pattern (lattice for lattice sizing and fundamental region for fr sizing) 
+    #   for all groups in pixels.
     # is_diagnostic whether to generate diagnostic images (outlining fundamental region and lattice)
     # isSpatFreqFilt generate a spatial frequency filtered wallpaper
     # fwhm full width at half maximum of spatial frequency filter
@@ -1424,7 +1431,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pg_image)
             elif wp_type == 'CM':
-                # Rhombic fundamental region 
+                # Triangular fundamental region 
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
@@ -1481,11 +1488,11 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pmg_image)
             elif wp_type == 'PGG':
-                # Rhombic fundamental region 
-                # => area of FR = area of lattice / 2 
+                # Triangular fundamental region 
+                # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
+                    n = n / 4 # FR should be half the size if lattice sizing
                 height = int(np.round(np.sqrt(n)))
                 width = int(np.round(np.sqrt(n)))
                 start_tile = texture[:height, :width]
@@ -1501,8 +1508,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pgg_image)
             elif wp_type == 'CMM':
-                # Rhombic fundamental region 
-                # => area of FR = area of lattice / 4 
+                # Triangular fundamental region 
+                # => area of FR = area of lattice / 4
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
                     n = n / 2 # FR should be 1 / 4 the size if lattice sizing (fr is already halfed)
@@ -1544,7 +1551,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 image.append(p4_image)
             elif wp_type == 'P4M':
                 # Triangular fundamental region 
-                # => area of FR = area of lattice / 4 
+                # => area of FR = area of lattice / 8 
                 # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
                 if (sizing == 'lattice'):
                     n = n / 8 # FR should be 1 / 8 the size if lattice sizing
@@ -1570,7 +1577,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 image.append(p4m_image)
             elif wp_type == 'P4G':
                 # Triangular fundamental region 
-                # => area of FR = area of lattice / 4 
+                # => area of FR = area of lattice / 8 
                 # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
                 if (sizing == 'lattice'):
                     n = n / 8 # FR should be 1 / 8 the size if lattice sizing
@@ -1619,7 +1626,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
             elif wp_type == 'P3':
                 # Hexagonal fundamental region 
                 # => area of FR = area of lattice / 3 
-                # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
+                # => height = round(np.sqrt(area_quarter_tile * (math.sqrt(3)))) and width = height / math.sqrt(3)) - 1
                 # We have control over a quarter of the tile which contains the total area of 4.5 FRs
                 # => area_quarter_tile = height * width (width = height / math.sqrt(3)) - 1)
                 # => area_quarter_tile = height * round(height / math.sqrt(3)) - 1
@@ -1630,8 +1637,6 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 area = n
                 area_quarter_tile = area * 4.5
                 height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
-                width = round(height / math.sqrt(3)) - 1
-                area = height * width
                 start_tile = texture[:height, :]
                 if (use_dots):
                     p3 = new_p3(texture, use_dots)
@@ -1644,9 +1649,19 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 
                 image.append(p3_image)
             elif wp_type == 'P3M1':
-                alpha = np.pi / 3
-                s = n / math.sqrt(3 * np.tan(alpha))
-                height = round(s)
+                # Hexagonal fundamental region 
+                # => area of FR = area of lattice / 6 
+                # => height = round(np.sqrt(area_sixth_tile / (0.5 * math.sqrt(3)))) and width = height * 0.5 * math.sqrt(3)
+                # We have control over a sixth of the tile which contains the total area of 6 FRs
+                # => area_sixth_tile = height * width (width = height * 0.5 * math.sqrt(3)))
+                # => area_sixth_tile = height * round(height * 0.5 * math.sqrt(3))
+                # => area_sixth_tile = height**2 * np.sqrt(3) * 0.5
+                # => height = round(np.sqrt(area_sixth_tile / (0.5 * math.sqrt(3))))
+                if (sizing == 'lattice'):
+                    n = n / 6 # FR should be 1 / 6 the size if lattice sizing
+                area = n
+                area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
+                height = round(np.sqrt(area_sixth_tile / (0.5 * math.sqrt(3))))
                 start_tile = texture[:height, :]
                 if (use_dots):
                     p3m1 = new_p3m1(texture, use_dots)
@@ -1658,14 +1673,24 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p3m1_image)
             elif wp_type == 'P31M':
-                s = n / math.sqrt(math.sqrt(3))
-                height = round(s)
+                # Hexagonal fundamental region 
+                # => area of FR = area of lattice / 6 
+                # => height = round(np.sqrt(area_sixth_tile * math.sqrt(3) / 0.5)) and width = height * 0.5 / math.sqrt(3)
+                # We have control over a sixth of the tile which contains the total area of 6 FRs
+                # => area_sixth_tile = height * width (width = height * 0.5 / math.sqrt(3)))
+                # => area_sixth_tile = height * round(height * 0.5 / math.sqrt(3))
+                # => area_sixth_tile = height**2 * 0.5 / np.sqrt(3)
+                # => height = round(np.sqrt(area_sixth_tile * math.sqrt(3) / 0.5))
+                if (sizing == 'lattice'):
+                    n = n / 6 # FR should be 1 / 6 the size if lattice sizing
+                area = n
+                area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
+                height = round(np.sqrt(area_sixth_tile * math.sqrt(3) / 0.5))
                 start_tile = texture[:height, :]
                 if (use_dots):
                     p31m = new_p31m(texture, use_dots)
                 else:
                     p31m = new_p31m(start_tile, use_dots)
-    
                 # ugly trick
                 p31m_1 = np.fliplr(np.transpose(p31m))
                 p31m_image = cat_tiles(p31m_1, N, wp_type)
@@ -1674,8 +1699,19 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p31m_image)
             elif wp_type == 'P6':
-                s = n / math.sqrt(math.sqrt(3))
-                height = round(s)
+                # Hexagonal fundamental region 
+                # => area of FR = area of lattice / 6 
+                # => height = round(np.sqrt(area_sixth_tile / (np.tan(np.pi / 6) * 0.5))) and width = int(round(0.5 * height * np.tan(np.pi / 6)))
+                # We have control over a sixth of the tile which contains the total area of 6 FRs
+                # => area_sixth_tile = height * width (width = 0.5 * height * np.tan(np.pi / 6))
+                # => area_sixth_tile = height * (0.5 * height * np.tan(np.pi / 6))
+                # => area_sixth_tile = height**2 * 0.5 * np.tan(np.pi / 6)
+                # => height = round(np.sqrt(area_sixth_tile / np.tan(np.pi / 6) * 0.5))
+                if (sizing == 'lattice'):
+                    n = n / 6 # FR should be 1 / 6 the size if lattice sizing
+                area = n
+                area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
+                height = round(np.sqrt(area_sixth_tile / (np.tan(np.pi / 6) * 0.5)))
                 start_tile = texture[:height, :]
                 if (use_dots):
                     p6 = new_p6(texture, use_dots)
@@ -1687,8 +1723,19 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p6_image)
             elif wp_type == 'P6M':
-                s = n / math.sqrt(math.sqrt(3))
-                height = round(s / 2)
+                # Hexagonal fundamental region 
+                # => area of FR = area of lattice / 12 
+                # => height = round(np.sqrt(area_twelfth_tile * math.sqrt(3))) and width = height / math.sqrt(3)
+                # We have control over a twelfth of the tile which contains the total area of 6 FRs
+                # => area_twelfth_tile = height * width (width = height / math.sqrt(3))
+                # => area_twelfth_tile = height * (height / math.sqrt(3))
+                # => area_twelfth_tile = height**2 / math.sqrt(3))
+                # => height = round(np.sqrt(area_twelfth_tile * math.sqrt(3)))
+                if (sizing == 'lattice'):
+                    n = n / 12 # FR should be 1 / 12 the size if lattice sizing
+                area = n
+                area_twelfth_tile = area * 6 # we can control for a twelfth of the size of a tile
+                height = round(np.sqrt(area_twelfth_tile * math.sqrt(3)))
                 start_tile = texture[:height, :]
                 if (use_dots):
                     p6m = new_p6m(texture, use_dots)
@@ -1702,8 +1749,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
             else:
                 warnings.warn(
                     'Unexpected Wallpaper Group type. Returning random noise.', UserWarning)
-                image = np.matlib.repmat(texture, [np.ceil(N / n),  np.ceil(N / n)])
-                return clip_wallpaper(image, N)
+                noise = np.matlib.repmat(texture, [np.ceil(N / np.sqrt(n)),  np.ceil(N / np.sqrt(n))])
+                image.append(noise)
         except Exception as err:
             print('new_SymmetricNoise:Error making ' + wp_type)
             print(err.args)
@@ -3151,7 +3198,10 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
             tile.shape[1] * 1.5, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0])), fill=(255, 255, 0), width=2) 
         alpha_mask__rec_draw.line(((tile.shape[1] * 1.185, tile.shape[0] * 0.833), (tile.shape[1], tile.shape[0] * 0.666)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1] * 1.5, tile.shape[0] * 0.833)), fill=(255, 255, 0), width=2)
-
+        alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0] * 0.666), ((tile.shape[1]) * 1.325, tile.shape[0] * 0.674)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.833), ((tile.shape[1]) * 1.325, tile.shape[0] * 0.674)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.5), ((tile.shape[1]) * 1.325, tile.shape[0] * 0.674)), fill=(255, 255, 0), width=2)
+        
         # symmetry axes symbols
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1], tile.shape[0] * 0.666), 8), 3, 150, fill=(255, 0, 255, 125), outline=(255, 255, 0))
@@ -3226,9 +3276,9 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
         alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2,
                                                                                                                                       tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-            tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.6), (tile.shape[0] / 1.225)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+            tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 6), (tile.shape[0] / 1.225)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]), tile.shape[1] - (
-            tile.shape[1] - 1) / 5.6, (tile.shape[0] / 1.225)), fill=(255, 255, 0), width=2)
+            tile.shape[1] - 1) / 6, (tile.shape[0] / 1.225)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (
             tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
 
@@ -3245,10 +3295,10 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
             (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1]) / 5.7, (
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1]) / 6, (
             tile.shape[0] / 1.225), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0], 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            (tile.shape[1] - (tile.shape[1] - 1) / 6, tile.shape[0], 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
