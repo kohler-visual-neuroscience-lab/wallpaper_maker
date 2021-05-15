@@ -74,7 +74,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     sizing = sizing.lower()
     
     # check if the ratio is valid
-    isValidRatio(groups, sizing, ratio)
+    is_valid_ratio(groups, sizing, ratio)
 
     # save parameters
     if not save_path:
@@ -122,14 +122,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         
         # making regular images
         print('generating ', group)
-        if sizing == 'lattice':
-            n = size_lattice(ratio, wp_size_pix, group)
-        elif sizing == 'fr':
-            n = size_fundamental_region(ratio, wp_size_pix, group)
+        if sizing == 'lattice' or sizing == 'fr':
+            fr_size = np.round(wp_size_pix**2 * ratio) 
         else:
             raise SystemExit('Invalid sizing option. Must be either FR or lattice')
-            
-
+        print("Area of fundamnetal region: " + str(fr_size))
         if filter_freqs:
             this_groups_wallpapers = [[] for i in filter_freqs]
         else:
@@ -138,7 +135,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         for k in range(num_exemplars):
             print('filter_freqs {}'.format(filter_freqs))
             
-            raw = make_single(group, wp_size_pix, int(n), sizing, ratio, wp_size_dva, is_diagnostic,
+            raw = make_single(group, wp_size_pix, int(fr_size), sizing, ratio, wp_size_dva, is_diagnostic,
                               filter_freqs, fundamental_region_source_type, use_dots, cmap, save_path, k, pdf)
             raw = np.array(raw).squeeze()
 
@@ -530,7 +527,6 @@ def new_p3(tile, use_dots):
         # subtract one, to avoid screwing by imrotate(240)
 
         width = round(height / math.sqrt(3)) - 1
-
         # define rhombus-shaped mask
 
         xy = np.array(
@@ -1293,7 +1289,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
     # wp_type defines the wallpaper group
     # N is the size of the output image. For complex groups
     #   returned image will have size at least NxN.
-    # n the size of repeating pattern for all groups.
+    # n is the area of repeating pattern for all groups in pixels.
     # is_diagnostic whether to generate diagnostic images (outlining fundamental region and lattice)
     # isSpatFreqFilt generate a spatial frequency filtered wallpaper
     # fwhm full width at half maximum of spatial frequency filter
@@ -1307,7 +1303,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
         print('uniform noise')
         if n>N:
             print('size of repeating pattern larger than size of wallpaper')
-        raw_texture = np.random.rand(max(n,N), max(n,N));
+        #raw_texture = np.random.rand(max(n,N), max(n,N));
+        raw_texture = np.random.rand(max(N,N), max(N,N));
     elif use_dots:
         print('random dots')
         raw_texture = dot_texture(n, 0.05, 0.05, 5, wp_type)
@@ -1354,8 +1351,11 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
         # else:
            # TODO: not exactly sure, what this lowpass filter is supposed to do. in any case:
            #       it should be adapted to this structure that separates the noise generation from the filtering
-        if N>n and not use_dots: # we ne to crop from the WP-sized texture
-          texture = texture[int(n//2):int(n//2)+n,int(n//2):int(n//2)+n]
+        
+        # Not sure why we need to clip texture?
+        
+        #if N>n and not use_dots: # we need to crop from the WP-sized texture
+        #  texture = texture[int(n//2):int(n//2)+n,int(n//2):int(n//2)+n]
         try:
             # generate the wallpapers
             if wp_type == 'P0':
@@ -1363,8 +1363,11 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                     reversed((texture.shape * round(N / n))), Image.NEAREST))
                 image.append(p0)
             elif wp_type == 'P1':
-                width = n
-                height = width
+                # Square fundemental region 
+                # => side length =  sqrt(area of FR)
+                side_length = int(np.round(np.sqrt(n)))
+                width = side_length
+                height = side_length
                 p1 = texture[:height, :width]
                 p1_image = cat_tiles(p1, N, wp_type)
                 if (is_diagnostic):
@@ -1372,8 +1375,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p1_image)
             elif wp_type == 'P2':
-                height = round(n / 2)
-                width = 2 * height
+                # Rectangular fundamental region 
+                # => area of FR = area of lattice / 2 
+                # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
+                if (sizing == 'lattice'):
+                    n = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(n / 2)))
+                width = int(np.round(np.sqrt(n * 2)))
                 start_tile = texture[:height, :width]
                 tileR180 = np.rot90(start_tile, 2)
                 p2 = np.concatenate((start_tile, tileR180))
@@ -1383,8 +1391,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p2_image)
             elif wp_type == 'PM':
-                height = round(n / 2)
-                width = 2 * height
+                # Rectangular fundamental region 
+                # => area of FR = area of lattice / 2 
+                # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
+                if (sizing == 'lattice'):
+                    n = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(n / 2)))
+                width = int(np.round(np.sqrt(n * 2)))
                 start_tile = texture[:height, :width]
                 mirror = np.flipud(start_tile)
                 pm = np.concatenate((start_tile, mirror))
@@ -1394,8 +1407,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pm_image)
             elif wp_type == 'PG':
-                height = round(n / 2)
-                width = 2 * height
+                # Rectangular fundamental region 
+                # => area of FR = area of lattice / 2 
+                # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
+                if (sizing == 'lattice'):
+                    n = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(n / 2)))
+                width = int(np.round(np.sqrt(n * 2)))
                 start_tile = texture[:height, :width]
                 tile = np.rot90(start_tile, 3)
                 glide = np.flipud(tile)
@@ -1406,8 +1424,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pg_image)
             elif wp_type == 'CM':
-                height = round(n / 2)
-                width = height
+                # Rhombic fundamental region 
+                # => area of FR = area of lattice / 2 
+                # => height = sqrt(area of FR) and width = sqrt(area of FR)
+                if (sizing == 'lattice'):
+                    n = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(n)))
+                width = int(np.round(np.sqrt(n)))
                 start_tile = texture[:height, :width]
                 mirror = np.fliplr(start_tile)
                 tile1 = np.concatenate((start_tile, mirror), axis=1)
@@ -1419,8 +1442,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(cm_image)
             elif wp_type == 'PMM':
-                height = round(n / 2)
-                width = height
+                # Rectangular fundamental region 
+                # => area of FR = area of lattice / 4 
+                # => height = sqrt(area of FR) and width = sqrt(area of FR)
+                if (sizing == 'lattice'):
+                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                height = int(np.round(np.sqrt(n)))
+                width = int(np.round(np.sqrt(n)))
                 start_tile = texture[:height, :width]
                 mirror = np.fliplr(start_tile)
                 concat_tmp1 = np.concatenate((start_tile, mirror), axis=1)
@@ -1433,8 +1461,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pmm_image)
             elif wp_type == 'PMG':
-                height = round(n / 2)
-                width = height
+                # Rectangular fundamental region 
+                # => area of FR = area of lattice / 4 
+                # => height = sqrt(area of FR) and width = sqrt(area of FR)
+                if (sizing == 'lattice'):
+                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                height = int(np.round(np.sqrt(n)))
+                width = int(np.round(np.sqrt(n)))
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 concat_tmp1 = np.concatenate(
@@ -1448,8 +1481,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pmg_image)
             elif wp_type == 'PGG':
-                height = round(n / 2)
-                width = height
+                # Rhombic fundamental region 
+                # => area of FR = area of lattice / 2 
+                # => height = sqrt(area of FR) and width = sqrt(area of FR)
+                if (sizing == 'lattice'):
+                    n = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(n)))
+                width = int(np.round(np.sqrt(n)))
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 concat_tmp1 = np.concatenate(
@@ -1463,8 +1501,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pgg_image)
             elif wp_type == 'CMM':
-                height = round(n / 4)
-                width = 2 * height
+                # Rhombic fundamental region 
+                # => area of FR = area of lattice / 4 
+                # => height = sqrt(area of FR) and width = sqrt(area of FR)
+                if (sizing == 'lattice'):
+                    n = n / 2 # FR should be 1 / 4 the size if lattice sizing (fr is already halfed)
+                height = int(np.round(np.sqrt(n / 2))) #half the size of bottom half of lattice
+                width = int(np.round(np.sqrt(n / 2))) #half the size of bottom half of lattice
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 tile1 = np.concatenate((start_tile, start_tile_rot180))
@@ -1478,8 +1521,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(cmm_image)
             elif wp_type == 'P4':
-                height = round(n / 2)
-                width = height
+                # Rectangular fundamental region 
+                # => area of FR = area of lattice / 4 
+                # => height = sqrt(area of FR) and width = sqrt(area of FR)
+                if (sizing == 'lattice'):
+                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                height = int(np.round(np.sqrt(n)))
+                width = int(np.round(np.sqrt(n)))
                 start_tile = texture[:height, :width]
                 start_tile_rot90 = np.rot90(start_tile, 1)
                 start_tile_rot180 = np.rot90(start_tile, 2)
@@ -1495,8 +1543,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p4_image)
             elif wp_type == 'P4M':
-                height = round(n / 2)
-                width = height
+                # Triangular fundamental region 
+                # => area of FR = area of lattice / 4 
+                # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
+                if (sizing == 'lattice'):
+                    n = n / 8 # FR should be 1 / 8 the size if lattice sizing
+                height = int(np.round(np.sqrt(n) * np.sqrt(2)))
+                width = int(np.round(np.sqrt(n) * np.sqrt(2)))
                 start_tile = texture[:height, :width]
                 xy = np.array([[0, 0], [width, height], [0, height], [0, 0]])
                 mask = skd.polygon2mask((height, width), xy)
@@ -1516,8 +1569,13 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p4m_image)
             elif wp_type == 'P4G':
-                height = round(n / 2)
-                width = height
+                # Triangular fundamental region 
+                # => area of FR = area of lattice / 4 
+                # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
+                if (sizing == 'lattice'):
+                    n = n / 8 # FR should be 1 / 8 the size if lattice sizing
+                height = int(np.round(np.sqrt(n) * np.sqrt(2)))
+                width = int(np.round(np.sqrt(n) * np.sqrt(2)))
                 if (use_dots):
                     start_tile = texture[:height, :width].astype(np.uint32)
                     xy = np.array(
@@ -1559,10 +1617,21 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p4g_image)
             elif wp_type == 'P3':
-                alpha = np.pi / 3
-                s = n / math.sqrt(3 * np.tan(alpha))
-                height = math.floor(s * 1.5)
-    
+                # Hexagonal fundamental region 
+                # => area of FR = area of lattice / 3 
+                # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
+                # We have control over a quarter of the tile which contains the total area of 4.5 FRs
+                # => area_quarter_tile = height * width (width = height / math.sqrt(3)) - 1)
+                # => area_quarter_tile = height * round(height / math.sqrt(3)) - 1
+                # => area_quarter_tile = height**2 / ((np.sqrt(3))- 1)
+                # => height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
+                if (sizing == 'lattice'):
+                    n = n / 3 # FR should be 1 / 3 the size if lattice sizing
+                area = n
+                area_quarter_tile = area * 4.5
+                height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
+                width = round(height / math.sqrt(3)) - 1
+                area = height * width
                 start_tile = texture[:height, :]
                 if (use_dots):
                     p3 = new_p3(texture, use_dots)
@@ -1572,6 +1641,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 if (is_diagnostic):
                     diagnostic(p3_image, wp_type, p3, sizing,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
+                
                 image.append(p3_image)
             elif wp_type == 'P3M1':
                 alpha = np.pi / 3
@@ -2826,8 +2896,8 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                 ((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 2, tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
             alpha_mask__rec_draw.line(
                 ((tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 1.5, tile.shape[1] * 2)), fill=(255, 255, 0, 255), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0] * 1.5,
-                                        tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0], tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[0], tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1]), (tile.shape[0] * 2,
+                                        tile.shape[1] * 1.5), (tile.shape[0] * 1.5, tile.shape[1] * 2), (tile.shape[0], tile.shape[1] * 1.5)), fill=(255, 255, 0, 255), width=2)
             alpha_mask__rec_draw.rectangle(
                 (tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), outline=(255, 255, 0, 255), width=2)
             # symmetry axes symbols
@@ -2955,11 +3025,11 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%')
         else:
            print('Area of Lattice of ' + wp_type +
-                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 6):.2f}')
            print('Area of Lattice Region of ' +
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
-               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%')
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
@@ -3032,11 +3102,11 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%')
         else:
            print('Area of Lattice of ' + wp_type +
-                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 6):.2f}')
            print('Area of Lattice Region of ' +
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
-               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%')
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
@@ -3108,11 +3178,11 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 36)) / (N**2 * ratio)) * 100):.2f}%')
         else:
            print('Area of Lattice of ' + wp_type +
-                 f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+                 f' =  {((tile.shape[0] * tile.shape[1]) / 6):.2f}')
            print('Area of Lattice Region of ' +
                  wp_type + ' should be = ', (N**2 * ratio))
            print(
-               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
+               f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%')
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
@@ -3193,11 +3263,11 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, 
                 f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 72)) / (N**2 * ratio)) * 100):.2f}%')
         else:
             print('Area of Lattice of ' + wp_type +
-                  f' =  {((tile.shape[0] * tile.shape[1]) / 2):.2f}')
+                  f' =  {((tile.shape[0] * tile.shape[1]) / 6):.2f}')
             print('Area of Lattice Region of ' +
                   wp_type + ' should be = ', (N**2 * ratio))
             print(
-                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')      
+                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 6)) / (N**2 * ratio)) * 100):.2f}%')      
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
@@ -3581,59 +3651,7 @@ def str2list(v):
     else:
         return list(v.split(","))
 
-
-def size_fundamental_region(ratio, n, cell_struct):
-    # 0...1:1 aspect ratio
-    if (cell_struct == "P1"):
-        return round(np.sqrt((n**2 * ratio)))
-    elif (cell_struct == "P2" or cell_struct == "PG" or cell_struct == "PM"):
-        return round(np.sqrt((n**2 * ratio)) * np.sqrt(2))
-    elif (cell_struct == "PMM" or cell_struct == "CMM" or cell_struct == "PMG" or cell_struct == "PGG" or cell_struct == "P4" or cell_struct == "CM"):
-        return round(np.sqrt((n**2 * ratio) * 4))
-    elif (cell_struct == "P4M" or cell_struct == "P4G"):
-        return round(np.sqrt((n**2 * ratio) * 8))
-    elif (cell_struct == "P3"):
-        # equilateral rhombus
-        # solved symbolically using mathematical software (maple)
-        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * (n**2 * ratio * 3)))
-    elif (cell_struct == "P3M1"):
-        # equilateral triangle
-        return round(np.sqrt(((n**2 * ratio) * 3 / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)))
-    elif (cell_struct == "P31M" or cell_struct == "P6"):
-        # isosceles triangle
-        # solved symbolically using mathematical software (maple)
-        return round(6 * np.sqrt((n**2 * ratio)))
-    elif (cell_struct == "P6M"):
-        # right angle triangle
-        # solved symbolically using mathematical software (maple)
-        return round(6 * np.sqrt(2) * np.sqrt((n**2 * ratio)))
-    else:
-        return round(n * ratio * 2)
-
-
-def size_lattice(ratio, n, cell_struct):
-    # 0...1:1 aspect ratio
-    if (cell_struct == "P1" or cell_struct == "PMM" or cell_struct == "PMG" or cell_struct == "PGG" or cell_struct == "P4" or cell_struct == "P4M" or cell_struct == "P4G" or cell_struct == "P2" or cell_struct == "PM" or cell_struct == "PG"):
-        # square and rectangular
-        return round(np.sqrt((n**2 * ratio)))
-    elif (cell_struct == "CM" or cell_struct == "CMM"):
-        # rhombic
-        return round(np.sqrt((n**2 * ratio) * 2))
-    elif (cell_struct == "P3"):
-        # hexagonal
-        # solved symbolically using mathematical software (maple)
-        return round(1.316074013 + 2.999999999 * 10**-10 * np.sqrt(1.924500897 * 10**19 + 6.666666668 * 10**19 * ((n**2 * ratio))))
-    elif (cell_struct == "P3M1"):
-        # hexagonal
-        return round(np.sqrt((((n**2 * ratio) / 6) / 0.25) * np.tan(np.pi / 3) * np.sqrt(3)))
-    elif (cell_struct == "P31M" or cell_struct == "P6" or cell_struct == "P6M"):
-        # hexagonal
-        # solved symbolically using mathematical software (maple)
-        return round(np.sqrt(2) * np.sqrt((n**2 * ratio)))
-    else:
-        return round(n * ratio * 2)
-
-def isValidRatio(groups, sizing, ratio):
+def is_valid_ratio(groups, sizing, ratio):
     if sizing == 'lattice' and ratio > 0.5:
         raise SystemExit('Invalid ratio for lattice sizing. Ratio cannot be greater than 0.5')
     elif sizing == 'fr':
