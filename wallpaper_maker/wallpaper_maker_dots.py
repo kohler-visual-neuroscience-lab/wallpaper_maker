@@ -5,11 +5,13 @@ The code will generate an arbitrary number of exemplars belonging to each of the
 To run the code use the following function with the available optional parameters: 
 
 make_set(groups to create, number of images per group, visual angle, wallpaper size in pixels, .... 
-sizing method, ratio of sizing method to wallpaper, filter frequency wallpapers,....
+sizing method, ratio of sizing method to wallpaper, use dots method, filter frequency wallpapers,....
 image save format, save raw, number of interpolated phase scrambled images, Portilla-Simoncelli scrambled, ....
 use same magnitude across exemplars, print diagnostic images, save path, image masking)
 
 Check function for expected data types for each argument.
+
+This is the dots stimuli version of the code.
 
 """
 from numpy.core._multiarray_umath import ndarray
@@ -59,7 +61,8 @@ LOGGER = logging.getLogger(os.path.basename(__file__))
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 5, wp_size_dva: float = 30.0,
-             wp_size_pix: int = 512, sizing: str = 'lattice', ratio: float = 0.05, filter_freqs: list = [], save_fmt: str = "png", save_raw: bool = False,
+             wp_size_pix: int = 512, sizing: str = 'lattice', ratio: float = 0.05,
+             use_dots: bool = False, filter_freqs: list = [], save_fmt: str = "png", save_raw: bool = False,
              phase_scramble: int = 1, ps_scramble: bool = False, same_magnitude: bool = False,
              is_diagnostic: bool = False, save_path: str = "", mask: bool = True):
 
@@ -141,7 +144,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             print('filter_freqs {}'.format(filter_freqs))
             
             raw = make_single(group, wp_size_pix, int(area), sizing, ratio, wp_size_dva, is_diagnostic,
-                              filter_freqs, fundamental_region_source_type, cmap, save_path, k, pdf)
+                              filter_freqs, fundamental_region_source_type, use_dots, cmap, save_path, k, pdf)
             raw = np.array(raw).squeeze()
 
             if raw.ndim==2:
@@ -161,11 +164,14 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                         (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
 
             for i, this_raw in enumerate(raw):
-                this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
+                if not use_dots:
+                    this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
+                else:
+                    this_groups_wallpapers[i].append(this_raw)
 
         this_groups_wallpapers = np.array(this_groups_wallpapers)
 
-        if same_magnitude:
+        if same_magnitude and not use_dots:
             # normalize psd across exemplars per group and filter
             this_groups_wallpapers_spec         = np.fft.rfft2(this_groups_wallpapers)
             this_groups_wallpapers_mag_mean     = np.abs(this_groups_wallpapers_spec).mean(-3)
@@ -174,10 +180,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                   * np.exp(1j * this_groups_wallpapers_spec_phase)
             this_groups_wallpapers              = np.fft.irfft2(this_groups_wallpapers_spec)
         else:
-            this_groups_wallpapers_mag_mean = max(1,len(filter_freqs))*[[]]
+            if not use_dots:
+                this_groups_wallpapers_mag_mean = max(1,len(filter_freqs))*[[]]
 
         # generate scrambled controls
-        if (phase_scramble > 0 or ps_scramble):
+        if (phase_scramble > 0 or ps_scramble) and not use_dots:
             this_groups_controls = np.zeros((phase_scramble+int(ps_scramble),)+this_groups_wallpapers.shape)
             for i in range(this_groups_wallpapers.shape[0]): # over f0fr
                 for j in range(this_groups_wallpapers.shape[1]): # over exemplars
@@ -199,7 +206,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
         h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
         this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
-        if (phase_scramble > 0 or ps_scramble):
+        if (phase_scramble > 0 or ps_scramble) and not use_dots:
             this_groups_controls = this_groups_controls[..., w_idxs, :][..., h_idxs]
 
         # normalize range of pixel values
@@ -214,7 +221,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             LOGGER.warning('need to clip. wallpapers have sample values > 1: {}'.format(this_groups_wallpapers.max()))
 
         # mask images
-        this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
+        if not use_dots:
+            this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
         # TODO: normalization not consistent with e.g. in minPhaseInterp
         if this_groups_controls is not None: # same for controls
             # normalize range of pixel values to 0...1
@@ -273,396 +281,981 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     pdf.close()  
 
 
-def new_p3(tile):
+def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
+    # auxiliary function for generating a dots texture for use with wallpaper generation code make_single.py
+
+    height = 0
+    width = 0
+    # get correct size of dots tile based on wallpaper chosen
+    if (wp_type == "P1"):
+        height = size
+        width = size
+    elif (wp_type == "P2" or wp_type == "PM" or wp_type == "PG"):
+        width = round(size / 2)
+        height = 2 * width
+    elif (wp_type == "PMM" or wp_type == "CM" or wp_type == "PMG" or wp_type == 'PGG' or wp_type == 'P4' or wp_type == 'P4M' or wp_type == 'P4G'):
+        height = round(size / 2)
+        width = height
+    elif (wp_type == 'P3'):
+        alpha = np.pi / 3
+        s = size / math.sqrt(3 * np.tan(alpha))
+        height = math.floor(s * 1.5) * 6
+        width = size * 6
+    elif (wp_type == 'P3M1'):
+        alpha = np.pi / 3
+        s = size / math.sqrt(3 * np.tan(alpha))
+        height = round(s) * 10
+        width = size * 10
+    elif (wp_type == 'P31M' or wp_type == 'P6'):
+        s = size / math.sqrt(math.sqrt(3))
+        height = round(s) * 6
+        width = size * 6
+    elif (wp_type == 'P6M'):
+        s = size / math.sqrt(math.sqrt(3))
+        height = round(s / 2) * 6
+        width = size * 6
+    elif (wp_type == 'CMM'):
+        width = round(size / 4)
+        height = 2 * width
+
+    surface = cr.ImageSurface(cr.FORMAT_ARGB32, width, height)
+    ctx = cr.Context(surface)
+    ctx.scale(width, height)
+
+    pat = cr.SolidPattern(0.5, 0.5, 0.5, 1.0)
+
+    # ctx.set_source_rgb(0, 0, 0)  # Solid color
+    ctx.rectangle(0, 0, width, height)  # Rectangle(x0, y0, x1, y1)
+    ctx.set_source(pat)
+    ctx.fill()
+
+    # generate random dots
+    #num_of_dots = 10
+    start_time = time.time()
+    end_time = time.time()
+    previous_dots = []
+    x = 0
+    while x < num_of_dots:
+        is_possible_dot = False
+        colour = np.linspace(0., 1., num_of_dots)
+        ctx.set_source_rgb(colour[x], colour[x], colour[x])  # Solid color
+        while is_possible_dot is False:
+            # attempt to regenerate dots if current dots cannot all be placed
+            if math.floor(end_time - start_time) % 2 == 0 and math.floor(end_time - start_time) != 0:
+                pat = cr.SolidPattern(0.5, 0.5, 0.5, 1.0)
+                ctx.rectangle(0, 0, width, height)  # Rectangle(x0, y0, x1, y1)
+                ctx.set_source(pat)
+                ctx.fill()
+                x = 0
+                start_time = time.time()
+                end_time = time.time()
+                ctx.set_source_rgb(colour[x], colour[x], colour[x])
+                previous_dots = []
+                print("Could not create dots with current values. Starting again.")
+            radius = np.random.uniform(min_rad, max_rad)
+            xc = np.random.uniform(radius, 1 - radius)
+            yc = np.random.uniform(radius, 1 - radius)
+
+            # place dots only places where it won't get cut off in wallpaper construction
+            if (wp_type == 'P3'):
+                xc = np.random.uniform(radius, 1 - max(0.75, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.35, radius * 2))
+            elif (wp_type == 'P4G'):
+                xc = np.random.uniform(0.45 + radius, 1 - max(0.25, radius * 2))
+                yc = np.random.uniform(0.45 + radius, 1 - max(0.25, radius * 2))
+            elif (wp_type == 'P4M'):
+                xc = np.random.uniform(0.05 + radius, 1 - max(0.05, radius * 2))
+                yc = np.random.uniform(
+                    0.05 + radius, 1 - max(0.7 + radius, radius * 2))
+            elif (wp_type == 'P3M1'):
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.93, radius * 2))
+                yc = np.random.uniform(0.175 + radius, 1 - max(0.35, radius * 2))
+            elif (wp_type == 'P31M'):
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.85, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.35, radius * 2))
+            elif (wp_type == 'P6'):
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.93, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.05, radius * 2))
+            elif (wp_type == 'P6M'):
+                xc = np.random.uniform(0.025 + radius, 1 - max(0.93, radius * 2))
+                yc = np.random.uniform(0.30 + radius, 1 - max(0.05, radius * 2))
+
+            if x == 0:
+                #ctx.set_source_rgb(0, 0, 0)
+                #ctx.arc(xc, yc, 0.008, 0, 2*math.pi)
+                # ctx.fill()
+                # ctx.set_source_rgb(0, 0, 0)  # Solid color
+                # ctx.arc(xc, yc, radius, 0, 2*math.pi) #circle
+                # ctx.fill()
+                #previous_dots.append([xc,yc, radius])
+                is_possible_dot = True
+            else:
+                # generate radius not touching other dots
+                for y in previous_dots:
+                    d = (xc - y[0])**2 + (yc - y[1])**2
+                    rad_sum_sq = (radius + y[2])**2
+                    if (d > rad_sum_sq):
+                        is_possible_dot = True
+                    else:
+                        is_possible_dot = False
+                        break
+            # if dot is okay to be placed will generate a blob constrained in the dot
+            if is_possible_dot:
+                #blobs = np.random.randint(1, 15)
+                blobs = 5
+                previous_dots.append([xc, yc, radius])
+                x = x + 1
+                for i in range(blobs):
+                    xc1 = np.random.uniform(xc - radius, radius + xc)
+                    yc1 = np.random.uniform(yc - radius, radius + yc)
+                    radius1 = radius / 2
+                    ctx.arc(xc1, yc1, radius1, 0, 2 * math.pi)
+                    ctx.fill()
+            end_time = time.time()
+
+    # surface.write_to_png("example.png")
+    buf = surface.get_data()
+    if (wp_type == 'P3' or wp_type == 'P3M1' or wp_type == 'P31M' or wp_type == 'P6' or wp_type == 'P6M'):
+        result = np.ndarray(shape=(height, width), dtype=np.uint32, buffer=buf)
+    else:
+        result = np.ndarray(shape=(width, height), dtype=np.uint32, buffer=buf)
+    return result
+
+
+def new_p3(tile, use_dots):
     # Generate p3 wallpaper
 
     # For mag_factor, use a multiple of 3 to avoid the rounding error
     # when stacking two_tirds, one_third tiles together
 
     mag_factor = 6
-    tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-    height = np.size(tile1, 0)
+    if (use_dots):
+        height = tile.shape[0]
+        s1 = round((height / 3))
+        s = 2 * s1
+        width = round(height / math.sqrt(3)) - 1
+        xy = np.array([[0, 0], [s1, width], [height, width],
+                       [2 * s1, 0], [0, 0]]).astype(np.uint32)
+        mask = skd.polygon2mask((height, width), xy).astype(np.uint32)
+        tile0 = (mask * tile[:, :width]).astype(np.uint32)
 
-    # fundamental region is equlateral rhombus with side length = s
+        # rotate rectangle by 120, 240 degs
 
-    s1 = round((height / 3))
-    s = 2 * s1
+        # note on 120deg rotation: 120 deg rotation of rhombus-shaped
+        # texture preserves the size, so 'crop' option can be used to
+        # tile size.
 
-    # NOTE on 'ugly' way of calculating the widt = h
-    # after magnification width(tile1) > tan(pi/6)*height(tile1) (should be equal)
-    # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
-    # bigger or equal, because we cat them together).
-    # subtract one, to avoid screwing by imrotate(240)
+        tile0Im = Image.fromarray(tile0, 'I')
+        tile0Im2 = Image.fromarray(tile0, 'I')
+        tile0Im_rot120 = tile0Im.rotate(120, Image.NEAREST, expand=False)
+        tile120 = np.array(tile0Im_rot120, np.uint32)
+        tile0Im_rot240 = tile0Im2.rotate(240, Image.NEAREST, expand=True)
+        tile240 = np.array(tile0Im_rot240, np.uint32)
 
-    width = round(height / math.sqrt(3)) - 1
-    # define rhombus-shaped mask
+        # manually trim the tiles:
 
-    xy = np.array(
-        [[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]])
+        # tile120 should have the same size as rectangle: [heigh x width]
 
-    mask = skd.polygon2mask((height, width), xy)
-    tile0 = mask * tile1[:, :width]
+        # tile240 should have the size [s x 2*width]
+        # find how much we need to cut from both sides
+        diff = round(0.5 * (np.size(tile240, 1) - 2 * width))
+        row_start = round(0.25 * s)
+        row_end = round(0.25 * s) + s
+        col_start = diff
+        col_end = 2 * width + diff
+        tile240 = tile240[row_start:row_end,
+                          col_start:col_end].astype(np.uint32)
 
-    # rotate rectangle by 120, 240 degs
+        # Start to pad tiles and glue them together
+        # Resulting tile will have the size [3*height x 2* width]
 
-    # note on 120deg rotation: 120 deg rotation of rhombus-shaped
-    # texture preserves the size, so 'crop' option can be used to
-    # tile size.
+        two_thirds1 = np.concatenate(
+            (tile0, tile120), axis=1).astype(np.uint32)
+        two_thirds2 = np.concatenate(
+            (tile120, tile0), axis=1).astype(np.uint32)
 
-    tile120 = tf.rotate(tile0, 120, resize=False, order=1)
-    tile240 = tf.rotate(tile0, 240, resize=True, order=1)
+        two_thirds = np.concatenate(
+            (two_thirds1, two_thirds2)).astype(np.uint32)
 
-    # manually trim the tiles:
+        # lower half of tile240 on the top, zero-padded to [height x 2 width]
+        row_start = int(0.5 * s)
+        col_end = 2 * width
+        one_third11 = np.concatenate(
+            (tile240[row_start:, :], np.zeros((s, col_end)))).astype(np.uint32)
 
-    # tile120 should have the same size as rectangle: [heigh x width]
+        # upper half of tile240 on the bottom, zero-padded to [height x 2 width]
+        row_end = int(0.5 * s)
+        one_third12 = np.concatenate(
+            (np.zeros((s, col_end)), tile240[:row_end, :])).astype(np.uint32)
 
-    # tile240 should have the size [s x 2*width]
-    # find how much we need to cut from both sides
-    diff = round(0.5 * (np.size(tile240, 1) - 2 * width))
-    row_start = round(0.25 * s)
-    row_end = round(0.25 * s) + s
-    col_start = diff
-    col_end = 2 * width + diff
-    tile240 = tile240[row_start:row_end, col_start:col_end]
+        # right half of tile240 in the middle, zero-padded to [height x 2 width]
+        col_start = width
+        one_third21 = np.concatenate((np.zeros(
+            (s, width)), tile240[:, col_start:], np.zeros((s, width)))).astype(np.uint32)
 
-    # Start to pad tiles and glue them together
-    # Resulting tile will have the size [3*height x 2* width]
+        # left half of tile240in the middle, zero-padded to [height x 2 width]
+        one_third22 = np.concatenate(
+            (np.zeros((s, width)), tile240[:, :width], np.zeros((s, width)))).astype(np.uint32)
 
-    two_thirds1 = np.concatenate((tile0, tile120), axis=1)
-    two_thirds2 = np.concatenate((tile120, tile0), axis=1)
+        # cat them together
+        one_third1 = np.concatenate(
+            (one_third11, one_third12)).astype(np.uint32)
+        one_third2 = np.concatenate(
+            (one_third21, one_third22), axis=1).astype(np.uint32)
 
-    two_thirds = np.concatenate((two_thirds1, two_thirds2))
+        # glue everything together, shrink and replicate
+        one_third = np.maximum(one_third1, one_third2).astype(np.uint32)
 
-    # lower half of tile240 on the top, zero-padded to [height x 2 width]
-    row_start = int(0.5 * s)
-    col_end = 2 * width
-    one_third11 = np.concatenate(
-        (tile240[row_start:, :], np.zeros((s, col_end))))
+        # size(whole) = [3xheight 2xwidth]
+        whole = np.maximum(two_thirds, one_third).astype(np.uint32)
+        whole[np.where(whole == np.min(whole))] = mode(
+            whole, axis=None)[0].astype(np.uint32)
 
-    # upper half of tile240 on the bottom, zero-padded to [height x 2 width]
-    row_end = int(0.5 * s)
-    one_third12 = np.concatenate(
-        (np.zeros((s, col_end)), tile240[:row_end, :]))
+        whole_im = Image.fromarray(whole, 'I')
 
-    # right half of tile240 in the middle, zero-padded to [height x 2 width]
-    col_start = width
-    one_third21 = np.concatenate(
-        (np.zeros((s, width)), tile240[:, col_start:], np.zeros((s, width))))
+        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+        whole_im_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
+                                  for i in reversed(whole.shape))
 
-    # left half of tile240in the middle, zero-padded to [height x 2 width]
-    one_third22 = np.concatenate(
-        (np.zeros((s, width)), tile240[:, :width], np.zeros((s, width))))
+        p3 = np.array(whole_im.resize(whole_im_new_size,
+                                      Image.NEAREST)).astype(np.uint32)
+    else:
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+        height = np.size(tile1, 0)
 
-    # cat them together
-    one_third1 = np.concatenate((one_third11, one_third12))
-    one_third2 = np.concatenate((one_third21, one_third22), axis=1)
+        # fundamental region is equlateral rhombus with side length = s
 
-    # glue everything together, shrink and replicate
-    one_third = np.maximum(one_third1, one_third2)
+        s1 = round((height / 3))
+        s = 2 * s1
 
-    # size(whole) = [3xheight 2xwidth]
-    whole = np.maximum(two_thirds, one_third)
-    p3 = tf.rescale(whole, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+        # NOTE on 'ugly' way of calculating the widt = h
+        # after magnification width(tile1) > tan(pi/6)*height(tile1) (should be equal)
+        # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
+        # bigger or equal, because we cat them together).
+        # subtract one, to avoid screwing by imrotate(240)
+
+        width = round(height / math.sqrt(3)) - 1
+        # define rhombus-shaped mask
+
+        xy = np.array(
+            [[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]])
+
+        mask = skd.polygon2mask((height, width), xy)
+        tile0 = mask * tile1[:, :width]
+
+        # rotate rectangle by 120, 240 degs
+
+        # note on 120deg rotation: 120 deg rotation of rhombus-shaped
+        # texture preserves the size, so 'crop' option can be used to
+        # tile size.
+
+        tile120 = tf.rotate(tile0, 120, resize=False, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
+
+        # manually trim the tiles:
+
+        # tile120 should have the same size as rectangle: [heigh x width]
+
+        # tile240 should have the size [s x 2*width]
+        # find how much we need to cut from both sides
+        diff = round(0.5 * (np.size(tile240, 1) - 2 * width))
+        row_start = round(0.25 * s)
+        row_end = round(0.25 * s) + s
+        col_start = diff
+        col_end = 2 * width + diff
+        tile240 = tile240[row_start:row_end, col_start:col_end]
+
+        # Start to pad tiles and glue them together
+        # Resulting tile will have the size [3*height x 2* width]
+
+        two_thirds1 = np.concatenate((tile0, tile120), axis=1)
+        two_thirds2 = np.concatenate((tile120, tile0), axis=1)
+
+        two_thirds = np.concatenate((two_thirds1, two_thirds2))
+
+        # lower half of tile240 on the top, zero-padded to [height x 2 width]
+        row_start = int(0.5 * s)
+        col_end = 2 * width
+        one_third11 = np.concatenate(
+            (tile240[row_start:, :], np.zeros((s, col_end))))
+
+        # upper half of tile240 on the bottom, zero-padded to [height x 2 width]
+        row_end = int(0.5 * s)
+        one_third12 = np.concatenate(
+            (np.zeros((s, col_end)), tile240[:row_end, :]))
+
+        # right half of tile240 in the middle, zero-padded to [height x 2 width]
+        col_start = width
+        one_third21 = np.concatenate(
+            (np.zeros((s, width)), tile240[:, col_start:], np.zeros((s, width))))
+
+        # left half of tile240in the middle, zero-padded to [height x 2 width]
+        one_third22 = np.concatenate(
+            (np.zeros((s, width)), tile240[:, :width], np.zeros((s, width))))
+
+        # cat them together
+        one_third1 = np.concatenate((one_third11, one_third12))
+        one_third2 = np.concatenate((one_third21, one_third22), axis=1)
+
+        # glue everything together, shrink and replicate
+        one_third = np.maximum(one_third1, one_third2)
+
+        # size(whole) = [3xheight 2xwidth]
+        whole = np.maximum(two_thirds, one_third)
+        p3 = tf.rescale(whole, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p3
 
 
-def new_p3m1(tile):
+def new_p3m1(tile, use_dots):
     # Generate p3m1 wallpaper
     mag_factor = 10
-    tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-    height = np.shape(tile1)[0]
+    if (use_dots):
+        height = tile.shape[0]
+        # fundamental region is equlateral triangle with side length = height
+        width = round(0.5 * height * math.sqrt(3))
+        y1 = round(height / 2)
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]]
+        # Create half of the mask
+        # reflect and concatenate, to get the full mask:
+        mask_half = skd.polygon2mask((y1, width), mask_xy).astype(np.uint32)
+        mask = np.concatenate(
+            (mask_half, np.flipud(mask_half))).astype(np.uint32)
 
-    # fundamental region is equlateral triangle with side length = height
-    width = round(0.5 * height * math.sqrt(3))
+        tile0 = (tile[:, :width] * mask).astype(np.uint32)
 
-    y1 = round(height / 2)
+        # continue to modify the tile
 
-    # vetrices of the triangle (closed polygon => four points)
-    mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]]
+        # reflect and rotate
+        tile1_mirror = np.fliplr(tile0).astype(np.uint32)
+        tile1_mirrorIm = Image.fromarray(tile1_mirror, 'I')
+        tile240_Im = tile1_mirrorIm.rotate(240, Image.NEAREST, expand=True)
+        tile240 = np.array(tile240_Im, np.uint32)
+        # AY: I directly cut the tiles, because trim will
+        # return slightly different size
 
-    # Create half of the mask
-    # reflect and concatenate, to get the full mask:
+        t_r1x = np.shape(tile240)[0]
+        start_row = t_r1x - height
+        tile240 = tile240[start_row:, :width].astype(np.uint32)
 
-    mask_half = skd.polygon2mask((y1, width), mask_xy)
-    mask = np.concatenate((mask_half, np.flipud(mask_half)))
+        # AY: rotating mirrored tile(as opposed to tileR1) will cause less
+        # border effects when we'll add it to two other tiles.
+        tile120_Im = tile1_mirrorIm.rotate(120, Image.NEAREST, expand=True)
+        tile120 = np.array(tile120_Im, np.uint32)
+        tile120 = tile120[:height, :width].astype(np.uint32)
 
-    # equilateral triangle inscribed into rectangle
-    tile0 = tile1[:, :width] * mask
+        # Assembling the tiles
 
-    # continue to modify the tile
+        # We have 3 tiles with the same triangle rotated 0, 120 and 240
+        # pad them and put them together
+        zero_tile = np.zeros((y1, width))
+        tile2 = np.concatenate((zero_tile, tile0, zero_tile)).astype(np.uint32)
+        tile240 = np.concatenate(
+            (zero_tile, zero_tile, tile240)).astype(np.uint32)
+        tile120 = np.concatenate(
+            (tile120, zero_tile, zero_tile)).astype(np.uint32)
 
-    # reflect and rotate
-    tile1_mirror = np.fliplr(tile0)
-    tile240 = tf.rotate(tile1_mirror, 240, resize=True, order=1)
-    # AY: I directly cut the tiles, because trim will
-    # return slightly different size
+        # Using max() will give us smoother edges, as opppose to sum()
+        half1 = np.maximum(tile2, tile240).astype(np.uint32)
+        half = np.maximum(half1, tile120).astype(np.uint32)
 
-    t_r1x = np.shape(tile240)[0]
-    start_row = t_r1x - height
-    tile240 = tile240[start_row:, :width]
+        # By construction, size(whole) = [4*y1 2*x1]
+        whole = np.concatenate((half, np.fliplr(half)),
+                               axis=1).astype(np.uint32)
 
-    # AY: rotating mirrored tile(as opposed to tileR1) will cause less
-    # border effects when we'll add it to two other tiles.
-    tile120 = tf.rotate(tile1_mirror, 120, resize=True, order=1)
-    tile120 = tile120[:height, :width]
-    # Assembling the tiles
+        # Shifting by 2 pix (as oppose to zero), we'll smoothly glue tile together.
+        # Set delta_pix value to zero and see the difference
+        delta_pix = 2
+        start_row1 = 3 * y1 - delta_pix
+        start_row2 = 3 * y1
+        end_row1 = 4 * y1 - delta_pix
+        end_row2 = y1 + delta_pix
+        end_row3 = 4 * y1
+        end_col1 = 2 * width
 
-    # We have 3 tiles with the same triangle rotated 0, 120 and 240
-    # pad them and put them together
-    zero_tile = np.zeros((y1, width))
-    tile2 = np.concatenate((zero_tile, tile0, zero_tile))
-    tile240 = np.concatenate((zero_tile, zero_tile, tile240))
-    tile120 = np.concatenate((tile120, zero_tile, zero_tile))
+        top_bit = np.concatenate((whole[start_row1:end_row1, width:end_col1],
+                                  whole[start_row1:end_row1, :width]), axis=1).astype(np.uint32)
+        bot_bit = np.concatenate((whole[delta_pix:end_row2, width:end_col1],
+                                  whole[delta_pix:end_row2, :width]), axis=1).astype(np.uint32)
 
-    # Using max() will give us smoother edges, as opppose to sum()
-    half1 = np.maximum(tile2, tile240)
-    half = np.maximum(half1, tile120)
+        whole[:y1, :] = np.maximum(
+            whole[delta_pix:end_row2, :], top_bit).astype(np.uint32)
+        whole[start_row2:end_row3, :] = np.maximum(
+        whole[start_row1:end_row1, :], bot_bit).astype(np.uint32)
 
-    # By construction, size(whole) = [4*y1 2*x1]
-    whole = np.concatenate((half, np.fliplr(half)), axis=1)
-    # Shifting by 2 pix (as oppose to zero), we'll smoothly glue tile together.
-    # Set delta_pix value to zero and see the difference
-    delta_pix = 2
-    start_row1 = 3 * y1 - delta_pix
-    start_row2 = 3 * y1
-    end_row1 = 4 * y1 - delta_pix
-    end_row2 = y1 + delta_pix
-    end_row3 = 4 * y1
-    end_col1 = 2 * width
+        # cutting middle piece of tile
+        mid_tile = whole[y1:start_row2, :width].astype(np.uint32)
+        # reflecting middle piece and glueing both pieces to the bottom
+        # size(big_tile)  = [6*y1 2*x1]
+        cat_mid_flip = np.concatenate(
+            (mid_tile, np.fliplr(mid_tile)), axis=1).astype(np.uint32)
+        big_tile = np.concatenate((whole, cat_mid_flip)).astype(np.uint32)
+        big_tile[np.where(big_tile == np.min(big_tile))] = mode(
+            big_tile, axis=None)[0].astype(np.uint32)
 
-    top_bit = np.concatenate(
-        (whole[start_row1:end_row1, width:end_col1], whole[start_row1:end_row1, :width]), axis=1)
-    bot_bit = np.concatenate(
-        (whole[delta_pix:end_row2, width:end_col1], whole[delta_pix:end_row2, :width]), axis=1)
+        big_tile_im = Image.fromarray(big_tile, 'I')
+        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+        big_tile_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
+                                  for i in reversed(big_tile.shape))
+        p3m1 = np.array(big_tile_im.resize(
+            big_tile_new_size, Image.NEAREST)).astype(np.uint32)
 
-    whole[:y1, :] = np.maximum(whole[delta_pix:end_row2, :], top_bit)
-    whole[start_row2:end_row3, :] = np.maximum(
-        whole[start_row1:end_row1, :], bot_bit)
-    # cutting middle piece of tile
-    mid_tile = whole[y1:start_row2, :width]
-    # reflecting middle piece and glueing both pieces to the bottom
-    # size(big_tile)  = [6*y1 2*x1]
-    cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1)
-    big_tile = np.concatenate((whole, cat_mid_flip))
-    p3m1 = tf.rescale(big_tile, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+    else:
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+        height = np.shape(tile1)[0]
+
+        # fundamental region is equlateral triangle with side length = height
+        width = round(0.5 * height * math.sqrt(3))
+
+        y1 = round(height / 2)
+
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]]
+
+        # Create half of the mask
+        # reflect and concatenate, to get the full mask:
+
+        mask_half = skd.polygon2mask((y1, width), mask_xy)
+        mask = np.concatenate((mask_half, np.flipud(mask_half)))
+
+        # equilateral triangle inscribed into rectangle
+        tile0 = tile1[:, :width] * mask
+
+        # continue to modify the tile
+
+        # reflect and rotate
+        tile1_mirror = np.fliplr(tile0)
+        tile240 = tf.rotate(tile1_mirror, 240, resize=True, order=1)
+        # AY: I directly cut the tiles, because trim will
+        # return slightly different size
+
+        t_r1x = np.shape(tile240)[0]
+        start_row = t_r1x - height
+        tile240 = tile240[start_row:, :width]
+
+        # AY: rotating mirrored tile(as opposed to tileR1) will cause less
+        # border effects when we'll add it to two other tiles.
+        tile120 = tf.rotate(tile1_mirror, 120, resize=True, order=1)
+        tile120 = tile120[:height, :width]
+        # Assembling the tiles
+
+        # We have 3 tiles with the same triangle rotated 0, 120 and 240
+        # pad them and put them together
+        zero_tile = np.zeros((y1, width))
+        tile2 = np.concatenate((zero_tile, tile0, zero_tile))
+        tile240 = np.concatenate((zero_tile, zero_tile, tile240))
+        tile120 = np.concatenate((tile120, zero_tile, zero_tile))
+
+        # Using max() will give us smoother edges, as opppose to sum()
+        half1 = np.maximum(tile2, tile240)
+        half = np.maximum(half1, tile120)
+
+        # By construction, size(whole) = [4*y1 2*x1]
+        whole = np.concatenate((half, np.fliplr(half)), axis=1)
+        # Shifting by 2 pix (as oppose to zero), we'll smoothly glue tile together.
+        # Set delta_pix value to zero and see the difference
+        delta_pix = 2
+        start_row1 = 3 * y1 - delta_pix
+        start_row2 = 3 * y1
+        end_row1 = 4 * y1 - delta_pix
+        end_row2 = y1 + delta_pix
+        end_row3 = 4 * y1
+        end_col1 = 2 * width
+
+        top_bit = np.concatenate(
+            (whole[start_row1:end_row1, width:end_col1], whole[start_row1:end_row1, :width]), axis=1)
+        bot_bit = np.concatenate(
+            (whole[delta_pix:end_row2, width:end_col1], whole[delta_pix:end_row2, :width]), axis=1)
+
+        whole[:y1, :] = np.maximum(whole[delta_pix:end_row2, :], top_bit)
+        whole[start_row2:end_row3, :] = np.maximum(
+            whole[start_row1:end_row1, :], bot_bit)
+        # cutting middle piece of tile
+        mid_tile = whole[y1:start_row2, :width]
+        # reflecting middle piece and glueing both pieces to the bottom
+        # size(big_tile)  = [6*y1 2*x1]
+        cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1)
+        big_tile = np.concatenate((whole, cat_mid_flip))
+        p3m1 = tf.rescale(big_tile, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p3m1
 
 
-def new_p31m(tile):
+def new_p31m(tile, use_dots):
     # Generate p31m wallpaper
     mag_factor = 6
-    tile0 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-    height = np.shape(tile0)[0]
-    width = round(0.5 * height / math.sqrt(3))
-    y1 = round(height / 2)
 
-    # fundamental region is an isosceles triangle with angles(30, 120, 30)
+    if (use_dots):
 
-    # vetrices of the triangle (closed polygon => four points)
-    mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
+        tile0 = tile.astype(np.uint32)
+        height = np.shape(tile0)[0]
+        width = round(0.5 * height / math.sqrt(3))
+        y1 = round(height / 2)
 
-    # make half of the mask
-    # reflect and concatenate, to get the full mask:
-    mask_half = skd.polygon2mask((y1, width), mask_xy)
+        # fundamental region is an isosceles triangle with angles(30, 120, 30)
 
-    mask = np.concatenate((mask_half, np.flipud(mask_half)))
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
 
-    # size(tile0) = [height  width]
-    tile0 = mask * tile0[:, :width]
+        # make half of the mask
+        # reflect and concatenate, to get the full mask:
+        mask_half = skd.polygon2mask((y1, width), mask_xy).astype(np.uint32)
 
-    # rotate the tile
-    tile120 = tf.rotate(tile0, 120, resize=True, order=1)
-    tile240 = tf.rotate(tile0, 240, resize=True, order=1)
+        mask = np.concatenate(
+            (mask_half, np.flipud(mask_half))).astype(np.uint32)
 
-    # trim the tiles manually, using trigonometric laws
-    # NOTE: floor and round give us values that differ by 1 pix.
-    # to trim right, we'll have to derive the trim value from
-    tile0 = np.concatenate((tile0, np.zeros((height, width * 2))), axis=1)
-    delta = np.shape(tile0)[1]
+        # size(tile0) = [height  width]
+        tile0 = (mask * tile0[:, :width]).astype(np.uint32)
 
-    # ideally we would've used
-    # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
-    x120 = np.shape(tile120)[1] - delta
-    y120 = np.shape(tile120)[0] - y1
+        # rotate the tile
+        tile0_Im = Image.fromarray(tile0, 'I')
+        tile120_Im = tile0_Im.rotate(120, Image.NEAREST, expand=True)
+        tile120 = np.array(tile120_Im).astype(np.uint32)
 
-    # size(tile120, tile240) = [height 3width]
+        tile240_Im = tile0_Im.rotate(240, Image.NEAREST, expand=True)
+        tile240 = np.array(tile240_Im).astype(np.uint32)
 
-    tile120 = tile120[y120:, x120:]
-    tile240 = tile240[:y1, x120:]
+        # trim the tiles manually, using trigonometric laws
+        # NOTE: floor and round give us values that differ by 1 pix.
+        # to trim right, we'll have to derive the trim value from
+        tile0 = np.concatenate(
+            (tile0, np.zeros((height, width * 2))), axis=1).astype(np.uint32)
+        delta = np.shape(tile0)[1]
 
-    # we have 3 tiles that will comprise
-    # equilateral triangle together
-    # glue them together by padding and smoothing edges (max instead of sum)
-    # tile1 already padded
-    tile120 = np.concatenate((np.zeros((y1, width * 3)), tile120))
+        # ideally we would've used
+        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
+        x120 = np.shape(tile120)[1] - delta
+        y120 = np.shape(tile120)[0] - y1
 
-    tile240 = np.concatenate((tile240, np.zeros((y1, width * 3))))
+        # size(tile120, tile240) = [height 3width]
 
-    # size(tri) = [height 3width]
-    tri = np.maximum(np.maximum(tile0, tile120), tile240)
-    mirror_tri = np.fliplr(tri)
+        tile120 = tile120[y120:, x120:].astype(np.uint32)
+        tile240 = tile240[:y1, x120:].astype(np.uint32)
 
-    # use shift overlap, to smooth the edges
-    delta_pix = 3
-    row_start = y1 - delta_pix
-    row_end1 = mirror_tri.shape[0] - delta_pix
-    row_end2 = y1 + delta_pix
-    shifted = np.concatenate(
-        (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
-    tile2 = np.maximum(shifted, tri)
+        # we have 3 tiles that will comprise
+        # equilateral triangle together
+        # glue them together by padding and smoothing edges (max instead of sum)
+        # tile1 already padded
+        tile120 = np.concatenate(
+            (np.zeros((y1, width * 3)), tile120)).astype(np.uint32)
 
-    # size(tile3) = [height 6width]
-    tile3 = np.concatenate((tile2, np.fliplr(tile2)), axis=1)
-    p31m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+        tile240 = np.concatenate(
+            (tile240, np.zeros((y1, width * 3)))).astype(np.uint32)
+
+        # size(tri) = [height 3width]
+        tri = np.maximum(np.maximum(tile0, tile120), tile240).astype(np.uint32)
+        mirror_tri = np.fliplr(tri).astype(np.uint32)
+
+        # use shift overlap, to smooth the edges
+        delta_pix = 3
+        row_start = y1 - delta_pix
+        row_end1 = mirror_tri.shape[0] - delta_pix
+        row_end2 = y1 + delta_pix
+        shifted = np.concatenate(
+            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :])).astype(np.uint32)
+        tile2 = np.maximum(shifted, tri).astype(np.uint32)
+
+        # size(tile3) = [height 6width]
+        tile3 = np.concatenate((tile2, np.fliplr(tile2)),
+                               axis=1).astype(np.uint32)
+        tile3[np.where(tile3 == np.min(tile3))] = mode(
+            tile3, axis=None)[0].astype(np.uint32)
+        tile3_Im = Image.fromarray(tile3, 'I')
+        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+        tile3_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
+                               for i in reversed(tile3.shape))
+        p31m = np.array(tile3_Im.resize(
+            tile3_new_size, Image.NEAREST)).astype(np.uint32)
+
+    else:
+        tile0 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+        height = np.shape(tile0)[0]
+        width = round(0.5 * height / math.sqrt(3))
+        y1 = round(height / 2)
+
+        # fundamental region is an isosceles triangle with angles(30, 120, 30)
+
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
+
+        # make half of the mask
+        # reflect and concatenate, to get the full mask:
+        mask_half = skd.polygon2mask((y1, width), mask_xy)
+
+        mask = np.concatenate((mask_half, np.flipud(mask_half)))
+
+        # size(tile0) = [height  width]
+        tile0 = mask * tile0[:, :width]
+
+        # rotate the tile
+        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
+
+        # trim the tiles manually, using trigonometric laws
+        # NOTE: floor and round give us values that differ by 1 pix.
+        # to trim right, we'll have to derive the trim value from
+        tile0 = np.concatenate((tile0, np.zeros((height, width * 2))), axis=1)
+        delta = np.shape(tile0)[1]
+
+        # ideally we would've used
+        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
+        x120 = np.shape(tile120)[1] - delta
+        y120 = np.shape(tile120)[0] - y1
+
+        # size(tile120, tile240) = [height 3width]
+
+        tile120 = tile120[y120:, x120:]
+        tile240 = tile240[:y1, x120:]
+
+        # we have 3 tiles that will comprise
+        # equilateral triangle together
+        # glue them together by padding and smoothing edges (max instead of sum)
+        # tile1 already padded
+        tile120 = np.concatenate((np.zeros((y1, width * 3)), tile120))
+
+        tile240 = np.concatenate((tile240, np.zeros((y1, width * 3))))
+
+        # size(tri) = [height 3width]
+        tri = np.maximum(np.maximum(tile0, tile120), tile240)
+        mirror_tri = np.fliplr(tri)
+
+        # use shift overlap, to smooth the edges
+        delta_pix = 3
+        row_start = y1 - delta_pix
+        row_end1 = mirror_tri.shape[0] - delta_pix
+        row_end2 = y1 + delta_pix
+        shifted = np.concatenate(
+            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
+        tile2 = np.maximum(shifted, tri)
+
+        # size(tile3) = [height 6width]
+        tile3 = np.concatenate((tile2, np.fliplr(tile2)), axis=1)
+        p31m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p31m
 
 
-def new_p6(tile):
+def new_p6(tile, use_dots):
     # Generate p6 wallpaper
     mag_factor = 6
-    tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
 
-    height = np.shape(tile1)[0]
-    width = int(round(0.5 * height * np.tan(np.pi / 6)))
-    y1 = round(height / 2)
+    if (use_dots):
+        tile1 = tile.astype(np.uint32)
+        height = np.shape(tile1)[0]
+        width = int(round(0.5 * height * np.tan(np.pi / 6)))
+        y1 = round(height / 2)
 
-    # fundamental region is an isosceles triangle with angles(30, 120, 30)
+        # fundamental region is an isosceles triangle with angles(30, 120, 30)
 
-    # vetrices of the triangle (closed polygon => four points)
-    mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
 
-    # half of the mask
-    # reflect and concatenate, to get the full mask:
-    mask_half = skd.polygon2mask((y1, width), mask_xy)
+        # half of the mask
+        # reflect and concatenate, to get the full mask:
+        mask_half = skd.polygon2mask((y1, width), mask_xy).astype(np.uint32)
 
-    mask = np.concatenate((mask_half, np.flipud(mask_half)))
+        mask = np.concatenate(
+            (mask_half, np.flipud(mask_half))).astype(np.uint32)
 
-    # size(tile0) = [height x width]
-    tile0 = mask * tile1[:, :width]
+        # size(tile0) = [height x width]
+        tile0 = (mask * tile1[:, :width]).astype(np.uint32)
 
-    # rotate tile1
-    tile120 = tf.rotate(tile0, 120, resize=True, order=1)
-    tile240 = tf.rotate(tile0, 240, resize=True, order=1)
-    # trim the tiles manually, using trigonometric laws
-    # NOTE: floor and round give us values that differ by 1 pix.
-    # to trim right, we'll have to derive the trim value from
-    tile0 = np.concatenate((tile0, np.zeros((height, width * 2))), axis=1)
-    delta = np.shape(tile0)[1]
+        # rotate tile1
+        tile0Im = Image.fromarray(tile0, 'I')
+        tile0Im_rot120 = tile0Im.rotate(120, Image.NEAREST, expand=True)
+        tile120 = np.array(tile0Im_rot120).astype(np.uint32)
+        tile0Im_rot240 = tile0Im.rotate(240, Image.NEAREST, expand=True)
+        tile240 = np.array(tile0Im_rot240).astype(np.uint32)
 
-    # ideally we would've used
-    # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2
-    x120 = np.shape(tile120)[1] - delta
-    y120 = np.shape(tile120)[0] - y1
+        # trim the tiles manually, using trigonometric laws
+        # NOTE: floor and round give us values that differ by 1 pix.
+        # to trim right, we'll have to derive the trim value from
+        tile0 = np.concatenate(
+            (tile0, np.zeros((height, width * 2))), axis=1).astype(np.uint32)
+        delta = np.shape(tile0)[1]
 
-    # size(tile120, 240) = [y1 x 3x1]
-    tile120 = tile120[y120:, x120:]
-    tile240 = tile240[:y1, x120:]
+        # ideally we would've used
+        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2
+        x120 = np.shape(tile120)[1] - delta
+        y120 = np.shape(tile120)[0] - y1
 
-    # we have 3 tiles that will comprise
-    # equilateral triangle together
+        # size(tile120, 240) = [y1 x 3x1]
+        tile120 = tile120[y120:, x120:].astype(np.uint32)
+        tile240 = tile240[:y1, x120:].astype(np.uint32)
 
-    # glue them together by padding and smoothing edges (max instead of sum)
-    # tile0 already padded
-    tile120 = np.concatenate((np.zeros((y1, width * 3)), tile120))
-    tile240 = np.concatenate((tile240, np.zeros((y1, width * 3))))
+        # we have 3 tiles that will comprise
+        # equilateral triangle together
 
-    # size(tri) = [2y1 x 3x1]
-    tri = np.maximum(np.maximum(tile0, tile120), tile240)
+        # glue them together by padding and smoothing edges (max instead of sum)
+        # tile0 already padded
+        tile120 = np.concatenate(
+            (np.zeros((y1, width * 3)), tile120)).astype(np.uint32)
+        tile240 = np.concatenate(
+            (tile240, np.zeros((y1, width * 3)))).astype(np.uint32)
 
-    # mirror_tri = fliplr(tri); --wrong! should be (fliplr(flipud(tri)))
-    mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
+        # size(tri) = [2y1 x 3x1]
+        tri = np.maximum(np.maximum(tile0, tile120), tile240).astype(np.uint32)
 
-    # shifw w.slight overlap,
-    delta_pix = 3
-    row_start = y1 - delta_pix
-    row_end1 = mirror_tri.shape[0] - delta_pix
-    row_end2 = y1 + delta_pix
-    shifted = np.concatenate(
-        (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
+        # mirror_tri = fliplr(tri); --wrong! should be (fliplr(flipud(tri)))
+        triIm = Image.fromarray(tri, 'I')
+        triIm_rot180 = triIm.rotate(180, expand=True)
+        mirror_tri = np.array(triIm_rot180).astype(np.uint32)
 
-    tile2 = np.maximum(tri, shifted)
-    t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
+        # shifw w.slight overlap,
+        delta_pix = 3
+        row_start = y1 - delta_pix
+        row_end1 = mirror_tri.shape[0] - delta_pix
+        row_end2 = y1 + delta_pix
+        shifted = np.concatenate(
+            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :])).astype(np.uint32)
 
-    tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
+        tile2 = np.maximum(tri, shifted).astype(np.uint32)
+        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
 
-    # size(tile3) = [2y1 x 6x1]
-    tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
-    p6 = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+        tile2_flipped = np.concatenate(
+            (tile2[t2:, :], tile2[:t2, :])).astype(np.uint32)
+
+        # size(tile3) = [2y1 x 6x1]
+        tile3 = np.concatenate((tile2, tile2_flipped),
+                               axis=1).astype(np.uint32)
+        tile3[np.where(tile3 == np.min(tile3))] = mode(
+            tile3, axis=None)[0].astype(np.uint32)
+        tile3_Im = Image.fromarray(tile3, 'I')
+        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+        tile3_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
+                               for i in reversed(tile3.shape))
+        p6 = np.array(tile3_Im.resize(tile3_new_size,
+                                      Image.NEAREST)).astype(np.uint32)
+
+    else:
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+
+        height = np.shape(tile1)[0]
+        width = int(round(0.5 * height * np.tan(np.pi / 6)))
+        y1 = round(height / 2)
+
+        # fundamental region is an isosceles triangle with angles(30, 120, 30)
+
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
+
+        # half of the mask
+        # reflect and concatenate, to get the full mask:
+        mask_half = skd.polygon2mask((y1, width), mask_xy)
+
+        mask = np.concatenate((mask_half, np.flipud(mask_half)))
+
+        # size(tile0) = [height x width]
+        tile0 = mask * tile1[:, :width]
+
+        # rotate tile1
+        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
+        # trim the tiles manually, using trigonometric laws
+        # NOTE: floor and round give us values that differ by 1 pix.
+        # to trim right, we'll have to derive the trim value from
+        tile0 = np.concatenate((tile0, np.zeros((height, width * 2))), axis=1)
+        delta = np.shape(tile0)[1]
+
+        # ideally we would've used
+        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2
+        x120 = np.shape(tile120)[1] - delta
+        y120 = np.shape(tile120)[0] - y1
+
+        # size(tile120, 240) = [y1 x 3x1]
+        tile120 = tile120[y120:, x120:]
+        tile240 = tile240[:y1, x120:]
+
+        # we have 3 tiles that will comprise
+        # equilateral triangle together
+
+        # glue them together by padding and smoothing edges (max instead of sum)
+        # tile0 already padded
+        tile120 = np.concatenate((np.zeros((y1, width * 3)), tile120))
+        tile240 = np.concatenate((tile240, np.zeros((y1, width * 3))))
+
+        # size(tri) = [2y1 x 3x1]
+        tri = np.maximum(np.maximum(tile0, tile120), tile240)
+
+        # mirror_tri = fliplr(tri); --wrong! should be (fliplr(flipud(tri)))
+        mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
+
+        # shifw w.slight overlap,
+        delta_pix = 3
+        row_start = y1 - delta_pix
+        row_end1 = mirror_tri.shape[0] - delta_pix
+        row_end2 = y1 + delta_pix
+        shifted = np.concatenate(
+            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
+
+        tile2 = np.maximum(tri, shifted)
+        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
+
+        tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
+
+        # size(tile3) = [2y1 x 6x1]
+        tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
+        p6 = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p6
 
 
-def new_p6m(tile):
+def new_p6m(tile, use_dots):
     # Generate p6m wallpaper
 
     mag_factor = 6
-    tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+    if (use_dots):
+        tile1 = tile.astype(np.uint32)
 
-    height = np.shape(tile1)[0]
-    
-    width = round(height / math.sqrt(3))
+        height = np.shape(tile1)[0]
 
-    # fundamental region is right triangle with angles (30, 60)
+        width = round(height / math.sqrt(3))
 
-    # vetrices of the triangle (closed polygon => four points)
-    mask_xy = [[0, 0], [height, width], [height, 0], [0, 0]]
+        # fundamental region is right triangle with angles (30, 60)
 
-    # half of the mask
-    # reflect and concatenate, to get the full mask:
-    mask = skd.polygon2mask((height, width), mask_xy)
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [height, width], [height, 0], [0, 0]]
 
-    # right triangle inscribed into rectangle
-    tile0 = tile1[:, :width] * mask
+        # half of the mask
+        # reflect and concatenate, to get the full mask:
+        mask = skd.polygon2mask((height, width), mask_xy).astype(np.uint32)
 
-    # size(tile0) = [height x width]
-    tile0 = np.concatenate((tile0, np.flipud(tile0)))
+        # right triangle inscribed into rectangle
+        tile0 = (tile1[:, :width] * mask).astype(np.uint32)
 
-    # rotate tile1
-    tile120 = tf.rotate(tile0, 120, resize=True, order=1)
-    tile240 = tf.rotate(tile0, 240, resize=True, order=1)
+        # size(tile0) = [height x width]
+        tile0 = np.concatenate((tile0, np.flipud(tile0))).astype(np.uint32)
 
-    # trim the tiles manually, using trigonometric laws
-    # NOTE: floor and round give us values that differ by 1 pix.
-    # to trim right, we'll have to derive the trim value from
-    tile0 = np.concatenate(
-        (tile0, np.zeros((height * 2, width * 2))), axis=1)
-    delta = np.shape(tile0)[1]
+        # rotate tile1
+        tile0Im = Image.fromarray(tile0, 'I')
+        tile0Im_rot120 = tile0Im.rotate(120, Image.NEAREST, expand=True)
+        tile120 = np.array(tile0Im_rot120).astype(np.uint32)
+        tile0Im_rot240 = tile0Im.rotate(240, Image.NEAREST, expand=True)
+        tile240 = np.array(tile0Im_rot240).astype(np.uint32)
 
-    # ideally we would've used
-    # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
-    x120 = np.shape(tile120)[1] - delta
-    y120 = np.shape(tile120)[0] - height
+        # trim the tiles manually, using trigonometric laws
+        # NOTE: floor and round give us values that differ by 1 pix.
+        # to trim right, we'll have to derive the trim value from
+        tile0 = np.concatenate(
+            (tile0, np.zeros((height * 2, width * 2))), axis=1).astype(np.uint32)
+        delta = np.shape(tile0)[1]
 
-    # size(tile120, 240) = [y1 x 3x1]
-    tile120 = tile120[y120:, x120:]
-    tile240 = tile240[:height, x120:]
+        # ideally we would've used
+        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
+        x120 = np.shape(tile120)[1] - delta
+        y120 = np.shape(tile120)[0] - height
 
-    # we have 3 tiles that will comprise
-    # equilateral triangle together
+        # size(tile120, 240) = [y1 x 3x1]
+        tile120 = tile120[y120:, x120:].astype(np.uint32)
+        tile240 = tile240[:height, x120:].astype(np.uint32)
 
-    # glue them together by padding and smoothing edges (max instead of sum)
-    # tile0 already padded
-    tile120 = np.concatenate((np.zeros((height, width * 3)), tile120))
-    tile240 = np.concatenate((tile240, np.zeros((height, width * 3))))
+        # we have 3 tiles that will comprise
+        # equilateral triangle together
 
-    # size(tri) = [2y1 x 3x1]
-    tri = np.maximum(np.maximum(tile0, tile120), tile240)
-    mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
+        # glue them together by padding and smoothing edges (max instead of sum)
+        # tile0 already padded
+        tile120 = np.concatenate(
+            (np.zeros((height, width * 3)), tile120)).astype(np.uint32)
+        tile240 = np.concatenate(
+            (tile240, np.zeros((height, width * 3)))).astype(np.uint32)
 
-    # shifw w.slight overlap,
-    delta_pix = 3
-    row_start = height - delta_pix
-    row_end1 = mirror_tri.shape[0] - delta_pix
-    row_end2 = height + delta_pix
-    shifted = np.concatenate(
-        (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
+        # size(tri) = [2y1 x 3x1]
+        tri = np.maximum(np.maximum(tile0, tile120), tile240).astype(np.uint32)
+        triIm = Image.fromarray(tri, 'I')
+        triIm_rot180 = triIm.rotate(180, expand=True)
+        mirror_tri = np.array(triIm_rot180).astype(np.uint32)
 
-    tile2 = np.maximum(tri, shifted)
-    t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
+        # shifw w.slight overlap,
+        delta_pix = 3
+        row_start = height - delta_pix
+        row_end1 = mirror_tri.shape[0] - delta_pix
+        row_end2 = height + delta_pix
+        shifted = np.concatenate(
+            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :])).astype(np.uint32)
 
-    tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
-    # size(tile3) = [2y1 x 6x1]
-    tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
-    p6m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+        tile2 = np.maximum(tri, shifted).astype(np.uint32)
+        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
+
+        tile2_flipped = np.concatenate(
+            (tile2[t2:, :], tile2[:t2, :])).astype(np.uint32)
+        # size(tile3) = [2y1 x 6x1]
+        tile3 = np.concatenate((tile2, tile2_flipped),
+                               axis=1).astype(np.uint32)
+        tile3[np.where(tile3 == np.min(tile3))] = mode(
+            tile3, axis=None)[0].astype(np.uint32)
+        tile3_Im = Image.fromarray(tile3, 'I')
+        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
+
+        tile3_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
+                               for i in reversed(tile3.shape))
+        p6m = np.array(tile3_Im.resize(
+            tile3_new_size, Image.NEAREST)).astype(np.uint32)
+    else:
+        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+
+        height = np.shape(tile1)[0]
+        
+        width = round(height / math.sqrt(3))
+
+        # fundamental region is right triangle with angles (30, 60)
+
+        # vetrices of the triangle (closed polygon => four points)
+        mask_xy = [[0, 0], [height, width], [height, 0], [0, 0]]
+
+        # half of the mask
+        # reflect and concatenate, to get the full mask:
+        mask = skd.polygon2mask((height, width), mask_xy)
+
+        # right triangle inscribed into rectangle
+        tile0 = tile1[:, :width] * mask
+
+        # size(tile0) = [height x width]
+        tile0 = np.concatenate((tile0, np.flipud(tile0)))
+
+        # rotate tile1
+        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
+        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
+
+        # trim the tiles manually, using trigonometric laws
+        # NOTE: floor and round give us values that differ by 1 pix.
+        # to trim right, we'll have to derive the trim value from
+        tile0 = np.concatenate(
+            (tile0, np.zeros((height * 2, width * 2))), axis=1)
+        delta = np.shape(tile0)[1]
+
+        # ideally we would've used
+        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
+        x120 = np.shape(tile120)[1] - delta
+        y120 = np.shape(tile120)[0] - height
+
+        # size(tile120, 240) = [y1 x 3x1]
+        tile120 = tile120[y120:, x120:]
+        tile240 = tile240[:height, x120:]
+
+        # we have 3 tiles that will comprise
+        # equilateral triangle together
+
+        # glue them together by padding and smoothing edges (max instead of sum)
+        # tile0 already padded
+        tile120 = np.concatenate((np.zeros((height, width * 3)), tile120))
+        tile240 = np.concatenate((tile240, np.zeros((height, width * 3))))
+
+        # size(tri) = [2y1 x 3x1]
+        tri = np.maximum(np.maximum(tile0, tile120), tile240)
+        mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
+
+        # shifw w.slight overlap,
+        delta_pix = 3
+        row_start = height - delta_pix
+        row_end1 = mirror_tri.shape[0] - delta_pix
+        row_end2 = height + delta_pix
+        shifted = np.concatenate(
+            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
+
+        tile2 = np.maximum(tri, shifted)
+        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
+
+        tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
+        # size(tile3) = [2y1 x 6x1]
+        tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
+        p6m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p6m
 
 def filter_tile(in_tile, filter_intensity):
@@ -698,7 +1291,7 @@ def filter_tile(in_tile, filter_intensity):
 
 
 def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
-                fundamental_region_source_type, cmap, save_path, k, pdf, opt_texture=None):
+                fundamental_region_source_type, use_dots, cmap, save_path, k, pdf, opt_texture=None):
     #  make_single(type,N,n,opt_texture)
     # generates single wallaper group image
     # wp_type defines the wallpaper group
@@ -710,16 +1303,20 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
     # isSpatFreqFilt generate a spatial frequency filtered wallpaper
     # fwhm full width at half maximum of spatial frequency filter
     # whether spatialfrequency filter is lowpass or highpass
+    # use_dots generate wallpaper using dots rather than random noise
 
     # default
     # save paths for debugging
 
-    if fundamental_region_source_type == 'uniform_noise':
+    if fundamental_region_source_type == 'uniform_noise' and use_dots is False:
         print('uniform noise')
         if n>N:
             print('size of repeating pattern larger than size of wallpaper')
         #raw_texture = np.random.rand(max(n,N), max(n,N));
         raw_texture = np.random.rand(max(N,N), max(N,N));
+    elif use_dots:
+        print('random dots')
+        raw_texture = dot_texture(n, 0.05, 0.05, 5, wp_type)
     elif isinstance(fundamental_region_source_type, np.ndarray):
         print('texture was passed explicitly')
         opt_texture = fundamental_region_source_type
@@ -739,11 +1336,11 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
         num_wallpapers = len(filter_freq)
     else:
         num_wallpapers = 1
-    temp_n = 200
+
     for i in range(num_wallpapers):
         if filter_freq:
-            if temp_n>N:
-                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], temp_n, angle / N * temp_n)
+            if n>N:
+                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], n, angle / N * n)
             else:
                 fundamental_region_filter = filter.Cosine_filter(filter_freq[i], N, angle )
         else:
@@ -758,14 +1355,15 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                     type(fundamental_region_filter)))
         else:
             texture = raw_texture
-            texture = (texture-texture.min())/(texture.max() - texture.min())
+            if not use_dots:
+                texture = (texture-texture.min())/(texture.max() - texture.min())
         # else:
            # TODO: not exactly sure, what this lowpass filter is supposed to do. in any case:
            #       it should be adapted to this structure that separates the noise generation from the filtering
         
         # Not sure why we need to clip texture?
         
-        #if N>n: # we need to crop from the WP-sized texture
+        #if N>n and not use_dots: # we need to crop from the WP-sized texture
         #  texture = texture[int(n//2):int(n//2)+n,int(n//2):int(n//2)+n]
         try:
             # generate the wallpapers
@@ -783,7 +1381,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 p1_image = cat_tiles(p1, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p1_image, wp_type, p1, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p1_image)
             elif wp_type == 'P2':
                 # Rectangular fundamental region 
@@ -799,7 +1397,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 p2_image = cat_tiles(p2, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p2_image, wp_type, p2, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p2_image)
             elif wp_type == 'PM':
                 # Rectangular fundamental region 
@@ -815,7 +1413,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 pm_image = cat_tiles(pm, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(pm_image, wp_type, pm, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pm_image)
             elif wp_type == 'PG':
                 # Rectangular fundamental region 
@@ -832,7 +1430,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 pg_image = cat_tiles(pg.T, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(pg_image, wp_type, pg, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pg_image)
             elif wp_type == 'CM':
                 # Triangular fundamental region 
@@ -850,7 +1448,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 cm_image = cat_tiles(cm, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(cm_image, wp_type, cm, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(cm_image)
             elif wp_type == 'PMM':
                 # Rectangular fundamental region 
@@ -869,7 +1467,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 pmm_image = cat_tiles(pmm, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(pmm_image, wp_type, pmm, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pmm_image)
             elif wp_type == 'PMG':
                 # Rectangular fundamental region 
@@ -889,7 +1487,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 pmg_image = cat_tiles(pmg, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(pmg_image, wp_type, pmg, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pmg_image)
             elif wp_type == 'PGG':
                 # Triangular fundamental region 
@@ -909,7 +1507,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 pgg_image = cat_tiles(pgg, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(pgg_image, wp_type, pgg, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(pgg_image)
             elif wp_type == 'CMM':
                 # Triangular fundamental region 
@@ -929,7 +1527,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 cmm_image = cat_tiles(cmm, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(cmm_image, wp_type, cmm, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(cmm_image)
             elif wp_type == 'P4':
                 # Rectangular fundamental region 
@@ -951,7 +1549,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 p4_image = cat_tiles(p4, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p4_image, wp_type, p4, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p4_image)
             elif wp_type == 'P4M':
                 # Triangular fundamental region 
@@ -977,7 +1575,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 p4m_image = cat_tiles(p4m, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p4m_image, wp_type, p4m, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p4m_image)
             elif wp_type == 'P4G':
                 # Triangular fundamental region 
@@ -987,24 +1585,45 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                     n = n / 8 # FR should be 1 / 8 the size if lattice sizing
                 height = int(np.round(np.sqrt(n) * np.sqrt(2)))
                 width = int(np.round(np.sqrt(n) * np.sqrt(2)))
-                start_tile = texture[:height, :width]
-                xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
-                mask = skd.polygon2mask((height, width), xy)
-                tile1 = mask * start_tile
-                tile2 = np.fliplr(tile1)
-                tile2 = np.rot90(tile2, 1)
-                tile = np.maximum(tile1, tile2)
-                tile_rot90 = np.rot90(tile, 1)
-                tile_rot180 = np.rot90(tile, 2)
-                tile_rot270 = np.rot90(tile, 3)
-                concat_tmp1 = np.concatenate(
-                    (tile_rot270, tile_rot180), axis=1)
-                concat_tmp2 = np.concatenate((tile, tile_rot90), axis=1)
-                p4g = np.concatenate((concat_tmp1, concat_tmp2))
+                if (use_dots):
+                    start_tile = texture[:height, :width].astype(np.uint32)
+                    xy = np.array(
+                        [[0, 0], [width, 0], [width, height], [0, 0]]).astype(np.uint32)
+                    mask = skd.polygon2mask((height, width), xy).astype(np.uint32)
+                    tile1 = (mask.astype(np.uint32) *
+                             start_tile.astype(np.uint32)).astype(np.uint32)
+                    tile1 = start_tile - tile1
+                    tile2 = np.fliplr(tile1).astype(np.uint32)
+                    tile2 = np.rot90(tile2, 1).astype(np.uint32)
+                    tile = np.maximum(tile1, tile2).astype(np.uint32)
+                    tile_rot90 = np.rot90(tile, 1).astype(np.uint32)
+                    tile_rot180 = np.rot90(tile, 2).astype(np.uint32)
+                    tile_rot270 = np.rot90(tile, 3).astype(np.uint32)
+                    concat_tmp1 = np.concatenate(
+                        (tile_rot270, tile_rot180), axis=1).astype(np.uint32)
+                    concat_tmp2 = np.concatenate(
+                        (tile, tile_rot90), axis=1).astype(np.uint32)
+                    p4g = np.concatenate(
+                        (concat_tmp1, concat_tmp2)).astype(np.uint32)
+                else:
+                    start_tile = texture[:height, :width]
+                    xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
+                    mask = skd.polygon2mask((height, width), xy)
+                    tile1 = mask * start_tile
+                    tile2 = np.fliplr(tile1)
+                    tile2 = np.rot90(tile2, 1)
+                    tile = np.maximum(tile1, tile2)
+                    tile_rot90 = np.rot90(tile, 1)
+                    tile_rot180 = np.rot90(tile, 2)
+                    tile_rot270 = np.rot90(tile, 3)
+                    concat_tmp1 = np.concatenate(
+                        (tile_rot270, tile_rot180), axis=1)
+                    concat_tmp2 = np.concatenate((tile, tile_rot90), axis=1)
+                    p4g = np.concatenate((concat_tmp1, concat_tmp2))
                 p4g_image = cat_tiles(p4g, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p4g_image, wp_type, p4g, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p4g_image)
             elif wp_type == 'P3':
                 # Hexagonal fundamental region 
@@ -1021,11 +1640,14 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 area_quarter_tile = area * 4.5
                 height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
                 start_tile = texture[:height, :]
-                p3 = new_p3(start_tile)
+                if (use_dots):
+                    p3 = new_p3(texture, use_dots)
+                else:
+                    p3 = new_p3(start_tile, use_dots)
                 p3_image = cat_tiles(p3, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p3_image, wp_type, p3, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 
                 image.append(p3_image)
             elif wp_type == 'P3M1':
@@ -1043,11 +1665,14 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
                 height = round(np.sqrt(area_sixth_tile / (0.5 * math.sqrt(3))))
                 start_tile = texture[:height, :]
-                p3m1 = new_p3m1(start_tile)
+                if (use_dots):
+                    p3m1 = new_p3m1(texture, use_dots)
+                else:
+                    p3m1 = new_p3m1(start_tile, use_dots)
                 p3m1_image = cat_tiles(p3m1, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p3m1_image, wp_type, p3m1, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p3m1_image)
             elif wp_type == 'P31M':
                 # Hexagonal fundamental region 
@@ -1064,13 +1689,16 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
                 height = round(np.sqrt(area_sixth_tile * math.sqrt(3) / 0.5))
                 start_tile = texture[:height, :]
-                p31m = new_p31m(start_tile)
+                if (use_dots):
+                    p31m = new_p31m(texture, use_dots)
+                else:
+                    p31m = new_p31m(start_tile, use_dots)
                 # ugly trick
                 p31m_1 = np.fliplr(np.transpose(p31m))
                 p31m_image = cat_tiles(p31m_1, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p31m_image, wp_type, p31m_1, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p31m_image)
             elif wp_type == 'P6':
                 # Hexagonal fundamental region 
@@ -1087,11 +1715,14 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
                 height = round(np.sqrt(area_sixth_tile / (np.tan(np.pi / 6) * 0.5)))
                 start_tile = texture[:height, :]
-                p6 = new_p6(start_tile)
+                if (use_dots):
+                    p6 = new_p6(texture, use_dots)
+                else:
+                    p6 = new_p6(start_tile, use_dots)
                 p6_image = cat_tiles(p6, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p6_image, wp_type, p6, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p6_image)
             elif wp_type == 'P6M':
                 # Hexagonal fundamental region 
@@ -1108,11 +1739,14 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 area_twelfth_tile = area * 6 # we can control for a twelfth of the size of a tile
                 height = round(np.sqrt(area_twelfth_tile * math.sqrt(3)))
                 start_tile = texture[:height, :]
-                p6m = new_p6m(start_tile)
+                if (use_dots):
+                    p6m = new_p6m(texture, use_dots)
+                else:
+                    p6m = new_p6m(start_tile, use_dots)
                 p6m_image = cat_tiles(p6m, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p6m_image, wp_type, p6m, sizing,
-                               N, ratio, cmap, save_path, k, pdf)
+                               N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p6m_image)
             else:
                 warnings.warn(
@@ -1205,7 +1839,7 @@ def diagcat_tiles(tile, N, diag_tile, wp_type):
     return img
 
 
-def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
+def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, use_dots, save_path, k, pdf):
     # function to take care of all diagnostic tasks related to the wallpaper generation
     # img is the full wallpaper
     # wp_type is the wallpaper type
@@ -1215,8 +1849,9 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
     # N is the overall size of the wallpaper
     # ratio is the ratio of the FR/lattice sizing
 
-    tile = np.array(tile * 255, dtype=np.uint8)
-    tile[:, :] = cv.equalizeHist(tile[:, :])
+    if not use_dots:
+        tile = np.array(tile * 255, dtype=np.uint8)
+        tile[:, :] = cv.equalizeHist(tile[:, :])
 
     if (wp_type == 'P1'):
         # rgb(47,79,79)
@@ -1237,33 +1872,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle((tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), fill=(
@@ -1291,33 +1929,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle((tile.shape[0], tile.shape[1] * 1.5, tile.shape[0] * 2, tile.shape[1] * 2), fill=(
@@ -1393,33 +2034,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         # fundamental region (horizontal mirror)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
@@ -1445,33 +2089,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]))) / (N**2 * ratio)) * 100):.2f}%')
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         # fundamental region (horizontal glide)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
@@ -1497,33 +2144,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
                f'Percent Error is approximately = {((np.abs(N**2 * ratio - ((tile.shape[0] * tile.shape[1]) / 2)) / (N**2 * ratio)) * 100):.2f}%')
         cma = plt.get_cmap("gray")
         tile_cm = cma(tile)
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cma(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cma(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         
         # fundamental region (horizontal mirror)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -1555,33 +2205,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
@@ -1661,33 +2314,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
@@ -1755,33 +2411,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(
@@ -1856,33 +2515,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(
@@ -1940,33 +2602,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
@@ -2036,33 +2701,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         if ratio > 0.03125:
@@ -2189,33 +2857,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         if ratio > 0.03125:
@@ -2336,33 +3007,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.5), (tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1],
@@ -2408,33 +3082,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         
@@ -2482,33 +3159,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         
@@ -2558,33 +3238,36 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         
@@ -2640,106 +3323,75 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         cm = plt.get_cmap("gray")
         tile_cm = cm(tile)
         diag_path2 = save_path + "_DIAGNOSTIC_FR_" + wp_type + '.' + "png"
-        # resize tile to ensure it will fit wallpaper size properly
-        if (tile.shape[0] > N):
-            tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
-            N = tile.shape[0]
-        if (tile.shape[1] > N):
-            tile = tile[:, round((tile.shape[1] - N) / 2)
-                                 : round((N + (tile.shape[1] - N) / 2))]
-            N = tile.shape[1]
+        if(use_dots):
+            dia_fr_im = Image.fromarray((tile[:, :]).astype(np.uint32), 'RGBA')
+        else:
+            # resize tile to ensure it will fit wallpaper size properly
+            if (tile.shape[0] > N):
+                tile = tile[round((tile.shape[0] - N) / 2): round((N + (tile.shape[0] - N) / 2)), :]
+                N = tile.shape[0]
+            if (tile.shape[1] > N):
+                tile = tile[:, round((tile.shape[1] - N) / 2)
+                                     : round((N + (tile.shape[1] - N) / 2))]
+                N = tile.shape[1]
+            
+            if (tile.shape[0] % 2 != 0):
+                tile = tile[:tile.shape[0] - 1, :]
+            if (tile.shape[1] % 2 != 0):
+                tile = tile[:, :tile.shape[1] - 1]
+            dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
         
-        if (tile.shape[0] % 2 != 0):
-            tile = tile[:tile.shape[0] - 1, :]
-        if (tile.shape[1] % 2 != 0):
-            tile = tile[:, :tile.shape[1] - 1]
-        dN = tuple(1 + (math.floor(N / ti)) for ti in np.shape(tile))
-    
-        row = dN[0]
-        col = dN[1]
-    
-        # to avoid divide by zero errors
-        if(dN[0] == 1):
-            row = row + 1
-        if(dN[1] == 1):
-            col = col + 1
-        tile_rep = numpy.matlib.repmat(tile, row, col)
-        tile_cm = cm(tile_rep)
-        dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            row = dN[0]
+            col = dN[1]
+        
+            # to avoid divide by zero errors
+            if(dN[0] == 1):
+                row = row + 1
+            if(dN[1] == 1):
+                col = col + 1
+            tile_rep = numpy.matlib.repmat(tile, row, col)
+            tile_cm = cm(tile_rep)
+            dia_fr_im = Image.fromarray(
+                (tile_cm[:, :, :] * 255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        if ratio >= 0.125:
-            alpha_mask__rec_draw.polygon((((tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5)), (tile.shape[1] * (5.5/8), tile.shape[0] - (
-                tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5))), fill=(255, 20, 147, 125))
-            alpha_mask__rec_draw.line((tile.shape[1] * (5.5/8), tile.shape[0] - (tile.shape[0] / 2), ((
-                tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5)))), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5)), (tile.shape[1] * (7/8), tile.shape[0] - (
-                tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] * 1.05 - 1, tile.shape[0] - 1), (tile.shape[1] * (7/8), tile.shape[0] / 2), (tile.shape[1] / 2,
-                                                                                                                                          tile.shape[0] / 2), (tile.shape[1] * (5.5/8), tile.shape[0] - 1), (tile.shape[1] * 1.05 - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((((tile.shape[1] * (5.5/8))), tile.shape[0] - 1), (tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5)), (tile.shape[1] * (7/8), tile.shape[0] - (
-                tile.shape[0] / 2)), (tile.shape[1] * (7/8), (tile.shape[0] / 1.20)), (tile.shape[1] * (5.5/8), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] * 1.05 - 1, tile.shape[0] - 1), tile.shape[1] * (7/8), (tile.shape[0] / 1.20)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line((tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5), tile.shape[1] * (7/8), (tile.shape[0] / 1.20)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] * (7/8), tile.shape[0] - 1), tile.shape[1] * (7/8), (tile.shape[0] / 1.20)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line((((tile.shape[1] * (5.5/8), tile.shape[0] - 1), tile.shape[1] * (7/8), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
-    
-            # symmetry axes symbols
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon((tile.shape[1] * (5.5/8), tile.shape[0] - (
-                tile.shape[0] / 2), 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon((tile.shape[1] * (7/8), tile.shape[0] - (
-                tile.shape[0] / 2), 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] * 1.05, tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] * (5.5/8), tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon((tile.shape[1] * (7/8), (
-                tile.shape[0] / 1.20), 5), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] * (7/8), tile.shape[0], 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-        else:
-            alpha_mask__rec_draw.polygon(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (
+        alpha_mask__rec_draw.polygon(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (
             tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 20, 147, 125))
-            alpha_mask__rec_draw.line((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (tile.shape[0] / 2), ((
-                tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)))), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-                tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2,
-                                                                                                                                          tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-                tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), tile.shape[1] - (
-                tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5), tile.shape[1] - (
-                tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 1), tile.shape[1] - (
-                tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2)
-            alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (
-                tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
-    
-            # symmetry axes symbols
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (
-                tile.shape[0] / 2), 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-                tile.shape[0] / 2), 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (
-                tile.shape[0] / 1.25), 5), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-            alpha_mask__rec_draw.regular_polygon(
-                (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0], 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
-    
+        alpha_mask__rec_draw.line((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (tile.shape[0] / 2), ((
+            tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
+            tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2,
+                                                                                                                                      tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
+            tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 5.75), (tile.shape[0] / 1.25)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), tile.shape[1] - (
+            tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5), tile.shape[1] - (
+            tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0] - 1), tile.shape[1] - (
+            tile.shape[1] - 1) / 5.75, (tile.shape[0] / 1.25)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (
+            tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
+
+        # symmetry axes symbols
+        alpha_mask__rec_draw.regular_polygon(
+            (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (
+            tile.shape[0] / 2), 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon(
+            (tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
+            tile.shape[0] / 2), 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon(
+            (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon(
+            (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] - 1) / 5.75, (
+            tile.shape[0] / 1.25), 5), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon(
+            (tile.shape[1] - (tile.shape[1] - 1) / 5.75, tile.shape[0], 3), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
     
     # resize diagnostic_fr image to actual size of wallpaper
@@ -2749,61 +3401,66 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
     top = round((im_h - N) / 2)
     bottom = round(N + ((im_h - N) / 2))
     dia_fr_im = dia_fr_im.crop((left, top, right, bottom))
-    pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
-    dia_fr_im.save(pattern_path, "png")
-    
-    # diagnostic plots
-    logging.getLogger('matplotlib.font_manager').disabled = True
-    pattern_path = save_path + '/' + wp_type + '_diagnostic_all_' + str(k + 1) + '.' + "png"
-    hidx_0 = int(img.shape[0] * (1 / 3))
-    hidx_1 = int(img.shape[0] / 2)
-    hidx_2 = int(img.shape[0] * (2 / 3))
-    I = np.dstack([np.rot90(img, 1), np.rot90(img, 1), np.rot90(img, 1)])
-    I[hidx_0 - 2:hidx_0 + 2, :] = np.array([1, 0, 0])
-    I[hidx_1 - 2:hidx_1 + 2, :] = np.array([0, 1, 0])
-    I[hidx_2 - 2:hidx_2 + 2, :] = np.array([0, 0, 1])
-    I = clip_wallpaper(I, N)
-    cm = plt.get_cmap("gray")
-    cm(I)
-    
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, figsize=(10, 40))
-    ax1.imshow(dia_fr_im)
-    ax1.set_title('Fundamental Region for ' + wp_type)
-    ax1.set(adjustable='box', aspect='auto')
-    
-    ax2.imshow(I)
-    ax2.set_title(wp_type + ' diagnostic image 1')
-    ax2.set(adjustable='box', aspect='auto')
-    
-    bbox = ax2.get_tightbbox(fig.canvas.get_renderer())
-    ax2_path = save_path + '/' + wp_type + '_diagnostic_1_' + str(k + 1) + '.' + "png"
-    fig.savefig(ax2_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
 
-    ax3.plot(img[hidx_0, :], c=[1, 0, 0])
-    ax3.plot(img[hidx_1, :], c=[0, 1, 0])
-    ax3.plot(img[hidx_2, :], c=[0, 0, 1])
-    ax3.set_title('Sample values along the horizontal lines {} {} and {}'.format(
-        hidx_0, hidx_1, hidx_2))
-    
-    bbox = ax3.get_tightbbox(fig.canvas.get_renderer())
-    ax3_path = save_path + '/' + wp_type + '_diagnostic_2_' + str(k + 1) + '.' + "png"
-    fig.savefig(ax3_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
+    if use_dots:
+        pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
+        dia_fr_im.save(pattern_path, "png")
+    else:
+        pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
+        dia_fr_im.save(pattern_path, "png")
+        
+        # diagnostic plots
+        logging.getLogger('matplotlib.font_manager').disabled = True
+        pattern_path = save_path + '/' + wp_type + '_diagnostic_all_' + str(k + 1) + '.' + "png"
+        hidx_0 = int(img.shape[0] * (1 / 3))
+        hidx_1 = int(img.shape[0] / 2)
+        hidx_2 = int(img.shape[0] * (2 / 3))
+        I = np.dstack([np.rot90(img, 1), np.rot90(img, 1), np.rot90(img, 1)])
+        I[hidx_0 - 2:hidx_0 + 2, :] = np.array([1, 0, 0])
+        I[hidx_1 - 2:hidx_1 + 2, :] = np.array([0, 1, 0])
+        I[hidx_2 - 2:hidx_2 + 2, :] = np.array([0, 0, 1])
+        I = clip_wallpaper(I, N)
+        cm = plt.get_cmap("gray")
+        cm(I)
+        
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, figsize=(10, 40))
+        ax1.imshow(dia_fr_im)
+        ax1.set_title('Fundamental Region for ' + wp_type)
+        ax1.set(adjustable='box', aspect='auto')
+        
+        ax2.imshow(I)
+        ax2.set_title(wp_type + ' diagnostic image 1')
+        ax2.set(adjustable='box', aspect='auto')
+        
+        bbox = ax2.get_tightbbox(fig.canvas.get_renderer())
+        ax2_path = save_path + '/' + wp_type + '_diagnostic_1_' + str(k + 1) + '.' + "png"
+        fig.savefig(ax2_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
 
-    bins = np.linspace(0, 1, 100)
-    ax4.hist(img[hidx_0, :], bins, color=[1, 0, 0])
-    ax4.hist(img[hidx_1, :], bins, color=[0, 1, 0])
-    ax4.hist(img[hidx_2, :], bins, color=[0, 0, 1])
-    ax4.set_title('Frequency of sample values across the horizontal lines')
-    
-    bbox = ax4.get_tightbbox(fig.canvas.get_renderer())
-    ax4_path = save_path + '/' + wp_type + '_diagnostic_3_' + str(k + 1) + '.' + "png"
-    fig.savefig(ax4_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
+        ax3.plot(img[hidx_0, :], c=[1, 0, 0])
+        ax3.plot(img[hidx_1, :], c=[0, 1, 0])
+        ax3.plot(img[hidx_2, :], c=[0, 0, 1])
+        ax3.set_title('Sample values along the horizontal lines {} {} and {}'.format(
+            hidx_0, hidx_1, hidx_2))
+        
+        bbox = ax3.get_tightbbox(fig.canvas.get_renderer())
+        ax3_path = save_path + '/' + wp_type + '_diagnostic_2_' + str(k + 1) + '.' + "png"
+        fig.savefig(ax3_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
 
-    # add figure to pdf
-    pdf.savefig(fig)
+        bins = np.linspace(0, 1, 100)
+        ax4.hist(img[hidx_0, :], bins, color=[1, 0, 0])
+        ax4.hist(img[hidx_1, :], bins, color=[0, 1, 0])
+        ax4.hist(img[hidx_2, :], bins, color=[0, 0, 1])
+        ax4.set_title('Frequency of sample values across the horizontal lines')
+        
+        bbox = ax4.get_tightbbox(fig.canvas.get_renderer())
+        ax4_path = save_path + '/' + wp_type + '_diagnostic_3_' + str(k + 1) + '.' + "png"
+        fig.savefig(ax4_path,bbox_inches=bbox.transformed(fig.dpi_scale_trans.inverted()))
 
-    plt.show()
-    fig.savefig(pattern_path)
+        # add figure to pdf
+        pdf.savefig(fig)
+
+        plt.show()
+        fig.savefig(pattern_path)
 
 # array of coefficients(DO NOT CHANGE):
 # tile sizes by groups:     tile_in     tile_out         square ratio       width ratio
@@ -3088,6 +3745,8 @@ if __name__ == "__main__":
                         help='Size wallpaper as a ratio between the fundamental region and wallpaper size')
     parser.add_argument('--ratio', '-ra', default=1.0, type=float,
                         help='Size wallpaper as a ratio')
+    parser.add_argument('--dots', '-d', default=False, type=str2bool,
+                        help='Replace the fundamental region with random dot style patterns')
     parser.add_argument('--save_fmt', '-f', default="png", type=str,
                         help='Image save format')
     parser.add_argument('--filter_freq', '-f0fr', nargs='+',  default=[], type=str2list,
@@ -3110,17 +3769,17 @@ if __name__ == "__main__":
 #    for ratio in [0.03, 0.015, 0.02]:
 #    for ratio in [0.03, 0.015, 0.02]:
 #        make_set(groups=['P31M'], num_exemplars=5, wp_size_dva=args.wp_size_dva,
-#             wp_size_pix=args.wallpaperSize, sizing=args.sizing, ratio=ratio, filter_freqs=[1],
+#             wp_size_pix=args.wallpaperSize, sizing=args.sizing, ratio=ratio, use_dots=args.dots, filter_freqs=[1],
 #             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', ps_scramble = 5,
 #             same_magnitude=False,
 #             is_diagnostic=False, save_path='./wallpapers2', mask=args.mask)
 #    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
-#             wp_size_pix=args.wallpaperSize, sizing=args.sizing, ratio=ratio, filter_freqs=[1,2,4,6],
+#             wp_size_pix=args.wallpaperSize, sizing=args.sizing, ratio=ratio, use_dots=args.dots, filter_freqs=[1,2,4,6],
 #             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', ps_scramble = 13,
 #             same_magnitude=True,
 #             is_diagnostic=False, save_path='./wallpapers2', mask=args.mask)
 #    make_set(groups=['P6'], num_exemplars=2, wp_size_dva=args.wp_size_dva,
-#             wp_size_pix=args.wallpaperSize, sizing=args.sizing, ratio=ratio, filter_freqs=[],
+#             wp_size_pix=args.wallpaperSize, sizing=args.sizing, ratio=ratio, use_dots=args.dots, filter_freqs=[],
 #             save_fmt=args.save_fmt, save_raw=True, ctrl_images='phase', ps_scramble = 1,
 #             same_magnitude=True,
 #             is_diagnostic=False, save_path='./wallpapers2', mask=args.mask)
