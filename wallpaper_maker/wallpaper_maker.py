@@ -293,16 +293,15 @@ def new_p3(tile):
     # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
     # bigger or equal, because we cat them together).
     # subtract one, to avoid screwing by imrotate(240)
-
+    
     width = round(height / math.sqrt(3)) - 1
     # define rhombus-shaped mask
-
     xy = np.array(
         [[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]])
 
     mask = skd.polygon2mask((height, width), xy)
     tile0 = mask * tile1[:, :width]
-
+    
     # rotate rectangle by 120, 240 degs
 
     # note on 120deg rotation: 120 deg rotation of rhombus-shaped
@@ -739,13 +738,11 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
         num_wallpapers = len(filter_freq)
     else:
         num_wallpapers = 1
-    temp_n = 200
     for i in range(num_wallpapers):
         if filter_freq:
-            if temp_n>N:
-                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], temp_n, angle / N * temp_n)
-            else:
-                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], N, angle )
+            if n > (N**2):
+                LOGGER.warning('Area of repeating region greater than area of wallpaper.')
+            fundamental_region_filter = filter.Cosine_filter(filter_freq[i], N, angle )
         else:
             fundamental_region_filter = None
         if fundamental_region_filter:
@@ -2381,7 +2378,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] * 1.185, tile.shape[0] * 0.833), 8), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
-            (((tile.shape[1]) * 1.325, tile.shape[0] * 0.674), 8), 3, 60, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            (((tile.shape[1]) * 1.325, tile.shape[0] * 0.666), 8), 3, 60, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] * 1.5, tile.shape[0] * 0.5), 8), 3, 150, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         alpha_mask__rec_draw.regular_polygon(
@@ -2588,36 +2585,68 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         
-        alpha_mask__rec_draw.polygon(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-            tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(221, 160, 221, 125))
-        alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-            tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2,
-                                                                                                                                      tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-            tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 6), (tile.shape[0] / 1.225)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]), tile.shape[1] - (
-            tile.shape[1] - 1) / 6, (tile.shape[0] / 1.225)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (
-            tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
-
-        # symmetry axes symbols
-        alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (
-            tile.shape[0] / 2), 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
-            tile.shape[0] / 2), 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1]) / 6, (
-            tile.shape[0] / 1.225), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
-        alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1] - (tile.shape[1] - 1) / 6, tile.shape[0], 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+        if ratio >= 0.125:
+            alpha_mask__rec_draw.polygon(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] * (7/8), tile.shape[0] - (
+                tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(221, 160, 221, 125))
+            #alpha_mask__rec_draw.line((tile.shape[1] * (5.5/8), tile.shape[0] - (tile.shape[0] / 2), ((
+            #    tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5)))), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5)), (tile.shape[1] * (7/8), tile.shape[0] - (
+                tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[1] * 1.05 - 1, tile.shape[0] - 1), (tile.shape[1] * (7/8), tile.shape[0] / 2), (tile.shape[1] / 2,
+                                                                                                                                          tile.shape[0] / 2), (tile.shape[1] * (5.5/8), tile.shape[0] - 1), (tile.shape[1] * 1.05 - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line(((((tile.shape[1] * (5.5/8))), tile.shape[0] - 1), (tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5)), (tile.shape[1] * (7/8), tile.shape[0] - (
+                tile.shape[0] / 2)), (tile.shape[1] * (7/8), (tile.shape[0] / 1.20)), (tile.shape[1] * (5.5/8), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[1] * 1.05 - 1, tile.shape[0] - 1), tile.shape[1] * (7/8), (tile.shape[0] / 1.20)), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line((((tile.shape[1] * (5.5/8), tile.shape[0] - 1), tile.shape[1] * (7/8), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
+    
+            # symmetry axes symbols
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] * (5.5/8), (tile.shape[0] / 1.5), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon((tile.shape[1] * (5.5/8), tile.shape[0] - (
+                tile.shape[0] / 2), 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon((tile.shape[1] * (7/8), tile.shape[0] - (
+                tile.shape[0] / 2), 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] * 1.05, tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] * (5.5/8), tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon((tile.shape[1] * (7/8), (
+                tile.shape[0] / 1.20), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] * (7/8), tile.shape[0], 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+        else:
+            alpha_mask__rec_draw.polygon(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
+                tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(221, 160, 221, 125))
+            alpha_mask__rec_draw.line(((tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
+                tile.shape[0] / 2)), (tile.shape[1] / 2, (tile.shape[0] / 2)), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5))), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[1] - 1, tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] / 2), (tile.shape[1] / 2,
+                                                                                                                                          tile.shape[0] / 2), (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), (tile.shape[1] - 1, tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line((((tile.shape[1] - ((tile.shape[1] - 1) / 3)), tile.shape[0] - 1), (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5)), (tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
+                tile.shape[0] / 2)), (tile.shape[1] - ((tile.shape[1] - 1) / 6), (tile.shape[0] / 1.225)), (tile.shape[1] - ((tile.shape[1] - 1) / 3), tile.shape[0] - 1)), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]), tile.shape[1] - (
+                tile.shape[1] - 1) / 6, (tile.shape[0] / 1.225)), fill=(255, 255, 0), width=2)
+            alpha_mask__rec_draw.line((((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - 1), tile.shape[1] - (
+                tile.shape[1] / 6), tile.shape[0] - (tile.shape[0] / 2))), fill=(255, 255, 0), width=2)
+    
+            # symmetry axes symbols
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] - (tile.shape[1] / 3), (tile.shape[0] / 1.5), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 3), tile.shape[0] - (
+                tile.shape[0] / 2), 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] / 2, (tile.shape[0] / 2), 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1] / 6), tile.shape[0] - (
+                tile.shape[0] / 2), 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1], tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] - (tile.shape[1] / 3), tile.shape[0], 5), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon((tile.shape[1] - (tile.shape[1]) / 6, (
+                tile.shape[0] / 1.225), 5), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            alpha_mask__rec_draw.regular_polygon(
+                (tile.shape[1] - (tile.shape[1] - 1) / 6, tile.shape[0], 3), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
 
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
