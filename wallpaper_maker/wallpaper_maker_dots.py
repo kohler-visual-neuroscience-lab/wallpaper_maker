@@ -62,14 +62,8 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int = 5, wp_size_dva: float = 30.0,
              wp_size_pix: int = 512, sizing: str = 'lattice', ratio: float = 0.05,
-             use_dots: bool = False, filter_freqs: list = [], save_fmt: str = "png", save_raw: bool = False,
-             phase_scramble: int = 1, ps_scramble: bool = False, same_magnitude: bool = False,
-             is_diagnostic: bool = False, save_path: str = "", mask: bool = True):
-
-    if ps_scramble and wp_size_pix % (4*2**5) != 0: # adjust size of wallpaper if size is no integer multiple of (4*2**5)
-        new_wp_size_pix = (wp_size_pix // (4*2**5) + 1) * 4*2**5
-        LOGGER.warning('wp_size_pix {} is not an integer multiple of {} and will be increase to {}'.format(wp_size_pix, 4*2**5, new_wp_size_pix))
-        wp_size_pix = new_wp_size_pix
+             use_dots: bool = False, save_fmt: str = "png", same_magnitude: bool = False,
+             is_diagnostic: bool = False, save_path: str = ""):
     
     # make groups all uppercase
     groups = [group.upper() for group in groups] 
@@ -98,20 +92,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     for i in range(value_set.shape[0]):
         map_group[key_set[i]] = value_set[i]
     Groups = groups
-    raw_path = ''
-    if (not filter_freqs):
-        filter_freq_str = "No filtering applied"
-    else:
-        filter_freq_str = ','.join(str(x) for x in filter_freqs)
-    try:
-        if(save_raw):
-            raw_path = os.path.join(save_path, "raw")
-            os.makedirs(raw_path)
-    except:
-        print('Save Path: ', save_path, "\nGroups to Generate: ", groups,
-              "\nNumber of Wallpapers per Group: ", num_exemplars, "\nFiltering Level: ", filter_freq_str)
+
     print('Save Path: ', save_path, '\nGroups to Generate: ', groups,
-          '\nNumber of Wallpapers per Group: ', num_exemplars, '\nFiltering Level: ', filter_freq_str, '\n')
+          '\nNumber of Wallpapers per Group: ', num_exemplars)
 
     # TODO: add configuration to argument parser
     fundamental_region_source_type = 'uniform_noise'
@@ -135,164 +118,71 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         else:
             raise SystemExit('Invalid sizing option. Must be either FR or lattice')
         
-        if filter_freqs:
-            this_groups_wallpapers = [[] for i in filter_freqs]
-        else:
-            this_groups_wallpapers = [[]]
+
+        this_groups_wallpapers = [[]]
 
         for k in range(num_exemplars):
-            print('filter_freqs {}'.format(filter_freqs))
             
             raw = make_single(group, wp_size_pix, int(area), sizing, ratio, wp_size_dva, is_diagnostic,
-                              filter_freqs, fundamental_region_source_type, use_dots, cmap, save_path, k, pdf)
+                              fundamental_region_source_type, use_dots, cmap, save_path, k, pdf)
             raw = np.array(raw).squeeze()
 
             if raw.ndim==2:
                 raw = np.expand_dims(raw,0)
 
             group_number = map_group[group]
-            # save raw wallpapers
-            if(save_raw):
-                raw_path_tmp = raw_path + '/' + time_str + '_' + str(1000 * group_number + k + 1) + \
-                    '_' + cmap + '.' + save_fmt
-                display(Markdown(str(1000 * group_number + k + 1) + '_' + cmap + '_raw'))
-                for s in range(len(raw)):
-                    clipped_raw = clip_wallpaper(np.array(raw[s]), wp_size_pix)
-                    display(Image.fromarray(
-                        (clipped_raw[:, :] * 255).astype(np.uint8)))
-                    Image.fromarray(
-                        (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
 
             for i, this_raw in enumerate(raw):
-                if not use_dots:
-                    this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
-                else:
                     this_groups_wallpapers[i].append(this_raw)
 
         this_groups_wallpapers = np.array(this_groups_wallpapers)
 
-        if same_magnitude and not use_dots:
-            # normalize psd across exemplars per group and filter
-            this_groups_wallpapers_spec         = np.fft.rfft2(this_groups_wallpapers)
-            this_groups_wallpapers_mag_mean     = np.abs(this_groups_wallpapers_spec).mean(-3)
-            this_groups_wallpapers_spec_phase   = np.angle(this_groups_wallpapers_spec)
-            this_groups_wallpapers_spec         = np.expand_dims(this_groups_wallpapers_mag_mean,-3) \
-                                                  * np.exp(1j * this_groups_wallpapers_spec_phase)
-            this_groups_wallpapers              = np.fft.irfft2(this_groups_wallpapers_spec)
-        else:
-            if not use_dots:
-                this_groups_wallpapers_mag_mean = max(1,len(filter_freqs))*[[]]
-
-        # generate scrambled controls
-        if (phase_scramble > 0 or ps_scramble) and not use_dots:
-            this_groups_controls = np.zeros((phase_scramble+int(ps_scramble),)+this_groups_wallpapers.shape)
-            for i in range(this_groups_wallpapers.shape[0]): # over f0fr
-                for j in range(this_groups_wallpapers.shape[1]): # over exemplars
-                    # don't believe we need the option use_magnitude here, since the magnitude of the wallpaper is unchanged in the case of ctrl_images=='phase'
-                    if phase_scramble >0:
-                        this_control = replace_spectra(this_groups_wallpapers[i,j], phase_scramble, False,
-                                                       this_groups_wallpapers_mag_mean[i],  cmap=cmap)
-                        this_groups_controls[:phase_scramble,i,j] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for ps_scramble!=1
-                    if ps_scramble:
-                        this_control = replace_spectra(clip_wallpaper(this_groups_wallpapers[i,j],wp_size_pix), 0, True,
-                                                       this_groups_wallpapers_mag_mean[i],  cmap=cmap)
-                        x_offset = round((this_groups_controls.shape[-2] - wp_size_pix) / 2)
-                        y_offset = round((this_groups_controls.shape[-1] - wp_size_pix) / 2)
-                        this_groups_controls[phase_scramble-1+ps_scramble,i,j,x_offset:x_offset+wp_size_pix,y_offset:y_offset+wp_size_pix] = np.transpose(this_control,(2,0,1)) # this needs to be addapted for ps_scramble!=1
-        else:
-            this_groups_controls = None
-
         # crop wallpapers and controls
-        w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
-        h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
-        this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
-        if (phase_scramble > 0 or ps_scramble) and not use_dots:
-            this_groups_controls = this_groups_controls[..., w_idxs, :][..., h_idxs]
+        #w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
+        #h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
+        #this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
 
         # normalize range of pixel values
 #        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1)
 #        this_groups_wallpapers = this_groups_wallpapers / np.expand_dims(np.expand_dims(this_groups_wallpapers.max((-1, -2)) - this_groups_wallpapers.min((-1, -2)), -1), -1)
-        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.mean((-1,-2)),-1),-1)
-        this_groups_wallpapers = this_groups_wallpapers /(9* np.expand_dims(np.expand_dims(this_groups_wallpapers.std(axis=(-1, -2)),-1),-1))+0.5
+        #this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.mean((-1,-2)),-1),-1)
+        #this_groups_wallpapers = this_groups_wallpapers /(9* np.expand_dims(np.expand_dims(this_groups_wallpapers.std(axis=(-1, -2)),-1),-1))+0.5
 
         if this_groups_wallpapers.min()<0:
             LOGGER.warning('need to clip. wallpapers have sample values < 0: {}'.format(this_groups_wallpapers.min()))
         if this_groups_wallpapers.max()>1:
             LOGGER.warning('need to clip. wallpapers have sample values > 1: {}'.format(this_groups_wallpapers.max()))
 
-        # mask images
-        if not use_dots:
-            this_groups_wallpapers = mask_imgs(this_groups_wallpapers)
         # TODO: normalization not consistent with e.g. in minPhaseInterp
-        if this_groups_controls is not None: # same for controls
-            # normalize range of pixel values to 0...1
-#            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1)
-#            this_groups_controls = this_groups_controls / np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)) - this_groups_controls.min((-1, -2)), -1), -1)
-            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.mean((-1, -2)), -1), -1)
-            this_groups_controls = this_groups_controls / (9*np.expand_dims(np.expand_dims(this_groups_controls.std((-1, -2)), -1), -1)) + 0.5
-
-            if this_groups_controls.min() < 0:
-                LOGGER.warning('need to clip. wallpapers have sample values < 0: {}'.format(this_groups_controls.min()))
-            if this_groups_controls.max() > 1:
-                LOGGER.warning('need to clip. wallpapers have sample values > 1: {}'.format(this_groups_controls.max()))
-
-            # mask images
-            this_groups_controls = mask_imgs(this_groups_controls)
 
         # save images
         for exemplar_idx in range(this_groups_wallpapers.shape[1]):
             for filter_idx in range(this_groups_wallpapers.shape[0]):
-                wp_filename =  '{save_path}/WP_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}.{save_fmt}'.format( save_path=save_path,
+                wp_filename =  '{save_path}/WP_{group}_{cmap}_{ratio}_{exemplar_idx}.{save_fmt}'.format( save_path=save_path,
                                                                                                                       group=group,
                                                                                                                       cmap=cmap,
-                                                                                                                      filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
                                                                                                                       ratio=ratio,
                                                                                                                       exemplar_idx=exemplar_idx,
                                                                                                                       save_fmt=save_fmt)
                 Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
                 display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap))
-                display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
-                if this_groups_controls is not None:  # same for controls
-                    for this_phase_step in range(phase_scramble):
-                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_{this_phase_step}of{phase_scramble}.{save_fmt}'.format( save_path=save_path,
-                                                                                                                      group=group,
-                                                                                                                      cmap=cmap,
-                                                                                                                      filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
-                                                                                                                      ratio=ratio,
-                                                                                                                      this_phase_step = this_phase_step+1,
-                                                                                                                      phase_scramble = phase_scramble,
-                                                                                                                      exemplar_idx=exemplar_idx,
-                                                                                                                      save_fmt=save_fmt)
-                        Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
-                        display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + str(this_phase_step + 1) + '_' + cmap + '_phase'))
-                        display(Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)))
-                    if ps_scramble:
-                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_psscramble.{save_fmt}'.format( save_path=save_path,
-                                                                                                                                                                   group=group,
-                                                                                                                                                                   cmap=cmap,
-                                                                                                                                                                   filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
-                                                                                                                                                                   ratio=ratio,
-                                                                                                                                                                   exemplar_idx=exemplar_idx,
-                                                                                                                                                                   save_fmt=save_fmt)
-                        Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
-                        display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap + '_ps'))
-                        display(Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)))
-
+                #display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
+                display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx]).astype(np.uint32), 'RGBA'))
     pdf.close()  
 
 
 def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
     # auxiliary function for generating a dots texture for use with wallpaper generation code make_single.py
-
+    num_of_dots = 4
     height = 0
     width = 0
     # get correct size of dots tile based on wallpaper chosen
     if (wp_type == "P1"):
-        height = size
-        width = size
+        height = int(np.sqrt(size))
+        width = int(np.sqrt(size))
     elif (wp_type == "P2" or wp_type == "PM" or wp_type == "PG"):
-        width = round(size / 2)
-        height = 2 * width
+        width = int(np.round(np.sqrt(size / 2)))
+        height = int(np.round(np.sqrt(size * 2)))
     elif (wp_type == "PMM" or wp_type == "CM" or wp_type == "PMG" or wp_type == 'PGG' or wp_type == 'P4' or wp_type == 'P4M' or wp_type == 'P4G'):
         height = round(size / 2)
         width = height
@@ -413,12 +303,13 @@ def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
                     ctx.fill()
             end_time = time.time()
 
-    # surface.write_to_png("example.png")
+    #surface.write_to_png("example.png")
     buf = surface.get_data()
     if (wp_type == 'P3' or wp_type == 'P3M1' or wp_type == 'P31M' or wp_type == 'P6' or wp_type == 'P6M'):
         result = np.ndarray(shape=(height, width), dtype=np.uint32, buffer=buf)
     else:
         result = np.ndarray(shape=(width, height), dtype=np.uint32, buffer=buf)
+    display(Image.fromarray((result).astype(np.uint32), 'RGBA'))
     return result
 
 
@@ -519,90 +410,6 @@ def new_p3(tile, use_dots):
 
         p3 = np.array(whole_im.resize(whole_im_new_size,
                                       Image.NEAREST)).astype(np.uint32)
-    else:
-        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-        height = np.size(tile1, 0)
-
-        # fundamental region is equlateral rhombus with side length = s
-
-        s1 = round((height / 3))
-        s = 2 * s1
-
-        # NOTE on 'ugly' way of calculating the widt = h
-        # after magnification width(tile1) > tan(pi/6)*height(tile1) (should be equal)
-        # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
-        # bigger or equal, because we cat them together).
-        # subtract one, to avoid screwing by imrotate(240)
-
-        width = round(height / math.sqrt(3)) - 1
-        # define rhombus-shaped mask
-
-        xy = np.array(
-            [[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]])
-
-        mask = skd.polygon2mask((height, width), xy)
-        tile0 = mask * tile1[:, :width]
-
-        # rotate rectangle by 120, 240 degs
-
-        # note on 120deg rotation: 120 deg rotation of rhombus-shaped
-        # texture preserves the size, so 'crop' option can be used to
-        # tile size.
-
-        tile120 = tf.rotate(tile0, 120, resize=False, order=1)
-        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
-
-        # manually trim the tiles:
-
-        # tile120 should have the same size as rectangle: [heigh x width]
-
-        # tile240 should have the size [s x 2*width]
-        # find how much we need to cut from both sides
-        diff = round(0.5 * (np.size(tile240, 1) - 2 * width))
-        row_start = round(0.25 * s)
-        row_end = round(0.25 * s) + s
-        col_start = diff
-        col_end = 2 * width + diff
-        tile240 = tile240[row_start:row_end, col_start:col_end]
-
-        # Start to pad tiles and glue them together
-        # Resulting tile will have the size [3*height x 2* width]
-
-        two_thirds1 = np.concatenate((tile0, tile120), axis=1)
-        two_thirds2 = np.concatenate((tile120, tile0), axis=1)
-
-        two_thirds = np.concatenate((two_thirds1, two_thirds2))
-
-        # lower half of tile240 on the top, zero-padded to [height x 2 width]
-        row_start = int(0.5 * s)
-        col_end = 2 * width
-        one_third11 = np.concatenate(
-            (tile240[row_start:, :], np.zeros((s, col_end))))
-
-        # upper half of tile240 on the bottom, zero-padded to [height x 2 width]
-        row_end = int(0.5 * s)
-        one_third12 = np.concatenate(
-            (np.zeros((s, col_end)), tile240[:row_end, :]))
-
-        # right half of tile240 in the middle, zero-padded to [height x 2 width]
-        col_start = width
-        one_third21 = np.concatenate(
-            (np.zeros((s, width)), tile240[:, col_start:], np.zeros((s, width))))
-
-        # left half of tile240in the middle, zero-padded to [height x 2 width]
-        one_third22 = np.concatenate(
-            (np.zeros((s, width)), tile240[:, :width], np.zeros((s, width))))
-
-        # cat them together
-        one_third1 = np.concatenate((one_third11, one_third12))
-        one_third2 = np.concatenate((one_third21, one_third22), axis=1)
-
-        # glue everything together, shrink and replicate
-        one_third = np.maximum(one_third1, one_third2)
-
-        # size(whole) = [3xheight 2xwidth]
-        whole = np.maximum(two_thirds, one_third)
-        p3 = tf.rescale(whole, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p3
 
 
@@ -699,84 +506,6 @@ def new_p3m1(tile, use_dots):
                                   for i in reversed(big_tile.shape))
         p3m1 = np.array(big_tile_im.resize(
             big_tile_new_size, Image.NEAREST)).astype(np.uint32)
-
-    else:
-        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-        height = np.shape(tile1)[0]
-
-        # fundamental region is equlateral triangle with side length = height
-        width = round(0.5 * height * math.sqrt(3))
-
-        y1 = round(height / 2)
-
-        # vetrices of the triangle (closed polygon => four points)
-        mask_xy = [[0, 0], [y1, width], [y1, 0], [0, 0]]
-
-        # Create half of the mask
-        # reflect and concatenate, to get the full mask:
-
-        mask_half = skd.polygon2mask((y1, width), mask_xy)
-        mask = np.concatenate((mask_half, np.flipud(mask_half)))
-
-        # equilateral triangle inscribed into rectangle
-        tile0 = tile1[:, :width] * mask
-
-        # continue to modify the tile
-
-        # reflect and rotate
-        tile1_mirror = np.fliplr(tile0)
-        tile240 = tf.rotate(tile1_mirror, 240, resize=True, order=1)
-        # AY: I directly cut the tiles, because trim will
-        # return slightly different size
-
-        t_r1x = np.shape(tile240)[0]
-        start_row = t_r1x - height
-        tile240 = tile240[start_row:, :width]
-
-        # AY: rotating mirrored tile(as opposed to tileR1) will cause less
-        # border effects when we'll add it to two other tiles.
-        tile120 = tf.rotate(tile1_mirror, 120, resize=True, order=1)
-        tile120 = tile120[:height, :width]
-        # Assembling the tiles
-
-        # We have 3 tiles with the same triangle rotated 0, 120 and 240
-        # pad them and put them together
-        zero_tile = np.zeros((y1, width))
-        tile2 = np.concatenate((zero_tile, tile0, zero_tile))
-        tile240 = np.concatenate((zero_tile, zero_tile, tile240))
-        tile120 = np.concatenate((tile120, zero_tile, zero_tile))
-
-        # Using max() will give us smoother edges, as opppose to sum()
-        half1 = np.maximum(tile2, tile240)
-        half = np.maximum(half1, tile120)
-
-        # By construction, size(whole) = [4*y1 2*x1]
-        whole = np.concatenate((half, np.fliplr(half)), axis=1)
-        # Shifting by 2 pix (as oppose to zero), we'll smoothly glue tile together.
-        # Set delta_pix value to zero and see the difference
-        delta_pix = 2
-        start_row1 = 3 * y1 - delta_pix
-        start_row2 = 3 * y1
-        end_row1 = 4 * y1 - delta_pix
-        end_row2 = y1 + delta_pix
-        end_row3 = 4 * y1
-        end_col1 = 2 * width
-
-        top_bit = np.concatenate(
-            (whole[start_row1:end_row1, width:end_col1], whole[start_row1:end_row1, :width]), axis=1)
-        bot_bit = np.concatenate(
-            (whole[delta_pix:end_row2, width:end_col1], whole[delta_pix:end_row2, :width]), axis=1)
-
-        whole[:y1, :] = np.maximum(whole[delta_pix:end_row2, :], top_bit)
-        whole[start_row2:end_row3, :] = np.maximum(
-            whole[start_row1:end_row1, :], bot_bit)
-        # cutting middle piece of tile
-        mid_tile = whole[y1:start_row2, :width]
-        # reflecting middle piece and glueing both pieces to the bottom
-        # size(big_tile)  = [6*y1 2*x1]
-        cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1)
-        big_tile = np.concatenate((whole, cat_mid_flip))
-        p3m1 = tf.rescale(big_tile, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p3m1
 
 
@@ -865,71 +594,6 @@ def new_p31m(tile, use_dots):
                                for i in reversed(tile3.shape))
         p31m = np.array(tile3_Im.resize(
             tile3_new_size, Image.NEAREST)).astype(np.uint32)
-
-    else:
-        tile0 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-        height = np.shape(tile0)[0]
-        width = round(0.5 * height / math.sqrt(3))
-        y1 = round(height / 2)
-
-        # fundamental region is an isosceles triangle with angles(30, 120, 30)
-
-        # vetrices of the triangle (closed polygon => four points)
-        mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
-
-        # make half of the mask
-        # reflect and concatenate, to get the full mask:
-        mask_half = skd.polygon2mask((y1, width), mask_xy)
-
-        mask = np.concatenate((mask_half, np.flipud(mask_half)))
-
-        # size(tile0) = [height  width]
-        tile0 = mask * tile0[:, :width]
-
-        # rotate the tile
-        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
-        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
-
-        # trim the tiles manually, using trigonometric laws
-        # NOTE: floor and round give us values that differ by 1 pix.
-        # to trim right, we'll have to derive the trim value from
-        tile0 = np.concatenate((tile0, np.zeros((height, width * 2))), axis=1)
-        delta = np.shape(tile0)[1]
-
-        # ideally we would've used
-        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
-        x120 = np.shape(tile120)[1] - delta
-        y120 = np.shape(tile120)[0] - y1
-
-        # size(tile120, tile240) = [height 3width]
-
-        tile120 = tile120[y120:, x120:]
-        tile240 = tile240[:y1, x120:]
-
-        # we have 3 tiles that will comprise
-        # equilateral triangle together
-        # glue them together by padding and smoothing edges (max instead of sum)
-        # tile1 already padded
-        tile120 = np.concatenate((np.zeros((y1, width * 3)), tile120))
-
-        tile240 = np.concatenate((tile240, np.zeros((y1, width * 3))))
-
-        # size(tri) = [height 3width]
-        tri = np.maximum(np.maximum(tile0, tile120), tile240)
-        mirror_tri = np.fliplr(tri)
-
-        # use shift overlap, to smooth the edges
-        delta_pix = 3
-        row_start = y1 - delta_pix
-        row_end1 = mirror_tri.shape[0] - delta_pix
-        row_end2 = y1 + delta_pix
-        shifted = np.concatenate(
-            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
-        tile2 = np.maximum(shifted, tri)
-
-        # size(tile3) = [height 6width]
-        tile3 = np.concatenate((tile2, np.fliplr(tile2)), axis=1)
-        p31m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p31m
 
 
@@ -1024,76 +688,6 @@ def new_p6(tile, use_dots):
                                for i in reversed(tile3.shape))
         p6 = np.array(tile3_Im.resize(tile3_new_size,
                                       Image.NEAREST)).astype(np.uint32)
-
-    else:
-        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-
-        height = np.shape(tile1)[0]
-        width = int(round(0.5 * height * np.tan(np.pi / 6)))
-        y1 = round(height / 2)
-
-        # fundamental region is an isosceles triangle with angles(30, 120, 30)
-
-        # vetrices of the triangle (closed polygon => four points)
-        mask_xy = [[0, 0], [y1, width], [height, 0], [0, 0]]
-
-        # half of the mask
-        # reflect and concatenate, to get the full mask:
-        mask_half = skd.polygon2mask((y1, width), mask_xy)
-
-        mask = np.concatenate((mask_half, np.flipud(mask_half)))
-
-        # size(tile0) = [height x width]
-        tile0 = mask * tile1[:, :width]
-
-        # rotate tile1
-        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
-        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
-        # trim the tiles manually, using trigonometric laws
-        # NOTE: floor and round give us values that differ by 1 pix.
-        # to trim right, we'll have to derive the trim value from
-        tile0 = np.concatenate((tile0, np.zeros((height, width * 2))), axis=1)
-        delta = np.shape(tile0)[1]
-
-        # ideally we would've used
-        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2
-        x120 = np.shape(tile120)[1] - delta
-        y120 = np.shape(tile120)[0] - y1
-
-        # size(tile120, 240) = [y1 x 3x1]
-        tile120 = tile120[y120:, x120:]
-        tile240 = tile240[:y1, x120:]
-
-        # we have 3 tiles that will comprise
-        # equilateral triangle together
-
-        # glue them together by padding and smoothing edges (max instead of sum)
-        # tile0 already padded
-        tile120 = np.concatenate((np.zeros((y1, width * 3)), tile120))
-        tile240 = np.concatenate((tile240, np.zeros((y1, width * 3))))
-
-        # size(tri) = [2y1 x 3x1]
-        tri = np.maximum(np.maximum(tile0, tile120), tile240)
-
-        # mirror_tri = fliplr(tri); --wrong! should be (fliplr(flipud(tri)))
-        mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
-
-        # shifw w.slight overlap,
-        delta_pix = 3
-        row_start = y1 - delta_pix
-        row_end1 = mirror_tri.shape[0] - delta_pix
-        row_end2 = y1 + delta_pix
-        shifted = np.concatenate(
-            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
-
-        tile2 = np.maximum(tri, shifted)
-        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
-
-        tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
-
-        # size(tile3) = [2y1 x 6x1]
-        tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
-        p6 = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p6
 
 
@@ -1187,75 +781,6 @@ def new_p6m(tile, use_dots):
                                for i in reversed(tile3.shape))
         p6m = np.array(tile3_Im.resize(
             tile3_new_size, Image.NEAREST)).astype(np.uint32)
-    else:
-        tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
-
-        height = np.shape(tile1)[0]
-        
-        width = round(height / math.sqrt(3))
-
-        # fundamental region is right triangle with angles (30, 60)
-
-        # vetrices of the triangle (closed polygon => four points)
-        mask_xy = [[0, 0], [height, width], [height, 0], [0, 0]]
-
-        # half of the mask
-        # reflect and concatenate, to get the full mask:
-        mask = skd.polygon2mask((height, width), mask_xy)
-
-        # right triangle inscribed into rectangle
-        tile0 = tile1[:, :width] * mask
-
-        # size(tile0) = [height x width]
-        tile0 = np.concatenate((tile0, np.flipud(tile0)))
-
-        # rotate tile1
-        tile120 = tf.rotate(tile0, 120, resize=True, order=1)
-        tile240 = tf.rotate(tile0, 240, resize=True, order=1)
-
-        # trim the tiles manually, using trigonometric laws
-        # NOTE: floor and round give us values that differ by 1 pix.
-        # to trim right, we'll have to derive the trim value from
-        tile0 = np.concatenate(
-            (tile0, np.zeros((height * 2, width * 2))), axis=1)
-        delta = np.shape(tile0)[1]
-
-        # ideally we would've used
-        # delta = floor(sqrt(3)*s/2) OR round(sqrt(3)*s/2);
-        x120 = np.shape(tile120)[1] - delta
-        y120 = np.shape(tile120)[0] - height
-
-        # size(tile120, 240) = [y1 x 3x1]
-        tile120 = tile120[y120:, x120:]
-        tile240 = tile240[:height, x120:]
-
-        # we have 3 tiles that will comprise
-        # equilateral triangle together
-
-        # glue them together by padding and smoothing edges (max instead of sum)
-        # tile0 already padded
-        tile120 = np.concatenate((np.zeros((height, width * 3)), tile120))
-        tile240 = np.concatenate((tile240, np.zeros((height, width * 3))))
-
-        # size(tri) = [2y1 x 3x1]
-        tri = np.maximum(np.maximum(tile0, tile120), tile240)
-        mirror_tri = tf.rotate(tri, 180, resize=True, order=1)
-
-        # shifw w.slight overlap,
-        delta_pix = 3
-        row_start = height - delta_pix
-        row_end1 = mirror_tri.shape[0] - delta_pix
-        row_end2 = height + delta_pix
-        shifted = np.concatenate(
-            (mirror_tri[row_start:row_end1, :], mirror_tri[delta_pix:row_end2, :]))
-
-        tile2 = np.maximum(tri, shifted)
-        t2 = int(np.floor(0.5 * np.shape(tile2)[0]))
-
-        tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
-        # size(tile3) = [2y1 x 6x1]
-        tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
-        p6m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p6m
 
 def filter_tile(in_tile, filter_intensity):
@@ -1290,7 +815,7 @@ def filter_tile(in_tile, filter_intensity):
     return outTile;
 
 
-def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
+def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 fundamental_region_source_type, use_dots, cmap, save_path, k, pdf, opt_texture=None):
     #  make_single(type,N,n,opt_texture)
     # generates single wallaper group image
@@ -1308,55 +833,17 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
     # default
     # save paths for debugging
 
-    if fundamental_region_source_type == 'uniform_noise' and use_dots is False:
-        print('uniform noise')
-        if n>N:
-            print('size of repeating pattern larger than size of wallpaper')
-        #raw_texture = np.random.rand(max(n,N), max(n,N));
-        raw_texture = np.random.rand(max(N,N), max(N,N));
-    elif use_dots:
-        print('random dots')
-        raw_texture = dot_texture(n, 0.05, 0.05, 5, wp_type)
-    elif isinstance(fundamental_region_source_type, np.ndarray):
-        print('texture was passed explicitly')
-        opt_texture = fundamental_region_source_type
-        min_dim = np.min(np.shape(opt_texture))
-        # stretch user-defined texture, if it is too small for sampling
-        if min_dim < n:
-            ratio_texture = round(n / min_dim)
-            opt_texture = np.array(Image.resize(
-                reversed((opt_texture.shape * ratio_texture)), Image.NEAREST))
-        raw_texture = opt_texture
-    else:
-        raise Exception('this source type ({})is not implemented'.format(
-            type(fundamental_region_source_type)))
+    print('random dots')
+    area = N**2 * ratio
+    print(area)
+    raw_texture = dot_texture(area, 0.05, 0.05, 5, wp_type)
+
     # do filtering
     image = []
-    if filter_freq:
-        num_wallpapers = len(filter_freq)
-    else:
-        num_wallpapers = 1
+    num_wallpapers = 1
 
     for i in range(num_wallpapers):
-        if filter_freq:
-            if n>N:
-                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], n, angle / N * n)
-            else:
-                fundamental_region_filter = filter.Cosine_filter(filter_freq[i], N, angle )
-        else:
-            fundamental_region_filter = None
-        if fundamental_region_filter:
-            if isinstance(fundamental_region_filter, filter.Cosine_filter):
-                texture = fundamental_region_filter.filter_image(raw_texture)
-                # scale texture into range 0...1
-                texture = (texture - texture.min()) / (texture.max() - texture.min())
-            else:
-                raise Exception('this filter type ({}) is not implemented'.format(
-                    type(fundamental_region_filter)))
-        else:
-            texture = raw_texture
-            if not use_dots:
-                texture = (texture-texture.min())/(texture.max() - texture.min())
+        texture = raw_texture
         # else:
            # TODO: not exactly sure, what this lowpass filter is supposed to do. in any case:
            #       it should be adapted to this structure that separates the noise generation from the filtering
@@ -1384,14 +871,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p1_image)
             elif wp_type == 'P2':
-                # Rectangular fundamental region 
-                # => area of FR = area of lattice / 2 
-                # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
-                if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n / 2)))
-                width = int(np.round(np.sqrt(n * 2)))
-                start_tile = texture[:height, :width]
+                start_tile = texture[:, :]
                 tileR180 = np.rot90(start_tile, 2)
                 p2 = np.concatenate((start_tile, tileR180))
                 p2_image = cat_tiles(p2, N, wp_type)
