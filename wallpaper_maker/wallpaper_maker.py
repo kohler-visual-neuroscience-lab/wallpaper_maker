@@ -120,7 +120,6 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
     pdf = PdfPages(pdf_path)
     
     for group_idx, group in enumerate(Groups):
-        
         # making regular images
         print('generating ', group)
         if sizing == 'lattice' or sizing == 'fr':
@@ -234,37 +233,37 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         # save images
         for exemplar_idx in range(this_groups_wallpapers.shape[1]):
             for filter_idx in range(this_groups_wallpapers.shape[0]):
-                wp_filename =  '{save_path}/WP_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}.{save_fmt}'.format( save_path=save_path,
-                                                                                                                      group=group,
+                group_wp = str(map_group[group]) + str(exemplar_idx).zfill(3)
+                wp_filename =  '{save_path}/WP_{group}_{cmap}_{filter_info}{ratio}.{save_fmt}'.format( save_path=save_path,
+                                                                                                                      group=group_wp,
                                                                                                                       cmap=cmap,
                                                                                                                       filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
                                                                                                                       ratio=ratio,
-                                                                                                                      exemplar_idx=exemplar_idx,
                                                                                                                       save_fmt=save_fmt)
                 Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
                 display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap))
                 display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
                 if this_groups_controls is not None:  # same for controls
                     for this_phase_step in range(phase_scramble):
-                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_{this_phase_step}of{phase_scramble}.{save_fmt}'.format( save_path=save_path,
-                                                                                                                      group=group,
+                        group_ctrl = str(map_group[group] + 17) + str(exemplar_idx).zfill(3)
+                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{this_phase_step}of{phase_scramble}.{save_fmt}'.format( save_path=save_path,
+                                                                                                                      group=group_ctrl,
                                                                                                                       cmap=cmap,
                                                                                                                       filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
                                                                                                                       ratio=ratio,
                                                                                                                       this_phase_step = this_phase_step+1,
                                                                                                                       phase_scramble = phase_scramble,
-                                                                                                                      exemplar_idx=exemplar_idx,
                                                                                                                       save_fmt=save_fmt)
                         Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
                         display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + str(this_phase_step + 1) + '_' + cmap + '_phase'))
                         display(Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)))
                     if ps_scramble:
-                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{exemplar_idx}_psscramble.{save_fmt}'.format( save_path=save_path,
-                                                                                                                                                                   group=group,
+                        group_ctrl = str(map_group[group] + 34) + str(exemplar_idx).zfill(3)
+                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_psscramble.{save_fmt}'.format( save_path=save_path,
+                                                                                                                                                                   group=group_ctrl,
                                                                                                                                                                    cmap=cmap,
                                                                                                                                                                    filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
                                                                                                                                                                    ratio=ratio,
-                                                                                                                                                                   exemplar_idx=exemplar_idx,
                                                                                                                                                                    save_fmt=save_fmt)
                         Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
                         display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap + '_ps'))
