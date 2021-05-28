@@ -234,7 +234,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         for exemplar_idx in range(this_groups_wallpapers.shape[1]):
             for filter_idx in range(this_groups_wallpapers.shape[0]):
                 group_wp = str(map_group[group]) + str(exemplar_idx).zfill(3)
-                wp_filename =  '{save_path}/WP_{group}_{cmap}_{filter_info}{ratio}.{save_fmt}'.format( save_path=save_path,
+                wp_filename =  '{save_path}/{group}_{cmap}_{filter_info}{ratio}.{save_fmt}'.format( save_path=save_path,
                                                                                                                       group=group_wp,
                                                                                                                       cmap=cmap,
                                                                                                                       filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
@@ -245,8 +245,11 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
                 if this_groups_controls is not None:  # same for controls
                     for this_phase_step in range(phase_scramble):
-                        group_ctrl = str(map_group[group] + 17) + str(exemplar_idx).zfill(3)
-                        ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_{this_phase_step}of{phase_scramble}.{save_fmt}'.format( save_path=save_path,
+                        if this_phase_step+1 == phase_scramble:
+                            group_ctrl = str(map_group[group]) + str(exemplar_idx).zfill(3)
+                        else:
+                            group_ctrl = str(map_group[group] + 17) + str(exemplar_idx).zfill(3)
+                        ctrl_filename =  '{save_path}/{group}_{cmap}_{filter_info}{ratio}_{this_phase_step}of{phase_scramble}.{save_fmt}'.format( save_path=save_path,
                                                                                                                       group=group_ctrl,
                                                                                                                       cmap=cmap,
                                                                                                                       filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
@@ -714,7 +717,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
 
     if fundamental_region_source_type == 'uniform_noise':
         print('uniform noise')
-        if n>N:
+        if n>(N**2):
             print('size of repeating pattern larger than size of wallpaper')
         #raw_texture = np.random.rand(max(n,N), max(n,N));
         raw_texture = np.random.rand(max(N,N), max(N,N));
@@ -786,9 +789,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n / 2)))
-                width = int(np.round(np.sqrt(n * 2)))
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length / 2)))
+                width = int(np.round(np.sqrt(side_length * 2)))
                 start_tile = texture[:height, :width]
                 tileR180 = np.rot90(start_tile, 2)
                 p2 = np.concatenate((start_tile, tileR180))
@@ -802,9 +805,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n / 2)))
-                width = int(np.round(np.sqrt(n * 2)))
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length / 2)))
+                width = int(np.round(np.sqrt(side_length * 2)))
                 start_tile = texture[:height, :width]
                 mirror = np.flipud(start_tile)
                 pm = np.concatenate((start_tile, mirror))
@@ -818,9 +821,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n / 2)))
-                width = int(np.round(np.sqrt(n * 2)))
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length / 2)))
+                width = int(np.round(np.sqrt(side_length * 2)))
                 start_tile = texture[:height, :width]
                 tile = np.rot90(start_tile, 3)
                 glide = np.flipud(tile)
@@ -835,9 +838,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 mirror = np.fliplr(start_tile)
                 tile1 = np.concatenate((start_tile, mirror), axis=1)
@@ -853,9 +856,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 mirror = np.fliplr(start_tile)
                 concat_tmp1 = np.concatenate((start_tile, mirror), axis=1)
@@ -872,9 +875,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 concat_tmp1 = np.concatenate(
@@ -892,9 +895,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be half the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 concat_tmp1 = np.concatenate(
@@ -912,9 +915,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 4
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be 1 / 4 the size if lattice sizing (fr is already halfed)
-                height = int(np.round(np.sqrt(n / 2))) #half the size of bottom half of lattice
-                width = int(np.round(np.sqrt(n / 2))) #half the size of bottom half of lattice
+                    side_length = n / 2 # FR should be 1 / 4 the size if lattice sizing (fr is already halfed)
+                height = int(np.round(np.sqrt(side_length / 2))) #half the size of bottom half of lattice
+                width = int(np.round(np.sqrt(side_length / 2))) #half the size of bottom half of lattice
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 tile1 = np.concatenate((start_tile, start_tile_rot180))
@@ -932,9 +935,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 start_tile_rot90 = np.rot90(start_tile, 1)
                 start_tile_rot180 = np.rot90(start_tile, 2)
@@ -954,9 +957,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 8 
                 # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
                 if (sizing == 'lattice'):
-                    n = n / 8 # FR should be 1 / 8 the size if lattice sizing
-                height = int(np.round(np.sqrt(n) * np.sqrt(2)))
-                width = int(np.round(np.sqrt(n) * np.sqrt(2)))
+                    side_length = n / 8 # FR should be 1 / 8 the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+                width = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
                 start_tile = texture[:height, :width]
                 xy = np.array([[0, 0], [width, height], [0, height], [0, 0]])
                 mask = skd.polygon2mask((height, width), xy)
@@ -980,9 +983,9 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area of FR = area of lattice / 8 
                 # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
                 if (sizing == 'lattice'):
-                    n = n / 8 # FR should be 1 / 8 the size if lattice sizing
-                height = int(np.round(np.sqrt(n) * np.sqrt(2)))
-                width = int(np.round(np.sqrt(n) * np.sqrt(2)))
+                    side_length = n / 8 # FR should be 1 / 8 the size if lattice sizing
+                height = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+                width = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
                 start_tile = texture[:height, :width]
                 xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
                 mask = skd.polygon2mask((height, width), xy)
@@ -1012,8 +1015,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area_quarter_tile = height**2 / ((np.sqrt(3))- 1)
                 # => height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
                 if (sizing == 'lattice'):
-                    n = n / 3 # FR should be 1 / 3 the size if lattice sizing
-                area = n
+                    side_length = n / 3 # FR should be 1 / 3 the size if lattice sizing
+                area = side_length
                 area_quarter_tile = area * 4.5
                 height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
                 start_tile = texture[:height, :]
@@ -1034,8 +1037,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area_sixth_tile = height**2 * np.sqrt(3) * 0.5
                 # => height = round(np.sqrt(area_sixth_tile / (0.5 * math.sqrt(3))))
                 if (sizing == 'lattice'):
-                    n = n / 6 # FR should be 1 / 6 the size if lattice sizing
-                area = n
+                    side_length = n / 6 # FR should be 1 / 6 the size if lattice sizing
+                area = side_length
                 area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
                 height = round(np.sqrt(area_sixth_tile / (0.5 * math.sqrt(3))))
                 start_tile = texture[:height, :]
@@ -1055,8 +1058,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area_sixth_tile = height**2 * 0.5 / np.sqrt(3)
                 # => height = round(np.sqrt(area_sixth_tile * math.sqrt(3) / 0.5))
                 if (sizing == 'lattice'):
-                    n = n / 6 # FR should be 1 / 6 the size if lattice sizing
-                area = n
+                    side_length = n / 6 # FR should be 1 / 6 the size if lattice sizing
+                area = side_length
                 area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
                 height = round(np.sqrt(area_sixth_tile * math.sqrt(3) / 0.5))
                 start_tile = texture[:height, :]
@@ -1078,8 +1081,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area_sixth_tile = height**2 * 0.5 * np.tan(np.pi / 6)
                 # => height = round(np.sqrt(area_sixth_tile / np.tan(np.pi / 6) * 0.5))
                 if (sizing == 'lattice'):
-                    n = n / 6 # FR should be 1 / 6 the size if lattice sizing
-                area = n
+                    side_length = n / 6 # FR should be 1 / 6 the size if lattice sizing
+                area = side_length
                 area_sixth_tile = area * 6 # we can control for a sixth of the size of a tile
                 height = round(np.sqrt(area_sixth_tile / (np.tan(np.pi / 6) * 0.5)))
                 start_tile = texture[:height, :]
@@ -1099,8 +1102,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 # => area_twelfth_tile = height**2 / math.sqrt(3))
                 # => height = round(np.sqrt(area_twelfth_tile * math.sqrt(3)))
                 if (sizing == 'lattice'):
-                    n = n / 12 # FR should be 1 / 12 the size if lattice sizing
-                area = n
+                    side_length = n / 12 # FR should be 1 / 12 the size if lattice sizing
+                area = side_length
                 area_twelfth_tile = area * 6 # we can control for a twelfth of the size of a tile
                 height = round(np.sqrt(area_twelfth_tile * math.sqrt(3)))
                 start_tile = texture[:height, :]
