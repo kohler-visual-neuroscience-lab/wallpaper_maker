@@ -155,9 +155,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 for s in range(len(raw)):
                     clipped_raw = clip_wallpaper(np.array(raw[s]), wp_size_pix)
                     display(Image.fromarray(
-                        (clipped_raw[:, :] * 255).astype(np.uint8)))
+                        (clipped_raw[:, :] * 255).clip(0,255).astype(np.uint8)))
                     Image.fromarray(
-                        (clipped_raw[:, :] * 255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
+                        (clipped_raw[:, :] * 255).clip(0,255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
 
             for i, this_raw in enumerate(raw):
                 this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
@@ -240,9 +240,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                                                                                       filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
                                                                                                                       ratio=ratio,
                                                                                                                       save_fmt=save_fmt)
-                Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
+                Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).clip(0,255).astype(np.uint8)).save(wp_filename, save_fmt)
                 display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap))
-                display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
+                display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).clip(0,255).astype(np.uint8)))
                 if this_groups_controls is not None:  # same for controls
                     for this_phase_step in range(phase_scramble):
                         if this_phase_step+1 == phase_scramble:
@@ -257,9 +257,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                                                                                       this_phase_step = this_phase_step+1,
                                                                                                                       phase_scramble = phase_scramble,
                                                                                                                       save_fmt=save_fmt)
-                        Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
+                        Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).clip(0,255).clip(0,255).astype(np.uint8)).save(ctrl_filename, save_fmt)
                         display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + str(this_phase_step + 1) + '_' + cmap + '_phase'))
-                        display(Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).astype(np.uint8)))
+                        display(Image.fromarray((this_groups_controls[this_phase_step,filter_idx,exemplar_idx] * 255).clip(0,255).astype(np.uint8)))
                     if ps_scramble:
                         group_ctrl = str(map_group[group] + 34) + str(exemplar_idx).zfill(3)
                         ctrl_filename =  '{save_path}/CTRL_{group}_{cmap}_{filter_info}{ratio}_psscramble.{save_fmt}'.format( save_path=save_path,
@@ -268,9 +268,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                                                                                                                                                                    filter_info='f0fr_{}cpd_'.format(filter_freqs[filter_idx]) if filter_freqs else '',
                                                                                                                                                                    ratio=ratio,
                                                                                                                                                                    save_fmt=save_fmt)
-                        Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(ctrl_filename, save_fmt)
+                        Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).clip(0,255).astype(np.uint8)).save(ctrl_filename, save_fmt)
                         display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap + '_ps'))
-                        display(Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).astype(np.uint8)))
+                        display(Image.fromarray((this_groups_controls[phase_scramble,filter_idx,exemplar_idx] * 255).clip(0,255).astype(np.uint8)))
 
     pdf.close()  
 
@@ -1262,7 +1262,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle((tile.shape[0], tile.shape[1], tile.shape[0] * 2, tile.shape[1] * 2), fill=(
@@ -1316,7 +1316,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle((tile.shape[0], tile.shape[1] * 1.5, tile.shape[0] * 2, tile.shape[1] * 2), fill=(
@@ -1418,7 +1418,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         # fundamental region (horizontal mirror)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
@@ -1470,7 +1470,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         # fundamental region (horizontal glide)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
@@ -1522,7 +1522,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cma(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         
         # fundamental region (horizontal mirror)
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
@@ -1580,7 +1580,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
@@ -1686,7 +1686,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
@@ -1780,7 +1780,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(
@@ -1881,7 +1881,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.polygon(
@@ -1965,7 +1965,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.rectangle(
@@ -2061,7 +2061,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         if ratio > 0.03125:
@@ -2214,7 +2214,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         if ratio > 0.03125:
@@ -2361,7 +2361,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0] * 0.5), (tile.shape[1], tile.shape[0] * 0.666), (tile.shape[1],
@@ -2433,7 +2433,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         
@@ -2507,7 +2507,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         
@@ -2583,7 +2583,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         
@@ -2697,7 +2697,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         tile_rep = numpy.matlib.repmat(tile, row, col)
         tile_cm = cm(tile_rep)
         dia_fr_im = Image.fromarray(
-            (tile_cm[:, :, :] * 255).astype(np.uint8))
+            (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
         if ratio >= 0.125:
