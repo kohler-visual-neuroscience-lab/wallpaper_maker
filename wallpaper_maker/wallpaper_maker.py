@@ -1153,7 +1153,6 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 height = round(np.sqrt(area_sixth_tile * math.sqrt(3)))
                 start_tile = texture[:height, :]
                 p6m = new_p6m(start_tile)
-                display(Image.fromarray((p6m * 255).astype(np.uint8)))
                 p6m_image = cat_tiles(p6m, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p6m_image, wp_type, p6m, sizing,
@@ -1261,7 +1260,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
     # ratio is the ratio of the FR/lattice sizing
 
     tile = np.array(tile * 255, dtype=np.uint8)
-    tile[:, :] = cv.equalizeHist(tile[:, :])
+    #tile[:, :] = cv.equalizeHist(tile[:, :])
 
     if (wp_type == 'P1'):
         # rgb(47,79,79)
@@ -2416,22 +2415,22 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask__rec_draw.line(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), (tile.shape[1] * 1.5, tile.shape[0] * 1.5)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.polygon(((tile.shape[1] * (5/6) + 2, tile.shape[0]  * 1.5 - 2), (tile.shape[1], (tile.shape[0] * 2)), (tile.shape[1] * (7/6) - 2, tile.shape[0]  * 1.5 - 2), (tile.shape[1] - 2, tile.shape[0] + 2), (tile.shape[1] * (5/6) + 2, tile.shape[0]  * 1.5 - 2)), fill=(233, 150, 122, 125))
         # symmetry axes symbols
+        # left center 3-rot triangle
+        alpha_mask__rec_draw.regular_polygon(
+            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 20, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         # left center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
-        # left center triangle
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 3, 90, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         # top center triangle
-        alpha_mask__rec_draw.regular_polygon((((tile.shape[1], tile.shape[0])), 6), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1], tile.shape[0])), 6), 3, 90, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         # right center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 1.5, tile.shape[0] * 1.5), 6), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 1.5), 6), 3, 90, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         # bottom center triangle
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1], (tile.shape[0] * 2), 6), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
-        # right center triangle
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+            (tile.shape[1], (tile.shape[0] * 2), 6), 3, 90, fill=(233, 150, 122, 125), outline=(255, 255, 0))
+        # right center 3-rot triangle
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 55, fill=(233, 150, 122, 125), outline=(255, 255, 0))
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P3M1'):
@@ -2489,22 +2488,22 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask__rec_draw.line(((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), (tile.shape[1] * (7/6), tile.shape[0]  * 1.5)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.polygon(((tile.shape[1] * (5/6) + 2, tile.shape[0]  * 1.5 - 2), (tile.shape[1] * (7/6) - 2, tile.shape[0]  * 1.5 - 2), (tile.shape[1] - 2, tile.shape[0] + 2), (tile.shape[1] * (5/6) + 2, tile.shape[0]  * 1.5 - 2)), fill=(0, 191, 255, 125))
         # symmetry axes symbols
+        # left center 3-rot triangle
+        alpha_mask__rec_draw.regular_polygon(
+            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 20, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         # left center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
-        # left center triangle
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         # top center triangle
-        alpha_mask__rec_draw.regular_polygon((((tile.shape[1], tile.shape[0])), 6), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1], tile.shape[0])), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         # right center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 1.5, tile.shape[0] * 1.5), 6), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 1.5), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         # bottom center triangle
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1], (tile.shape[0] * 2), 6), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
-        # right center triangle
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            (tile.shape[1], (tile.shape[0] * 2), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+        # right center 3-rot triangle
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 55, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P31M'):
@@ -2562,22 +2561,22 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]), (tile.shape[1], (tile.shape[0] * 2))), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.polygon(((tile.shape[1] * (5/6) - 2, tile.shape[0]  * 1.5 + 2), tile.shape[1], (tile.shape[0] * 2), (tile.shape[1] * 0.5 + 2, tile.shape[0]  * 1.5), (tile.shape[1] * (5/6) - 2, tile.shape[0]  * 1.5 + 2)), fill=(255, 0, 255, 125))
         # symmetry axes symbols
+        # left center 3-rot triangle
+        alpha_mask__rec_draw.regular_polygon(
+            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 30, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         # left center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(255, 0, 255, 125), outline=(255, 255, 0))
-        # left center triangle
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 3, 0, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 3, 90, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         # top center triangle
-        alpha_mask__rec_draw.regular_polygon((((tile.shape[1], tile.shape[0])), 6), 3, 0, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1], tile.shape[0])), 6), 3, 90, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         # right center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 1.5, tile.shape[0] * 1.5), 6), 3, 0, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * 1.5, tile.shape[0] * 1.5), 6), 3, 90, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         # bottom center triangle
         alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1], (tile.shape[0] * 2), 6), 3, 0, fill=(255, 0, 255, 125), outline=(255, 255, 0))
-        # right center triangle
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+            (tile.shape[1], (tile.shape[0] * 2), 6), 3, 90, fill=(255, 0, 255, 125), outline=(255, 255, 0))
+        # right center 3-rot triangle
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 30, fill=(255, 0, 255, 125), outline=(255, 255, 0))
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P6'):
@@ -2637,9 +2636,15 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         # symmetry axes symbols
         # left center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 90, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         # left side bottom diamond
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (3/4), tile.shape[0]  * 1.75), 4), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+        # left side top diamond
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (3/4), tile.shape[0]  * 1.25), 4), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+        # right side bottom diamond
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (5/4), tile.shape[0]  * 1.75), 4), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+        # right side top diamond
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (5/4), tile.shape[0]  * 1.25), 4), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         # left center hexagon
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
@@ -2652,7 +2657,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask__rec_draw.regular_polygon(
             (tile.shape[1], (tile.shape[0] * 2), 6), 6, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         # right center triangle
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(221, 160, 221, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 90, fill=(221, 160, 221, 125), outline=(255, 255, 0))
         # center diamond
         alpha_mask__rec_draw.regular_polygon(
             (tile.shape[1], tile.shape[0]  * 1.5, 4), 4, 45, fill=(221, 160, 221, 125), outline=(255, 255, 0))
@@ -2712,14 +2717,21 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask__rec_draw.line(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), (tile.shape[1] * 1.5, tile.shape[0] * 1.5)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]), (tile.shape[1], (tile.shape[0] * 2))), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.line(((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), (tile.shape[1] * (7/6), tile.shape[0]  * 1.5)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), (tile.shape[1] * (3/4), tile.shape[0]  * 1.75)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * (3/4), tile.shape[0]  * 1.25), (tile.shape[1] * (5/6), tile.shape[0]  * 1.5), (tile.shape[1] * (3/4), tile.shape[0]  * 1.75)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * (5/4), tile.shape[0]  * 1.25), (tile.shape[1] * (7/6), tile.shape[0]  * 1.5), (tile.shape[1] * (5/4), tile.shape[0]  * 1.75)), fill=(255, 255, 0), width=2)
         alpha_mask__rec_draw.polygon(((tile.shape[1] * (5/6) - 2, tile.shape[0]  * 1.5 + 2), (tile.shape[1] * (3/4) - 2, tile.shape[0]  * 1.75 - 2), (tile.shape[1] * 0.5 + 2, tile.shape[0]  * 1.5), (tile.shape[1] * (5/6) - 2, tile.shape[0]  * 1.5 + 2)), fill=(255, 20, 147, 125))
         # symmetry axes symbols
         # left center triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 90, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         # left side bottom diamond
         alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (3/4), tile.shape[0]  * 1.75), 4), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        # left side top diamond
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (3/4), tile.shape[0]  * 1.25), 4), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        # right side bottom diamond
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (5/4), tile.shape[0]  * 1.75), 4), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        # right side top diamond
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (5/4), tile.shape[0]  * 1.25), 4), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         # left center hexagon
         alpha_mask__rec_draw.regular_polygon(
             ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
@@ -2732,7 +2744,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
         alpha_mask__rec_draw.regular_polygon(
             (tile.shape[1], (tile.shape[0] * 2), 6), 6, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         # right center triangle
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 0, fill=(255, 20, 147, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 90, fill=(255, 20, 147, 125), outline=(255, 255, 0))
         # center diamond
         alpha_mask__rec_draw.regular_polygon(
             (tile.shape[1], tile.shape[0]  * 1.5, 4), 4, 45, fill=(255, 20, 147, 125), outline=(255, 255, 0))
