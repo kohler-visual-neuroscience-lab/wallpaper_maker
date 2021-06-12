@@ -597,8 +597,8 @@ def new_p6(tile):
 def new_p6m(tile):
     # Generate p6m wallpaper
 
-    mag_factor = 6
-    tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+    mag_factor = 30
+    tile1 = tf.rescale(tile, mag_factor, order=1, mode='symmetric', anti_aliasing=False, preserve_range=True)
 
     height = np.shape(tile1)[0]
     
@@ -665,7 +665,7 @@ def new_p6m(tile):
     tile2_flipped = np.concatenate((tile2[t2:, :], tile2[:t2, :]))
     # size(tile3) = [2y1 x 6x1]
     tile3 = np.concatenate((tile2, tile2_flipped), axis=1)
-    p6m = tf.rescale(tile3, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
+    p6m = tf.rescale(tile3, 1 / mag_factor, order=1, mode='symmetric', anti_aliasing=False, preserve_range=True)
     return p6m
 
 def filter_tile(in_tile, filter_intensity):

@@ -138,9 +138,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         this_groups_wallpapers = np.array(this_groups_wallpapers)
 
         # crop wallpapers and controls
-        #w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
-        #h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
-        #this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
+        w_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-2]-wp_size_pix)//2)
+        h_idxs = np.arange(wp_size_pix) + int( (this_groups_wallpapers.shape[-1]-wp_size_pix)//2)
+        this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
 
         # normalize range of pixel values
 #        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1)
@@ -167,46 +167,209 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)).save(wp_filename, save_fmt)
                 display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap))
                 #display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
-                display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx]).astype(np.uint32), 'RGBA'))
+                #display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx]).astype(np.uint32), 'RGBA'))
+                plt.imshow(cm(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx]).astype(np.uint32))))
     pdf.close()  
 
 
-def dot_texture(size, min_rad, max_rad, num_of_dots, wp_type):
+def dot_texture(N, n, min_rad, max_rad, num_of_dots, wp_type, sizing):
     # auxiliary function for generating a dots texture for use with wallpaper generation code make_single.py
-    num_of_dots = 4
-    height = 0
-    width = 0
-    # get correct size of dots tile based on wallpaper chosen
-    if (wp_type == "P1"):
-        height = int(np.sqrt(size))
-        width = int(np.sqrt(size))
-    elif (wp_type == "P2" or wp_type == "PM" or wp_type == "PG"):
-        width = int(np.round(np.sqrt(size / 2)))
-        height = int(np.round(np.sqrt(size * 2)))
-    elif (wp_type == "PMM" or wp_type == "CM" or wp_type == "PMG" or wp_type == 'PGG' or wp_type == 'P4' or wp_type == 'P4M' or wp_type == 'P4G'):
-        height = round(size / 2)
-        width = height
-    elif (wp_type == 'P3'):
-        alpha = np.pi / 3
-        s = size / math.sqrt(3 * np.tan(alpha))
-        height = math.floor(s * 1.5) * 6
-        width = size * 6
-    elif (wp_type == 'P3M1'):
-        alpha = np.pi / 3
-        s = size / math.sqrt(3 * np.tan(alpha))
-        height = round(s) * 10
-        width = size * 10
-    elif (wp_type == 'P31M' or wp_type == 'P6'):
-        s = size / math.sqrt(math.sqrt(3))
-        height = round(s) * 6
-        width = size * 6
-    elif (wp_type == 'P6M'):
-        s = size / math.sqrt(math.sqrt(3))
-        height = round(s / 2) * 6
-        width = size * 6
-    elif (wp_type == 'CMM'):
-        width = round(size / 4)
-        height = 2 * width
+    num_of_dots = num_of_dots
+    radius = 5
+    cm = plt.get_cmap("gray")
+    if wp_type == 'P1':
+        # Square fundemental region 
+        # => side length =  sqrt(area of FR)
+        side_length = int(np.round(np.sqrt(n)))
+        width = side_length
+        height = side_length
+    elif wp_type == 'P2':
+        # Rectangular fundamental region 
+        # => area of FR = area of lattice / 2 
+        # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
+        if (sizing == 'lattice'):
+            side_length = n / 2 # FR should be half the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length / 2)))
+        width = int(np.round(np.sqrt(side_length * 2)))
+    elif wp_type == 'PM':
+        # Rectangular fundamental region 
+        # => area of FR = area of lattice / 2 
+        # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
+        if (sizing == 'lattice'):
+            side_length = n / 2 # FR should be half the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length / 2)))
+        width = int(np.round(np.sqrt(side_length * 2)))
+    elif wp_type == 'PG':
+        # Rectangular fundamental region 
+        # => area of FR = area of lattice / 2 
+        # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
+        if (sizing == 'lattice'):
+            side_length = n / 2 # FR should be half the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length / 2)))
+        width = int(np.round(np.sqrt(side_length * 2)))
+    elif wp_type == 'CM':
+        # Triangular fundamental region 
+        # => area of FR = area of lattice / 2 
+        # => height = sqrt(area of FR) and width = sqrt(area of FR)
+        if (sizing == 'lattice'):
+            side_length = n / 2 # FR should be half the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length)))
+        width = int(np.round(np.sqrt(side_length)))
+    elif wp_type == 'PMM':
+        # Rectangular fundamental region 
+        # => area of FR = area of lattice / 4 
+        # => height = sqrt(area of FR) and width = sqrt(area of FR)
+        if (sizing == 'lattice'):
+            side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length)))
+        width = int(np.round(np.sqrt(side_length)))
+    elif wp_type == 'PMG':
+        # Rectangular fundamental region 
+        # => area of FR = area of lattice / 4 
+        # => height = sqrt(area of FR) and width = sqrt(area of FR)
+        if (sizing == 'lattice'):
+            side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length)))
+        width = int(np.round(np.sqrt(side_length)))
+    elif wp_type == 'PGG':
+        # Triangular fundamental region 
+        # => area of FR = area of lattice / 4 
+        # => height = sqrt(area of FR) and width = sqrt(area of FR)
+        if (sizing == 'lattice'):
+            side_length = n / 4 # FR should be half the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length)))
+        width = int(np.round(np.sqrt(side_length)))
+    elif wp_type == 'CMM':
+        # Triangular fundamental region 
+        # => area of FR = area of lattice / 4
+        # => height = sqrt(area of FR) and width = sqrt(area of FR)
+        if (sizing == 'lattice'):
+            side_length = n / 2 # FR should be 1 / 4 the size if lattice sizing (fr is already halfed)
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length / 2))) #half the size of bottom half of lattice
+        width = int(np.round(np.sqrt(side_length / 2))) #half the size of bottom half of lattice
+    elif wp_type == 'P4':
+        # Rectangular fundamental region 
+        # => area of FR = area of lattice / 4 
+        # => height = sqrt(area of FR) and width = sqrt(area of FR)
+        if (sizing == 'lattice'):
+            side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length)))
+        width = int(np.round(np.sqrt(side_length)))
+    elif wp_type == 'P4M':
+        # Triangular fundamental region 
+        # => area of FR = area of lattice / 8 
+        # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
+        if (sizing == 'lattice'):
+            side_length = n / 8 # FR should be 1 / 8 the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+        width = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+    elif wp_type == 'P4G':
+        # Triangular fundamental region 
+        # => area of FR = area of lattice / 8 
+        # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
+        if (sizing == 'lattice'):
+            side_length = n / 8 # FR should be 1 / 8 the size if lattice sizing
+            area = side_length
+        else:
+            side_length = n
+        height = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+        width = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+    elif wp_type == 'P3':
+        # Hexagonal fundamental region 
+        # => area of FR = area of lattice / 3 
+        # => height = round(np.sqrt(area_quarter_tile * (math.sqrt(3)))) and width = height / math.sqrt(3)) - 1
+        # We have control over a quarter of the tile which contains the total area of 4.5 FRs
+        # => area_quarter_tile = height * width (width = height / math.sqrt(3)) - 1)
+        # => area_quarter_tile = height * round(height / math.sqrt(3)) - 1
+        # => area_quarter_tile = height**2 / ((np.sqrt(3))- 1)
+        # => height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
+        if (sizing == 'lattice'):
+            side_length = n / 3 # FR should be 1 / 3 the size if lattice sizing
+            area = side_length
+        else:
+            area = n
+        area_quarter_tile = area * 1.5
+        height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
+        width = N
+        print(width)
+        print(height)
+    
+    alpha_mask_rec = Image.new('I', (width,height), (128))
+    alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
+    xcs = []
+    ycs = []
+    
+    print(width)
+    print(height)
+    for i in range(num_of_dots):
+        colour = np.random.randint(0, 255)
+        is_not_placeable_dot = True
+        while (is_not_placeable_dot):
+            if i == 0:
+                xc = np.random.randint(radius, width - radius)
+                yc = np.random.randint(radius, height - radius)
+                #print(xc)
+                #print(yc)
+                alpha_mask__rec_draw.ellipse(((xc - radius, yc - radius), (xc + radius, yc + radius)), fill=(colour), outline=(colour))
+                xcs.append(xc)
+                ycs.append(yc)
+                is_not_placeable_dot = False
+            else:
+                xc = np.random.randint(radius, width - radius)
+                yc = np.random.randint(radius, height - radius)
+                finding_if_okay = True
+                place_point = True
+                while (place_point == True and finding_if_okay == True):
+                    #print(xc)
+                    #print(yc)
+                    for j in range(len(xcs)):
+                        if (xc <= (xcs[j] - (radius * 2)) or xc >= (xcs[j] + (radius * 2))) or (yc <= (ycs[j] - (radius * 2)) or yc >= (ycs[j] + (radius * 2))):
+                            if j == (len(xcs) - 1) and place_point == True:
+                                place_point = True
+                                finding_if_okay = False
+                        else:
+                            place_point = False
+                if place_point:
+                    is_not_placeable_dot = False    
+                    alpha_mask__rec_draw.ellipse(((xc - radius, yc - radius), (xc + radius, yc + radius)), fill=(colour), outline=(colour))
+                    xcs.append(xc)
+                    ycs.append(yc)
+                        
+    
+    
+    plt.imshow(cm(alpha_mask_rec))
+    return np.array(alpha_mask_rec)
+    
 
     surface = cr.ImageSurface(cr.FORMAT_ARGB32, width, height)
     ctx = cr.Context(surface)
@@ -320,96 +483,96 @@ def new_p3(tile, use_dots):
     # when stacking two_tirds, one_third tiles together
 
     mag_factor = 6
-    if (use_dots):
-        height = tile.shape[0]
-        s1 = round((height / 3))
-        s = 2 * s1
-        width = round(height / math.sqrt(3)) - 1
-        xy = np.array([[0, 0], [s1, width], [height, width],
-                       [2 * s1, 0], [0, 0]]).astype(np.uint32)
-        mask = skd.polygon2mask((height, width), xy).astype(np.uint32)
-        tile0 = (mask * tile[:, :width]).astype(np.uint32)
+    tile1 = tf.rescale(tile, mag_factor, order=3, mode='symmetric', preserve_range=True, anti_aliasing=True).astype(np.uint32)
+    height = np.size(tile1, 0)
 
-        # rotate rectangle by 120, 240 degs
+    # fundamental region is equlateral rhombus with side length = s
 
-        # note on 120deg rotation: 120 deg rotation of rhombus-shaped
-        # texture preserves the size, so 'crop' option can be used to
-        # tile size.
+    s1 = round((height / 3))
+    s = 2 * s1
 
-        tile0Im = Image.fromarray(tile0, 'I')
-        tile0Im2 = Image.fromarray(tile0, 'I')
-        tile0Im_rot120 = tile0Im.rotate(120, Image.NEAREST, expand=False)
-        tile120 = np.array(tile0Im_rot120, np.uint32)
-        tile0Im_rot240 = tile0Im2.rotate(240, Image.NEAREST, expand=True)
-        tile240 = np.array(tile0Im_rot240, np.uint32)
+    # NOTE on 'ugly' way of calculating the widt = h
+    # after magnification width(tile1) > tan(pi/6)*height(tile1) (should be equal)
+    # and after 240 deg rotation width(tile240) < 2*width(tile1) (should be
+    # bigger or equal, because we cat them together).
+    # subtract one, to avoid screwing by imrotate(240)
+    
+    width = round(height / math.sqrt(3)) - 1
+    # define rhombus-shaped mask
+    xy = np.array(
+        [[0, 0], [s1, width], [height, width], [2 * s1, 0], [0, 0]])
 
-        # manually trim the tiles:
+    mask = skd.polygon2mask((height, width), xy).astype(np.uint32)
+    tile0 = (mask * tile1[:, :width]).astype(np.uint32)
+    
+    # rotate rectangle by 120, 240 degs
 
-        # tile120 should have the same size as rectangle: [heigh x width]
+    # note on 120deg rotation: 120 deg rotation of rhombus-shaped
+    # texture preserves the size, so 'crop' option can be used to
+    # tile size.
 
-        # tile240 should have the size [s x 2*width]
-        # find how much we need to cut from both sides
-        diff = round(0.5 * (np.size(tile240, 1) - 2 * width))
-        row_start = round(0.25 * s)
-        row_end = round(0.25 * s) + s
-        col_start = diff
-        col_end = 2 * width + diff
-        tile240 = tile240[row_start:row_end,
-                          col_start:col_end].astype(np.uint32)
+    tile120 = tf.rotate(tile0, 120, resize=False, preserve_range=True, order=1).astype(np.uint32)
+    tile240 = tf.rotate(tile0, 240, resize=True, preserve_range=True, order=1).astype(np.uint32)
 
-        # Start to pad tiles and glue them together
-        # Resulting tile will have the size [3*height x 2* width]
+    # manually trim the tiles:
 
-        two_thirds1 = np.concatenate(
-            (tile0, tile120), axis=1).astype(np.uint32)
-        two_thirds2 = np.concatenate(
-            (tile120, tile0), axis=1).astype(np.uint32)
+    # tile120 should have the same size as rectangle: [heigh x width]
 
-        two_thirds = np.concatenate(
-            (two_thirds1, two_thirds2)).astype(np.uint32)
+    # tile240 should have the size [s x 2*width]
+    # find how much we need to cut from both sides
+    diff = round(0.5 * (np.size(tile240, 1) - 2 * width))
+    row_start = round(0.25 * s)
+    row_end = round(0.25 * s) + s
+    col_start = diff
+    col_end = 2 * width + diff
+    tile240 = tile240[row_start:row_end, col_start:col_end].astype(np.uint32)
 
-        # lower half of tile240 on the top, zero-padded to [height x 2 width]
-        row_start = int(0.5 * s)
-        col_end = 2 * width
-        one_third11 = np.concatenate(
-            (tile240[row_start:, :], np.zeros((s, col_end)))).astype(np.uint32)
+    # Start to pad tiles and glue them together
+    # Resulting tile will have the size [3*height x 2* width]
 
-        # upper half of tile240 on the bottom, zero-padded to [height x 2 width]
-        row_end = int(0.5 * s)
-        one_third12 = np.concatenate(
-            (np.zeros((s, col_end)), tile240[:row_end, :])).astype(np.uint32)
+    two_thirds1 = np.concatenate((tile0, tile120), axis=1).astype(np.uint32)
+    two_thirds2 = np.concatenate((tile120, tile0), axis=1).astype(np.uint32)
 
-        # right half of tile240 in the middle, zero-padded to [height x 2 width]
-        col_start = width
-        one_third21 = np.concatenate((np.zeros(
-            (s, width)), tile240[:, col_start:], np.zeros((s, width)))).astype(np.uint32)
+    two_thirds = np.concatenate((two_thirds1, two_thirds2)).astype(np.uint32)
 
-        # left half of tile240in the middle, zero-padded to [height x 2 width]
-        one_third22 = np.concatenate(
-            (np.zeros((s, width)), tile240[:, :width], np.zeros((s, width)))).astype(np.uint32)
+    # lower half of tile240 on the top, zero-padded to [height x 2 width]
+    row_start = int(0.5 * s) - 2
+    col_end = 2 * width
+    one_third11 = np.concatenate(
+        (tile240[row_start:, :], np.zeros((s, col_end)))).astype(np.uint32)
 
-        # cat them together
-        one_third1 = np.concatenate(
-            (one_third11, one_third12)).astype(np.uint32)
-        one_third2 = np.concatenate(
-            (one_third21, one_third22), axis=1).astype(np.uint32)
+    # upper half of tile240 on the bottom, zero-padded to [height x 2 width]
+    row_end = int(0.5 * s)
+    one_third12 = np.concatenate(
+        (np.zeros((s, col_end)), tile240[2:row_end, :])).astype(np.uint32)
 
-        # glue everything together, shrink and replicate
-        one_third = np.maximum(one_third1, one_third2).astype(np.uint32)
+    # right half of tile240 in the middle, zero-padded to [height x 2 width]
+    col_start = width
+    one_third21 = np.concatenate(
+        (np.zeros((s, width + 8)), tile240[:, col_start - 8:], np.zeros((s, width + 8)))).astype(np.uint32)
+    print("hi")
+    # left half of tile240in the middle, zero-padded to [height x 2 width]
+    one_third22 = np.concatenate(
+        (np.zeros((s, width - 8)), tile240[:, 9:width + 1], np.zeros((s, width - 8)))).astype(np.uint32)
+    print("hi")
+    # cat them together
+    one_third1 = np.concatenate((one_third11, one_third12)).astype(np.uint32)
+    one_third2 = np.concatenate((one_third21, one_third22), axis=1).astype(np.uint32)
+    print("hi")
+    # glue everything together, shrink and replicate
+    one_third = np.maximum(one_third1, one_third2).astype(np.uint32)
 
-        # size(whole) = [3xheight 2xwidth]
-        whole = np.maximum(two_thirds, one_third).astype(np.uint32)
-        whole[np.where(whole == np.min(whole))] = mode(
-            whole, axis=None)[0].astype(np.uint32)
+    # size(whole) = [3xheight 2xwidth]
+    whole = np.maximum(two_thirds, one_third).astype(np.uint32)
+    print(np.max(whole))
+    #whole[np.where(whole == np.max(whole))] = 128
+    cm = plt.get_cmap("gray")
+    plt.imshow(cm(Image.fromarray((whole).astype(np.uint32))))
+    whole = tf.rotate(whole, 90, resize=True, preserve_range=True, order=1)
+    print("max:" + str(np.max(whole)))
+    p3 = tf.rescale(whole, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True).astype(np.uint32)
 
-        whole_im = Image.fromarray(whole, 'I')
-
-        # tuple(int(np.ceil(i * (1 / mag_factor))) for i in reversed(whole.shape)) to calculate the (width, height) of the image
-        whole_im_new_size = tuple(int(np.ceil(i * (1 / mag_factor)))
-                                  for i in reversed(whole.shape))
-
-        p3 = np.array(whole_im.resize(whole_im_new_size,
-                                      Image.NEAREST)).astype(np.uint32)
+    
     return p3
 
 
@@ -835,8 +998,8 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
 
     print('random dots')
     area = N**2 * ratio
-    print(area)
-    raw_texture = dot_texture(area, 0.05, 0.05, 5, wp_type)
+    print(int(np.round(np.sqrt(n))))
+    raw_texture = dot_texture(N, n, 0.05, 0.05, 20, wp_type, sizing)
 
     # do filtering
     image = []
@@ -871,7 +1034,17 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                                N, ratio, cmap, use_dots, save_path, k, pdf)
                 image.append(p1_image)
             elif wp_type == 'P2':
-                start_tile = texture[:, :]
+                # Rectangular fundamental region 
+                # => area of FR = area of lattice / 2 
+                # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
+                if (sizing == 'lattice'):
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length / 2)))
+                width = int(np.round(np.sqrt(side_length * 2)))
+                start_tile = texture[:height, :width]
                 tileR180 = np.rot90(start_tile, 2)
                 p2 = np.concatenate((start_tile, tileR180))
                 p2_image = cat_tiles(p2, N, wp_type)
@@ -884,9 +1057,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n / 2)))
-                width = int(np.round(np.sqrt(n * 2)))
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length / 2)))
+                width = int(np.round(np.sqrt(side_length * 2)))
                 start_tile = texture[:height, :width]
                 mirror = np.flipud(start_tile)
                 pm = np.concatenate((start_tile, mirror))
@@ -900,9 +1076,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR / 2) and width = sqrt(area of FR * 2)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n / 2)))
-                width = int(np.round(np.sqrt(n * 2)))
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length / 2)))
+                width = int(np.round(np.sqrt(side_length * 2)))
                 start_tile = texture[:height, :width]
                 tile = np.rot90(start_tile, 3)
                 glide = np.flipud(tile)
@@ -917,9 +1096,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 2 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 2 # FR should be half the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 mirror = np.fliplr(start_tile)
                 tile1 = np.concatenate((start_tile, mirror), axis=1)
@@ -935,9 +1117,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 mirror = np.fliplr(start_tile)
                 concat_tmp1 = np.concatenate((start_tile, mirror), axis=1)
@@ -954,9 +1139,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 concat_tmp1 = np.concatenate(
@@ -974,9 +1162,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be half the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be half the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 concat_tmp1 = np.concatenate(
@@ -994,9 +1185,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 4
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 2 # FR should be 1 / 4 the size if lattice sizing (fr is already halfed)
-                height = int(np.round(np.sqrt(n / 2))) #half the size of bottom half of lattice
-                width = int(np.round(np.sqrt(n / 2))) #half the size of bottom half of lattice
+                    side_length = n / 2 # FR should be 1 / 4 the size if lattice sizing (fr is already halfed)
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length / 2))) #half the size of bottom half of lattice
+                width = int(np.round(np.sqrt(side_length / 2))) #half the size of bottom half of lattice
                 start_tile = texture[:height, :width]
                 start_tile_rot180 = np.rot90(start_tile, 2)
                 tile1 = np.concatenate((start_tile, start_tile_rot180))
@@ -1014,9 +1208,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 4 
                 # => height = sqrt(area of FR) and width = sqrt(area of FR)
                 if (sizing == 'lattice'):
-                    n = n / 4 # FR should be 1 / 4 the size if lattice sizing
-                height = int(np.round(np.sqrt(n)))
-                width = int(np.round(np.sqrt(n)))
+                    side_length = n / 4 # FR should be 1 / 4 the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length)))
+                width = int(np.round(np.sqrt(side_length)))
                 start_tile = texture[:height, :width]
                 start_tile_rot90 = np.rot90(start_tile, 1)
                 start_tile_rot180 = np.rot90(start_tile, 2)
@@ -1036,9 +1233,12 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 8 
                 # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
                 if (sizing == 'lattice'):
-                    n = n / 8 # FR should be 1 / 8 the size if lattice sizing
-                height = int(np.round(np.sqrt(n) * np.sqrt(2)))
-                width = int(np.round(np.sqrt(n) * np.sqrt(2)))
+                    side_length = n / 8 # FR should be 1 / 8 the size if lattice sizing
+                    area = side_length
+                else:
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+                width = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
                 start_tile = texture[:height, :width]
                 xy = np.array([[0, 0], [width, height], [0, height], [0, 0]])
                 mask = skd.polygon2mask((height, width), xy)
@@ -1062,44 +1262,26 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area of FR = area of lattice / 8 
                 # => height = sqrt(area of FR * sqrt(2)) and width = sqrt(area of FR * np.sqrt(2))
                 if (sizing == 'lattice'):
-                    n = n / 8 # FR should be 1 / 8 the size if lattice sizing
-                height = int(np.round(np.sqrt(n) * np.sqrt(2)))
-                width = int(np.round(np.sqrt(n) * np.sqrt(2)))
-                if (use_dots):
-                    start_tile = texture[:height, :width].astype(np.uint32)
-                    xy = np.array(
-                        [[0, 0], [width, 0], [width, height], [0, 0]]).astype(np.uint32)
-                    mask = skd.polygon2mask((height, width), xy).astype(np.uint32)
-                    tile1 = (mask.astype(np.uint32) *
-                             start_tile.astype(np.uint32)).astype(np.uint32)
-                    tile1 = start_tile - tile1
-                    tile2 = np.fliplr(tile1).astype(np.uint32)
-                    tile2 = np.rot90(tile2, 1).astype(np.uint32)
-                    tile = np.maximum(tile1, tile2).astype(np.uint32)
-                    tile_rot90 = np.rot90(tile, 1).astype(np.uint32)
-                    tile_rot180 = np.rot90(tile, 2).astype(np.uint32)
-                    tile_rot270 = np.rot90(tile, 3).astype(np.uint32)
-                    concat_tmp1 = np.concatenate(
-                        (tile_rot270, tile_rot180), axis=1).astype(np.uint32)
-                    concat_tmp2 = np.concatenate(
-                        (tile, tile_rot90), axis=1).astype(np.uint32)
-                    p4g = np.concatenate(
-                        (concat_tmp1, concat_tmp2)).astype(np.uint32)
+                    side_length = n / 8 # FR should be 1 / 8 the size if lattice sizing
+                    area = side_length
                 else:
-                    start_tile = texture[:height, :width]
-                    xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
-                    mask = skd.polygon2mask((height, width), xy)
-                    tile1 = mask * start_tile
-                    tile2 = np.fliplr(tile1)
-                    tile2 = np.rot90(tile2, 1)
-                    tile = np.maximum(tile1, tile2)
-                    tile_rot90 = np.rot90(tile, 1)
-                    tile_rot180 = np.rot90(tile, 2)
-                    tile_rot270 = np.rot90(tile, 3)
-                    concat_tmp1 = np.concatenate(
-                        (tile_rot270, tile_rot180), axis=1)
-                    concat_tmp2 = np.concatenate((tile, tile_rot90), axis=1)
-                    p4g = np.concatenate((concat_tmp1, concat_tmp2))
+                    side_length = n
+                height = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+                width = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
+                start_tile = texture[:height, :width]
+                xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
+                mask = skd.polygon2mask((height, width), xy)
+                tile1 = mask * start_tile
+                tile2 = np.fliplr(tile1)
+                tile2 = np.rot90(tile2, 1)
+                tile = np.maximum(tile1, tile2)
+                tile_rot90 = np.rot90(tile, 1)
+                tile_rot180 = np.rot90(tile, 2)
+                tile_rot270 = np.rot90(tile, 3)
+                concat_tmp1 = np.concatenate(
+                    (tile_rot270, tile_rot180), axis=1)
+                concat_tmp2 = np.concatenate((tile, tile_rot90), axis=1)
+                p4g = np.concatenate((concat_tmp1, concat_tmp2))
                 p4g_image = cat_tiles(p4g, N, wp_type)
                 if (is_diagnostic):
                     diagnostic(p4g_image, wp_type, p4g, sizing,
@@ -1115,9 +1297,11 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic,
                 # => area_quarter_tile = height**2 / ((np.sqrt(3))- 1)
                 # => height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
                 if (sizing == 'lattice'):
-                    n = n / 3 # FR should be 1 / 3 the size if lattice sizing
-                area = n
-                area_quarter_tile = area * 4.5
+                    side_length = n / 3 # FR should be 1 / 3 the size if lattice sizing
+                    area = side_length
+                else:
+                    area = n
+                area_quarter_tile = area * 1.5
                 height = round(np.sqrt(area_quarter_tile * (math.sqrt(3))))
                 start_tile = texture[:height, :]
                 if (use_dots):
