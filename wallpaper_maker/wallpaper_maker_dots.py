@@ -168,6 +168,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                 display(Markdown(str(1000 * group_number + exemplar_idx + 1) + '_' + cmap))
                 #display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx] * 255).astype(np.uint8)))
                 #display(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx]).astype(np.uint32), 'RGBA'))
+                plt.axis('off')
                 plt.imshow(cm(Image.fromarray((this_groups_wallpapers[filter_idx,exemplar_idx]).astype(np.uint32))))
     pdf.close()  
 

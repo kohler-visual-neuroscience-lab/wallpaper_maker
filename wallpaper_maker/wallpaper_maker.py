@@ -160,7 +160,7 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                         (clipped_raw[:, :] * 255).clip(0,255).astype(np.uint8)).save(raw_path_tmp, save_fmt)
 
             for i, this_raw in enumerate(raw):
-                this_groups_wallpapers[i].append( filter_img(this_raw, wp_size_pix))
+                this_groups_wallpapers[i].append(this_raw)
 
         this_groups_wallpapers = np.array(this_groups_wallpapers)
 
@@ -200,12 +200,19 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         this_groups_wallpapers  = this_groups_wallpapers[...,w_idxs,:][...,h_idxs]
         if (phase_scramble > 0 or ps_scramble):
             this_groups_controls = this_groups_controls[..., w_idxs, :][..., h_idxs]
-
+        
+        for exemplar_idx in range(this_groups_wallpapers.shape[1]):
+            for filter_idx in range(this_groups_wallpapers.shape[0]):
+                this_groups_wallpapers[filter_idx,exemplar_idx] = filter_img(this_groups_wallpapers[filter_idx,exemplar_idx], wp_size_pix)
+        for exemplar_idx in range(this_groups_wallpapers.shape[1]):
+            for filter_idx in range(this_groups_wallpapers.shape[0]):
+                for this_phase_step in range(phase_scramble):
+                    this_groups_controls[this_phase_step,filter_idx,exemplar_idx] = filter_img(this_groups_controls[this_phase_step,filter_idx,exemplar_idx], wp_size_pix)
         # normalize range of pixel values
 #        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.min((-1,-2)),-1),-1)
 #        this_groups_wallpapers = this_groups_wallpapers / np.expand_dims(np.expand_dims(this_groups_wallpapers.max((-1, -2)) - this_groups_wallpapers.min((-1, -2)), -1), -1)
-        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.mean((-1,-2)),-1),-1)
-        this_groups_wallpapers = this_groups_wallpapers /(9* np.expand_dims(np.expand_dims(this_groups_wallpapers.std(axis=(-1, -2)),-1),-1))+0.5
+#        this_groups_wallpapers = this_groups_wallpapers - np.expand_dims(np.expand_dims(this_groups_wallpapers.mean((-1,-2)),-1),-1)
+#        this_groups_wallpapers = this_groups_wallpapers /(9* np.expand_dims(np.expand_dims(this_groups_wallpapers.std(axis=(-1, -2)),-1),-1))+0.5
 
         if this_groups_wallpapers.min()<0:
             LOGGER.warning('need to clip. wallpapers have sample values < 0: {}'.format(this_groups_wallpapers.min()))
@@ -219,8 +226,8 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
             # normalize range of pixel values to 0...1
 #            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.min((-1, -2)), -1), -1)
 #            this_groups_controls = this_groups_controls / np.expand_dims(np.expand_dims(this_groups_controls.max((-1, -2)) - this_groups_controls.min((-1, -2)), -1), -1)
-            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.mean((-1, -2)), -1), -1)
-            this_groups_controls = this_groups_controls / (9*np.expand_dims(np.expand_dims(this_groups_controls.std((-1, -2)), -1), -1)) + 0.5
+#            this_groups_controls = this_groups_controls - np.expand_dims(np.expand_dims(this_groups_controls.mean((-1, -2)), -1), -1)
+#            this_groups_controls = this_groups_controls / (9*np.expand_dims(np.expand_dims(this_groups_controls.std((-1, -2)), -1), -1)) + 0.5
 
             if this_groups_controls.min() < 0:
                 LOGGER.warning('need to clip. wallpapers have sample values < 0: {}'.format(this_groups_controls.min()))
