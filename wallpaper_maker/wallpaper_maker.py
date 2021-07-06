@@ -204,6 +204,13 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
         for exemplar_idx in range(this_groups_wallpapers.shape[1]):
             for filter_idx in range(this_groups_wallpapers.shape[0]):
                 this_groups_wallpapers[filter_idx,exemplar_idx] = filter_img(this_groups_wallpapers[filter_idx,exemplar_idx], wp_size_pix)
+                
+                if (is_diagnostic):
+                    fig, (ax1) = plt.subplots(1, figsize=(10, 10))
+                    bins = np.linspace(0, 1, 100)                
+                    ax1.hist(calc_radially_averaged_psd(this_groups_wallpapers[filter_idx,exemplar_idx]), bins, color=[0, 1, 1])
+                    ax1.set_title('Radial Averages post-smoothing')
+                    plt.show()
         for exemplar_idx in range(this_groups_wallpapers.shape[1]):
             for filter_idx in range(this_groups_wallpapers.shape[0]):
                 for this_phase_step in range(phase_scramble):
@@ -447,13 +454,16 @@ def new_p3m1(tile):
     whole[:y1, :] = np.maximum(whole[delta_pix:end_row2, :], top_bit)
     whole[start_row2:end_row3, :] = np.maximum(
         whole[start_row1:end_row1, :], bot_bit)
+    
     # cutting middle piece of tile
     mid_tile = whole[y1:start_row2, :width]
+    
     # reflecting middle piece and glueing both pieces to the bottom
     # size(big_tile)  = [6*y1 2*x1]
-    cat_mid_flip = np.concatenate((mid_tile, np.fliplr(mid_tile)), axis=1)
+    cat_mid_flip = np.concatenate((np.fliplr(mid_tile), mid_tile), axis=1)
     big_tile = np.concatenate((whole, cat_mid_flip))
-    big_tile = tf.rotate(big_tile, 90, resize=True, order=1)
+    #big_tile = tf.rotate(big_tile, 90, resize=True, order=1)
+    #display(Image.fromarray((cat_mid_flip * 255).clip(0,255).astype(np.uint8)))
     p3m1 = tf.rescale(big_tile, 1 / mag_factor, order=3, mode='symmetric', anti_aliasing=True)
     return p3m1
 
@@ -2488,29 +2498,31 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
             (tile_cm[:, :, :] * 255).clip(0,255).astype(np.uint8))
         alpha_mask_rec = Image.new('RGBA', dia_fr_im.size, (0, 0, 0, 0))
         alpha_mask__rec_draw = ImageDraw.Draw(alpha_mask_rec)
-        alpha_mask__rec_draw.line(((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), (tile.shape[1], tile.shape[0]), (tile.shape[1] * 1.5, tile.shape[0] * 1.5), (tile.shape[1], (tile.shape[0] * 2)), (tile.shape[1] * 0.5, tile.shape[0]  * 1.5)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), (tile.shape[1] * (5/6), tile.shape[0]  * 1.5), (tile.shape[1], tile.shape[0])), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), (tile.shape[1], (tile.shape[0] * 2)), (tile.shape[1] * (7/6), tile.shape[0]  * 1.5), (tile.shape[1], tile.shape[0])), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), (tile.shape[1] * 1.5, tile.shape[0] * 1.5)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.line(((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), (tile.shape[1] * (7/6), tile.shape[0]  * 1.5)), fill=(255, 255, 0), width=2)
-        alpha_mask__rec_draw.polygon(((tile.shape[1] * (5/6) + 2, tile.shape[0]  * 1.5 - 2), (tile.shape[1] * (7/6) - 2, tile.shape[0]  * 1.5 - 2), (tile.shape[1] - 2, tile.shape[0] + 2), (tile.shape[1] * (5/6) + 2, tile.shape[0]  * 1.5 - 2)), fill=(0, 191, 255, 125))
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0]  * (4 / 6)), (tile.shape[1], tile.shape[0]  * (7 / 6)), (tile.shape[1] * 2, tile.shape[0]  * (7 / 6)), (tile.shape[1] * 2.5, tile.shape[0] * (4 / 6)), (tile.shape[1] * 1.5, tile.shape[0]  * (4 / 6))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0]  * (4 / 6)), (tile.shape[1] * 1.5, tile.shape[0]), (tile.shape[1] * 2, tile.shape[0]  * (7 / 6)), tile.shape[1] * 2, tile.shape[0] * (5 / 6), (tile.shape[1] * 1.5, tile.shape[0]  * (4 / 6))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1], tile.shape[0]  * (7 / 6)), tile.shape[1] * 2.5, tile.shape[0] * (4 / 6)), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 2, tile.shape[0] * (5 / 6)), (tile.shape[1] * 2, tile.shape[0]  * (4 / 6))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0]), (tile.shape[1] * 1.5, tile.shape[0]  * (7 / 6))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 1.5, tile.shape[0]), (tile.shape[1] * 1.25, tile.shape[0]  * (11 / 12))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.line(((tile.shape[1] * 2, tile.shape[0] * (5 / 6)), (tile.shape[1] * 2.25, tile.shape[0]  * (11 / 12))), fill=(255, 255, 0), width=2)
+        alpha_mask__rec_draw.polygon(((tile.shape[1] * 1.5 + 2, tile.shape[0] - 2), (tile.shape[1] * 1.5 + 2, tile.shape[0]  * (4 / 6) + 2), (tile.shape[1] * 2 - 3, tile.shape[0] * (5 / 6)), (tile.shape[1] * 1.5 + 2, tile.shape[0] - 2)), fill=(0, 191, 255, 125))
         # symmetry axes symbols
+        # left top triangle
+        alpha_mask__rec_draw.regular_polygon(
+            ((tile.shape[1] * 1.5, tile.shape[0]  * (4 / 6)), 6), 3, 20, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+        # left bottom triangle
+        alpha_mask__rec_draw.regular_polygon(
+            ((tile.shape[1], tile.shape[0]  * (7 / 6)), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         # left center 3-rot triangle
+        alpha_mask__rec_draw.regular_polygon((((tile.shape[1] * 1.5, tile.shape[0])), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+        # right top triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * (5/6), tile.shape[0]  * 1.5), 6), 3, 20, fill=(0, 191, 255, 125), outline=(255, 255, 0))
-        # left center triangle
+            ((tile.shape[1] * 2.5, tile.shape[0] * (4 / 6)), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+        # right bottom triangle
         alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 0.5, tile.shape[0]  * 1.5), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
-        # top center triangle
-        alpha_mask__rec_draw.regular_polygon((((tile.shape[1], tile.shape[0])), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
-        # right center triangle
-        alpha_mask__rec_draw.regular_polygon(
-            ((tile.shape[1] * 1.5, tile.shape[0] * 1.5), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
-        # bottom center triangle
-        alpha_mask__rec_draw.regular_polygon(
-            (tile.shape[1], (tile.shape[0] * 2), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+            (tile.shape[1] * 2, tile.shape[0]  * (7 / 6), 6), 3, 90, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         # right center 3-rot triangle
-        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * (7/6), tile.shape[0]  * 1.5), 6), 3, 55, fill=(0, 191, 255, 125), outline=(255, 255, 0))
+        alpha_mask__rec_draw.regular_polygon(((tile.shape[1] * 2, tile.shape[0] * (5 / 6)), 6), 3, 55, fill=(0, 191, 255, 125), outline=(255, 255, 0))
         dia_fr_im = Image.alpha_composite(dia_fr_im, alpha_mask_rec)
 
     elif (wp_type == 'P31M'):
@@ -2767,6 +2779,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
     pattern_path = save_path + '/' + wp_type + '_FundamentalRegion_' + str(k + 1) + '.' + "png"
     dia_fr_im.save(pattern_path, "png")
     
+    
     # diagnostic plots
     logging.getLogger('matplotlib.font_manager').disabled = True
     pattern_path = save_path + '/' + wp_type + '_diagnostic_all_' + str(k + 1) + '.' + "png"
@@ -2781,7 +2794,7 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
     cm = plt.get_cmap("gray")
     cm(I)
     
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, figsize=(10, 40))
+    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, figsize=(10, 50))
     ax1.imshow(dia_fr_im)
     ax1.set_title('Fundamental Region for ' + wp_type)
     ax1.set(adjustable='box', aspect='auto')
@@ -2809,6 +2822,9 @@ def diagnostic(img, wp_type, tile, sizing, N, ratio, cmap, save_path, k, pdf):
     ax4.hist(img[hidx_1, :], bins, color=[0, 1, 0])
     ax4.hist(img[hidx_2, :], bins, color=[0, 0, 1])
     ax4.set_title('Frequency of sample values across the horizontal lines')
+    
+    ax5.hist(calc_radially_averaged_psd(img), bins, color=[1, 0, 1])
+    ax5.set_title('Radial Averages pre-smoothing')
     
     bbox = ax4.get_tightbbox(fig.canvas.get_renderer())
     ax4_path = save_path + '/' + wp_type + '_diagnostic_3_' + str(k + 1) + '.' + "png"
@@ -3040,6 +3056,23 @@ def next_power_2(x):
     x |= x >> 16
     x = x + 1
     return x
+
+def cart2pol(x, y):
+    rho = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
+    return(rho, phi)
+
+def calc_radially_averaged_psd(img):
+    spec = np.fft.rfft2(img)
+    abs_spec = np.abs(spec)
+    [X,Y]= np.meshgrid( np.arange(0,spec.shape[1]), np.fft.fftfreq(spec.shape[0])*spec.shape[0])
+    [rho,phi] = cart2pol(X,Y)
+
+    rho_ = np.round(rho).astype(np.int32)
+    avg_spec = np.zeros(int(rho_.max())+1)
+    for r in np.unique(rho_):
+        avg_spec[int(r)] = np.mean(abs_spec[rho_==r])
+    return avg_spec
 
 
 def str2bool(v):
