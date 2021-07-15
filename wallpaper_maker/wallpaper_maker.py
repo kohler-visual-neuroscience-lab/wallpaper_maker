@@ -212,10 +212,9 @@ def make_set(groups: list = ['P1', 'P2', 'P4', 'P3', 'P6'], num_exemplars: int =
                     # plotting of radial averages
                     group_wp = str(map_group[group]) + str(exemplar_idx).zfill(3)
                     fig, (ax1) = plt.subplots(1, figsize=(10, 10))
-                    bins = np.linspace(0, 1, 100)
-                    radial_avg_post = calc_radially_averaged_psd(this_groups_wallpapers[filter_idx,exemplar_idx])
-                    ax1.hist(radial_avg_pre[radial_avg_pre != 0], bins, color=[1, 0, 1])
-                    ax1.hist(radial_avg_post[radial_avg_post != 0], bins, color=[0, 1, 1])
+                    radial_avg_post = calc_radially_averaged_psd(this_groups_wallpapers[filter_idx,exemplar_idx])                   
+                    ax1.plot(radial_avg_pre[1:], c=[1, 0, 1])
+                    ax1.plot(radial_avg_post[1:], c=[0, 1, 1])                  
                     ax1.set_title('Radial Averages for pre-smoothing and post-smoothing of wallpapers for ' + group_wp)
                     labels= ["pre-smoothing","post-smoothing"]
                     ax1.legend(labels)
@@ -1053,7 +1052,7 @@ def make_single(wp_type, N, n, sizing, ratio, angle, is_diagnostic, filter_freq,
                 height = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
                 width = int(np.round(np.sqrt(side_length) * np.sqrt(2)))
                 start_tile = texture[:height, :width]
-                xy = np.array([[0, 0], [width, 0], [width, height], [0, 0]])
+                xy = np.array([[0, 0], [0, width], [height, width], [0, 0]])
                 mask = skd.polygon2mask((height, width), xy)
                 tile1 = mask * start_tile
                 tile2 = np.fliplr(tile1)
